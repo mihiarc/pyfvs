@@ -472,4 +472,235 @@ def test_volume_accumulation_over_time():
     # Board feet only counted for trees >= 9" DBH (sawlog threshold for softwoods)
     if volumes[-1]['qmd'] >= 9.0:
         assert volumes[-1]['board_feet'] > 0, \
-            f"Expected board feet > 0 for QMD {volumes[-1]['qmd']:.1f}\"" 
+            f"Expected board feet > 0 for QMD {volumes[-1]['qmd']:.1f}\""
+
+
+# ============================================================================
+# Harvest Tracking Tests
+# ============================================================================
+
+def test_thin_from_below():
+    """Test thinning from below (removing smallest trees first)."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70)
+    stand.grow(years=20)
+
+    initial_tpa = len(stand.trees)
+    initial_ba = stand.calculate_basal_area()
+
+    # Thin to 60% of original basal area
+    target_ba = initial_ba * 0.6
+    harvest = stand.thin_from_below(target_ba=target_ba)
+
+    # Verify harvest record
+    assert harvest.harvest_type == 'thin_from_below'
+    assert harvest.trees_removed > 0
+    assert harvest.basal_area_removed > 0
+    assert harvest.residual_ba <= target_ba + 1.0  # Allow small overshoot
+
+    # Verify stand state
+    assert len(stand.trees) < initial_tpa
+    assert stand.calculate_basal_area() <= target_ba + 1.0
+
+    # Verify smallest trees were removed (remaining should be larger)
+    remaining_dbh = [t.dbh for t in stand.trees]
+    assert min(remaining_dbh) >= harvest.mean_dbh_removed * 0.9  # Most removed were smaller
+
+    # Verify harvest history
+    assert len(stand.harvest_history) == 1
+    assert stand.harvest_history[0] == harvest
+
+
+def test_thin_from_above():
+    """Test thinning from above (removing largest trees first)."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70)
+    stand.grow(years=25)
+
+    initial_tpa = len(stand.trees)
+
+    # Thin to 150 TPA (ensure target is below current TPA after mortality)
+    target_tpa = 150
+    harvest = stand.thin_from_above(target_tpa=target_tpa)
+
+    # Verify harvest record
+    assert harvest.harvest_type == 'thin_from_above'
+    assert harvest.trees_removed > 0
+    assert harvest.residual_tpa == target_tpa
+
+    # Verify stand state
+    assert len(stand.trees) == target_tpa
+
+    # Verify largest trees were removed (mean DBH removed should be high)
+    remaining_mean_dbh = sum(t.dbh for t in stand.trees) / len(stand.trees)
+    assert harvest.mean_dbh_removed > remaining_mean_dbh  # Removed trees were bigger
+
+
+def test_thin_by_dbh_range():
+    """Test thinning by DBH range."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70)
+    stand.grow(years=20)
+
+    # Count trees in 4-7" range before thinning
+    initial_in_range = len([t for t in stand.trees if 4 <= t.dbh <= 7])
+
+    # Remove 50% of trees in 4-7" DBH range
+    harvest = stand.thin_by_dbh_range(min_dbh=4.0, max_dbh=7.0, proportion=0.5)
+
+    # Verify harvest record
+    assert harvest.harvest_type == 'thin_by_dbh'
+    assert harvest.min_dbh == 4.0
+    assert harvest.max_dbh == 7.0
+    assert harvest.proportion == 0.5
+
+    # Verify approximately 50% were removed from range
+    final_in_range = len([t for t in stand.trees if 4 <= t.dbh <= 7])
+    expected_removed = int(initial_in_range * 0.5)
+    assert harvest.trees_removed == expected_removed
+
+
+def test_clearcut():
+    """Test clearcut harvest."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70)
+    stand.grow(years=30)
+
+    initial_tpa = len(stand.trees)
+    initial_volume = sum(t.get_volume() for t in stand.trees)
+
+    harvest = stand.clearcut()
+
+    # Verify all trees removed
+    assert harvest.harvest_type == 'clearcut'
+    assert harvest.trees_removed == initial_tpa
+    assert len(stand.trees) == 0
+    assert harvest.residual_tpa == 0
+
+    # Verify volume accounting
+    assert abs(harvest.volume_removed - initial_volume) < 1.0
+
+
+def test_selection_harvest():
+    """Test selection harvest."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70)
+    stand.grow(years=25)
+
+    initial_ba = stand.calculate_basal_area()
+    # Target lower than current BA to ensure harvest occurs
+    target_ba = initial_ba * 0.6  # Target 60% of current BA
+
+    harvest = stand.selection_harvest(target_ba=target_ba, min_dbh=5.0)
+
+    # Verify harvest record
+    assert harvest.harvest_type == 'selection'
+    assert harvest.trees_removed > 0
+
+    # Verify residual BA is close to target
+    assert stand.calculate_basal_area() <= target_ba + 5.0
+
+
+def test_harvest_history_tracking():
+    """Test that multiple harvests are tracked correctly."""
+    stand = Stand.initialize_planted(trees_per_acre=HIGH_TPA, site_index=70)
+    stand.grow(years=15)
+
+    # First thin at age 15
+    stand.thin_from_below(target_ba=80)
+
+    stand.grow(years=10)
+
+    # Second thin at age 25
+    stand.thin_from_below(target_ba=60)
+
+    # Verify harvest history
+    assert len(stand.harvest_history) == 2
+    assert stand.harvest_history[0].year == 15
+    assert stand.harvest_history[1].year == 25
+
+    # Get harvest summary
+    summary = stand.get_harvest_summary()
+    assert summary['total_harvests'] == 2
+    assert summary['total_trees_removed'] > 0
+    assert summary['total_volume_removed'] > 0
+    assert len(summary['harvest_history']) == 2
+
+
+def test_harvest_volume_accounting():
+    """Test that harvest volumes are calculated correctly."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70)
+    stand.grow(years=30)
+
+    # Calculate pre-harvest metrics
+    pre_harvest_volume = sum(t.get_volume('total_cubic') for t in stand.trees)
+    pre_harvest_merch = sum(t.get_volume('merchantable_cubic') for t in stand.trees)
+    pre_harvest_bf = sum(t.get_volume('board_foot') for t in stand.trees)
+
+    # Perform thin
+    harvest = stand.thin_from_below(target_tpa=200)
+
+    # Calculate post-harvest metrics
+    post_harvest_volume = sum(t.get_volume('total_cubic') for t in stand.trees)
+
+    # Verify volume accounting
+    assert abs((pre_harvest_volume - post_harvest_volume) - harvest.volume_removed) < 1.0
+
+    # Verify merchantable and board feet are tracked
+    if harvest.merchantable_volume_removed > 0:
+        assert harvest.merchantable_volume_removed <= harvest.volume_removed
+
+
+def test_harvest_empty_stand():
+    """Test harvest methods on empty stand."""
+    stand = Stand(trees=[], site_index=70)
+
+    # All harvest methods should handle empty stands gracefully
+    harvest1 = stand.thin_from_below(target_ba=50)
+    assert harvest1.trees_removed == 0
+
+    harvest2 = stand.thin_from_above(target_tpa=100)
+    assert harvest2.trees_removed == 0
+
+    harvest3 = stand.thin_by_dbh_range(4, 8, 0.5)
+    assert harvest3.trees_removed == 0
+
+    harvest4 = stand.clearcut()
+    assert harvest4.trees_removed == 0
+
+
+def test_harvest_validation():
+    """Test harvest method input validation."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70)
+
+    # thin_from_below requires target
+    with pytest.raises(ValueError):
+        stand.thin_from_below()
+
+    # thin_from_above requires target
+    with pytest.raises(ValueError):
+        stand.thin_from_above()
+
+    # thin_by_dbh_range requires valid range
+    with pytest.raises(ValueError):
+        stand.thin_by_dbh_range(10, 5, 0.5)  # min > max
+
+    # thin_by_dbh_range requires valid proportion
+    with pytest.raises(ValueError):
+        stand.thin_by_dbh_range(4, 8, 1.5)  # proportion > 1
+
+
+def test_get_last_harvest():
+    """Test getting the last harvest record."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70)
+
+    # No harvests yet
+    assert stand.get_last_harvest() is None
+
+    stand.grow(years=20)
+    stand.thin_from_below(target_ba=70)
+
+    last = stand.get_last_harvest()
+    assert last is not None
+    assert last.harvest_type == 'thin_from_below'
+
+    stand.grow(years=10)
+    stand.thin_from_above(target_tpa=150)
+
+    last = stand.get_last_harvest()
+    assert last.harvest_type == 'thin_from_above' 
