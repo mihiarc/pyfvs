@@ -1,0 +1,184 @@
+species: LL
+common_name: Longleaf Pine
+scientific_name: Pinus palustris
+sources:
+- citation: Burns, R.M. and Honkala, B.H. 1990. Silvics of North America, Vol. 1.
+    USDA Forest Service Agriculture Handbook 654.
+  url: https://www.srs.fs.usda.gov/pubs/misc/ag_654/volume_1/pinus/palustris.htm
+site_index_base_age: 50
+site_index_range:
+  min: 50
+  max: 90
+  typical:
+  - 60
+  - 70
+  - 80
+yield_tables:
+  SI60_T400:
+    site_index: 60
+    site_index_base_age: 50
+    initial_tpa: 400
+    description: Low-medium site plantation
+    source: Silvics Manual, scaled from SI 70/80 data
+    data:
+    - age: 10
+      tpa: 395
+      ba_sqft_ac: 25
+      qmd_in: 3.4
+      height_ft: 12
+      vol_cuft_ac: 200
+    - age: 15
+      tpa: 385
+      ba_sqft_ac: 45
+      qmd_in: 4.6
+      height_ft: 22
+      vol_cuft_ac: 550
+    - age: 20
+      tpa: 370
+      ba_sqft_ac: 62
+      qmd_in: 5.5
+      height_ft: 30
+      vol_cuft_ac: 950
+    - age: 25
+      tpa: 350
+      ba_sqft_ac: 78
+      qmd_in: 6.4
+      height_ft: 38
+      vol_cuft_ac: 1400
+    - age: 30
+      tpa: 325
+      ba_sqft_ac: 92
+      qmd_in: 7.2
+      height_ft: 44
+      vol_cuft_ac: 1850
+    - age: 35
+      tpa: 295
+      ba_sqft_ac: 102
+      qmd_in: 8.0
+      height_ft: 50
+      vol_cuft_ac: 2250
+    - age: 40
+      tpa: 265
+      ba_sqft_ac: 112
+      qmd_in: 8.8
+      height_ft: 55
+      vol_cuft_ac: 2600
+  SI70_T400:
+    site_index: 70
+    site_index_base_age: 50
+    initial_tpa: 400
+    description: Medium site plantation
+    source: Silvics Manual - direct from Table
+    data:
+    - age: 10
+      tpa: 390
+      ba_sqft_ac: 30
+      qmd_in: 3.8
+      height_ft: 15
+      vol_cuft_ac: 280
+    - age: 15
+      tpa: 375
+      ba_sqft_ac: 52
+      qmd_in: 5.0
+      height_ft: 26
+      vol_cuft_ac: 650
+    - age: 20
+      tpa: 355
+      ba_sqft_ac: 72
+      qmd_in: 6.1
+      height_ft: 35
+      vol_cuft_ac: 1100
+    - age: 25
+      tpa: 330
+      ba_sqft_ac: 90
+      qmd_in: 7.1
+      height_ft: 44
+      vol_cuft_ac: 1650
+    - age: 30
+      tpa: 300
+      ba_sqft_ac: 105
+      qmd_in: 8.0
+      height_ft: 52
+      vol_cuft_ac: 2300
+    - age: 35
+      tpa: 268
+      ba_sqft_ac: 118
+      qmd_in: 9.0
+      height_ft: 58
+      vol_cuft_ac: 2850
+    - age: 40
+      tpa: 238
+      ba_sqft_ac: 128
+      qmd_in: 9.9
+      height_ft: 64
+      vol_cuft_ac: 3550
+  SI80_T400:
+    site_index: 80
+    site_index_base_age: 50
+    initial_tpa: 400
+    description: High site plantation
+    source: Silvics Manual - direct from Table
+    data:
+    - age: 10
+      tpa: 388
+      ba_sqft_ac: 35
+      qmd_in: 4.1
+      height_ft: 18
+      vol_cuft_ac: 350
+    - age: 15
+      tpa: 368
+      ba_sqft_ac: 60
+      qmd_in: 5.5
+      height_ft: 30
+      vol_cuft_ac: 800
+    - age: 20
+      tpa: 342
+      ba_sqft_ac: 82
+      qmd_in: 6.6
+      height_ft: 40
+      vol_cuft_ac: 1300
+    - age: 25
+      tpa: 312
+      ba_sqft_ac: 102
+      qmd_in: 7.7
+      height_ft: 50
+      vol_cuft_ac: 2000
+    - age: 30
+      tpa: 278
+      ba_sqft_ac: 118
+      qmd_in: 8.8
+      height_ft: 58
+      vol_cuft_ac: 2700
+    - age: 35
+      tpa: 245
+      ba_sqft_ac: 132
+      qmd_in: 9.9
+      height_ft: 66
+      vol_cuft_ac: 3350
+    - age: 40
+      tpa: 215
+      ba_sqft_ac: 142
+      qmd_in: 11.0
+      height_ft: 72
+      vol_cuft_ac: 4150
+growth_benchmarks:
+  grass_stage_duration:
+    description: Time in grass stage before height growth
+    unit: years
+    typical_range:
+    - 2
+    - 7
+  post_grass_height_growth:
+    description: Height growth after grass stage initiation
+    unit: feet in 3 years
+    value: 10
+  pai_peak_age:
+    description: Age of peak periodic annual increment
+    unit: years
+    range:
+    - 20
+    - 30
+notes:
+- Longleaf pine has unique grass-stage seedling phase lasting 2-7 years
+- Height growth delayed until root development complete
+- Lower early growth rates than loblolly, but excellent form and longevity

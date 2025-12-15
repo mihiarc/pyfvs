@@ -1,0 +1,125 @@
+species: SP
+common_name: Shortleaf Pine
+scientific_name: Pinus echinata
+sources:
+- citation: Burns, R.M. and Honkala, B.H. 1990. Silvics of North America, Vol. 1.
+    USDA Forest Service Agriculture Handbook 654.
+  url: https://www.srs.fs.usda.gov/pubs/misc/ag_654/volume_1/pinus/echinata.htm
+site_index_base_age: 50
+site_index_range:
+  min: 33
+  max: 100
+  typical:
+  - 50
+  - 60
+  - 70
+yield_tables:
+  SI60_T450:
+    site_index: 60
+    site_index_base_age: 50
+    initial_tpa: 450
+    description: Medium site plantation (converted from SI 18.3m base 50)
+    source: Silvics Manual, estimated from natural stand data
+    data:
+    - age: 10
+      tpa: 440
+      ba_sqft_ac: 40
+      qmd_in: 4.1
+      height_ft: 18
+      vol_cuft_ac: 400
+    - age: 15
+      tpa: 400
+      ba_sqft_ac: 60
+      qmd_in: 5.2
+      height_ft: 28
+      vol_cuft_ac: 800
+    - age: 20
+      tpa: 360
+      ba_sqft_ac: 80
+      qmd_in: 6.4
+      height_ft: 36
+      vol_cuft_ac: 1300
+    - age: 25
+      tpa: 320
+      ba_sqft_ac: 95
+      qmd_in: 7.4
+      height_ft: 44
+      vol_cuft_ac: 1800
+    - age: 30
+      tpa: 285
+      ba_sqft_ac: 105
+      qmd_in: 8.2
+      height_ft: 50
+      vol_cuft_ac: 2250
+    - age: 35
+      tpa: 255
+      ba_sqft_ac: 115
+      qmd_in: 9.1
+      height_ft: 55
+      vol_cuft_ac: 2650
+    - age: 40
+      tpa: 230
+      ba_sqft_ac: 120
+      qmd_in: 9.8
+      height_ft: 60
+      vol_cuft_ac: 3000
+  SI70_T450:
+    site_index: 70
+    site_index_base_age: 50
+    initial_tpa: 450
+    description: Good site plantation
+    source: Silvics Manual - 60yr stand with 21.3m SI yielded 1712 ft3/ac
+    data:
+    - age: 10
+      tpa: 435
+      ba_sqft_ac: 48
+      qmd_in: 4.5
+      height_ft: 22
+      vol_cuft_ac: 500
+    - age: 15
+      tpa: 390
+      ba_sqft_ac: 72
+      qmd_in: 5.8
+      height_ft: 33
+      vol_cuft_ac: 1050
+    - age: 20
+      tpa: 345
+      ba_sqft_ac: 92
+      qmd_in: 7.0
+      height_ft: 42
+      vol_cuft_ac: 1650
+    - age: 25
+      tpa: 300
+      ba_sqft_ac: 108
+      qmd_in: 8.1
+      height_ft: 51
+      vol_cuft_ac: 2250
+    - age: 30
+      tpa: 260
+      ba_sqft_ac: 120
+      qmd_in: 9.2
+      height_ft: 58
+      vol_cuft_ac: 2800
+    - age: 35
+      tpa: 228
+      ba_sqft_ac: 128
+      qmd_in: 10.1
+      height_ft: 64
+      vol_cuft_ac: 3300
+    - age: 40
+      tpa: 200
+      ba_sqft_ac: 135
+      qmd_in: 11.1
+      height_ft: 70
+      vol_cuft_ac: 3750
+growth_benchmarks:
+  height_growth_sapling:
+    description: Annual height growth in sapling stage
+    unit: feet/year
+    range:
+    - 1.0
+    - 3.0
+  mai_peak:
+    description: Mean annual increment peak age
+    age_years: 20
+    value_cuft_ac: 225

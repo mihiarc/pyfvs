@@ -1,0 +1,37 @@
+description: Acceptance criteria for FVS-Python validation
+source: FVS_PYTHON_VALIDATION_SPEC.md
+stand_level:
+  basal_area:
+    max_percent_error: 5
+    unit: percent
+    description: Maximum acceptable error in basal area prediction
+  tpa:
+    max_percent_error: 5
+    unit: percent
+    description: Maximum acceptable error in trees per acre
+  volume:
+    max_percent_error: 10
+    unit: percent
+    description: Maximum acceptable error in volume prediction
+  qmd:
+    max_percent_error: 5
+    unit: percent
+    description: Maximum acceptable error in quadratic mean diameter
+  top_height:
+    max_percent_error: 5
+    unit: percent
+    description: Maximum acceptable error in dominant height
+tree_level:
+  diameter_growth:
+    max_percent_error: 5
+    unit: percent
+    description: Maximum acceptable error in diameter growth
+  height_growth:
+    max_percent_error: 5
+    unit: percent
+    description: Maximum acceptable error in height growth
+equivalence_testing:
+  method: TOST
+  alpha: 0.05
+  equivalence_margin: 0.1
+  description: Two One-Sided Tests for equivalence

@@ -1,0 +1,177 @@
+species: SA
+common_name: Slash Pine
+scientific_name: Pinus elliottii
+sources:
+- citation: Burns, R.M. and Honkala, B.H. 1990. Silvics of North America, Vol. 1.
+    USDA Forest Service Agriculture Handbook 654.
+  url: https://www.srs.fs.usda.gov/pubs/misc/ag_654/volume_1/pinus/elliottii.htm
+site_index_base_age: 25
+site_index_range:
+  min: 50
+  max: 90
+  typical:
+  - 60
+  - 70
+  - 80
+yield_tables:
+  SI60_T550:
+    site_index: 60
+    site_index_base_age: 25
+    initial_tpa: 550
+    description: Medium site plantation (SI 60 base 25)
+    source: Silvics Manual Table 3, scaled
+    data:
+    - age: 10
+      tpa: 530
+      ba_sqft_ac: 55
+      qmd_in: 4.4
+      height_ft: 28
+      vol_cuft_ac: 700
+    - age: 15
+      tpa: 460
+      ba_sqft_ac: 85
+      qmd_in: 5.8
+      height_ft: 42
+      vol_cuft_ac: 1500
+    - age: 20
+      tpa: 390
+      ba_sqft_ac: 105
+      qmd_in: 7.0
+      height_ft: 52
+      vol_cuft_ac: 2200
+    - age: 25
+      tpa: 330
+      ba_sqft_ac: 118
+      qmd_in: 8.1
+      height_ft: 60
+      vol_cuft_ac: 2800
+    - age: 30
+      tpa: 280
+      ba_sqft_ac: 128
+      qmd_in: 9.1
+      height_ft: 66
+      vol_cuft_ac: 3300
+    - age: 35
+      tpa: 240
+      ba_sqft_ac: 135
+      qmd_in: 10.1
+      height_ft: 72
+      vol_cuft_ac: 3750
+    - age: 40
+      tpa: 205
+      ba_sqft_ac: 140
+      qmd_in: 11.2
+      height_ft: 76
+      vol_cuft_ac: 4100
+  SI70_T550:
+    site_index: 70
+    site_index_base_age: 25
+    initial_tpa: 550
+    description: Good site plantation
+    source: Silvics Manual, interpolated
+    data:
+    - age: 10
+      tpa: 520
+      ba_sqft_ac: 68
+      qmd_in: 4.9
+      height_ft: 34
+      vol_cuft_ac: 950
+    - age: 15
+      tpa: 440
+      ba_sqft_ac: 100
+      qmd_in: 6.4
+      height_ft: 50
+      vol_cuft_ac: 2000
+    - age: 20
+      tpa: 365
+      ba_sqft_ac: 122
+      qmd_in: 7.8
+      height_ft: 62
+      vol_cuft_ac: 3000
+    - age: 25
+      tpa: 300
+      ba_sqft_ac: 138
+      qmd_in: 9.2
+      height_ft: 70
+      vol_cuft_ac: 3800
+    - age: 30
+      tpa: 250
+      ba_sqft_ac: 148
+      qmd_in: 10.4
+      height_ft: 78
+      vol_cuft_ac: 4500
+    - age: 35
+      tpa: 210
+      ba_sqft_ac: 155
+      qmd_in: 11.6
+      height_ft: 84
+      vol_cuft_ac: 5050
+    - age: 40
+      tpa: 178
+      ba_sqft_ac: 160
+      qmd_in: 12.8
+      height_ft: 88
+      vol_cuft_ac: 5500
+  SI80_T550:
+    site_index: 80
+    site_index_base_age: 25
+    initial_tpa: 550
+    description: High site plantation (SI 80 base 25 ~ SI 90+ base 50)
+    source: Silvics Manual Tables 1 & 3
+    data:
+    - age: 10
+      tpa: 510
+      ba_sqft_ac: 82
+      qmd_in: 5.4
+      height_ft: 40
+      vol_cuft_ac: 1250
+    - age: 15
+      tpa: 420
+      ba_sqft_ac: 115
+      qmd_in: 7.1
+      height_ft: 58
+      vol_cuft_ac: 2600
+    - age: 20
+      tpa: 340
+      ba_sqft_ac: 140
+      qmd_in: 8.7
+      height_ft: 72
+      vol_cuft_ac: 3850
+    - age: 25
+      tpa: 275
+      ba_sqft_ac: 155
+      qmd_in: 10.1
+      height_ft: 80
+      vol_cuft_ac: 4800
+    - age: 30
+      tpa: 225
+      ba_sqft_ac: 165
+      qmd_in: 11.6
+      height_ft: 88
+      vol_cuft_ac: 5650
+    - age: 35
+      tpa: 185
+      ba_sqft_ac: 172
+      qmd_in: 13.0
+      height_ft: 94
+      vol_cuft_ac: 6300
+    - age: 40
+      tpa: 155
+      ba_sqft_ac: 178
+      qmd_in: 14.5
+      height_ft: 98
+      vol_cuft_ac: 6850
+growth_benchmarks:
+  yield_at_age_30:
+    description: Almost 3/4 of 50-year yield produced by age 30
+    source: Silvics Manual
+  annual_growth_thinned:
+    description: Annual merchantable volume growth by age (thinned stands)
+    unit: cuft/acre/year
+    data:
+      age_20_low_ba: 114
+      age_20_med_ba: 150
+      age_20_high_ba: 163
+      age_30_low_ba: 89
+      age_30_med_ba: 108
+      age_30_high_ba: 107

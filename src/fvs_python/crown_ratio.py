@@ -131,10 +131,10 @@ class CrownRatioModel:
     
     def calculate_weibull_parameters(self, average_crown_ratio: float) -> Tuple[float, float, float]:
         """Calculate Weibull distribution parameters from average crown ratio.
-        
+
         Args:
             average_crown_ratio: Average crown ratio as proportion (0-1)
-            
+
         Returns:
             Tuple of (A, B, C) Weibull parameters
         """
@@ -142,12 +142,16 @@ class CrownRatioModel:
         b0 = self.coefficients['b0']
         b1 = self.coefficients['b1']
         c = self.coefficients['c']
-        
+
+        # Convert ACR from proportion (0-1) to percentage (0-100) for Weibull calculation
+        # The b0/b1 coefficients were calibrated expecting ACR in percentage form
+        acr_pct = average_crown_ratio * 100.0
+
         # Calculate Weibull parameters
         A = a
-        B = max(3.0, b0 + b1 * average_crown_ratio)  # Bounded to be greater than 3.0
+        B = max(3.0, b0 + b1 * acr_pct)  # Bounded to be greater than 3.0
         C = max(2.0, c)  # Bounded to be greater than 2.0
-        
+
         return A, B, C
     
     def calculate_scale_factor(self, ccf: float) -> float:

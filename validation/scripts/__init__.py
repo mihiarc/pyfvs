@@ -32,6 +32,29 @@ from .visualize import (
     create_validation_report_figures,
 )
 
+from .download_reference_data import (
+    download_all_publications,
+    save_reference_data,
+    create_loblolly_pine_reference_data,
+    create_shortleaf_pine_reference_data,
+    create_longleaf_pine_reference_data,
+    create_slash_pine_reference_data,
+    create_acceptance_criteria,
+    USFS_PUBLICATIONS,
+    REFERENCE_DATA_DIR,
+)
+
+from .validate_against_reference import (
+    load_reference_data,
+    load_acceptance_criteria,
+    run_simulation,
+    compare_metrics,
+    validate_yield_table,
+    run_all_validations,
+    ComparisonResult,
+    YieldTableComparison,
+)
+
 __all__ = [
     # Compare results
     "ValidationMetrics",
@@ -59,4 +82,23 @@ __all__ = [
     "plot_component_validation",
     "plot_validation_summary",
     "create_validation_report_figures",
+    # Reference data
+    "download_all_publications",
+    "save_reference_data",
+    "create_loblolly_pine_reference_data",
+    "create_shortleaf_pine_reference_data",
+    "create_longleaf_pine_reference_data",
+    "create_slash_pine_reference_data",
+    "create_acceptance_criteria",
+    "USFS_PUBLICATIONS",
+    "REFERENCE_DATA_DIR",
+    # Validate against reference
+    "load_reference_data",
+    "load_acceptance_criteria",
+    "run_simulation",
+    "compare_metrics",
+    "validate_yield_table",
+    "run_all_validations",
+    "ComparisonResult",
+    "YieldTableComparison",
 ]

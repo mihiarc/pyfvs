@@ -1,0 +1,185 @@
+species: LP
+common_name: Loblolly Pine
+scientific_name: Pinus taeda
+sources:
+- citation: Smalley, G.W. and Bailey, R.L. 1974. Yield Tables and Stand Structure
+    For Loblolly Pine Plantations. USDA Forest Service Res. Pap. SO-96.
+  url: https://www.srs.fs.usda.gov/pubs/rp/rp_so096.pdf
+- citation: Burns, R.M. and Honkala, B.H. 1990. Silvics of North America, Vol. 1.
+    USDA Forest Service Agriculture Handbook 654.
+  url: https://www.srs.fs.usda.gov/pubs/misc/ag_654/volume_1/pinus/taeda.htm
+site_index_base_age: 25
+site_index_range:
+  min: 40
+  max: 90
+  typical:
+  - 50
+  - 60
+  - 70
+  - 80
+yield_tables:
+  SI60_T500:
+    site_index: 60
+    site_index_base_age: 25
+    initial_tpa: 500
+    description: Medium-low site, standard density plantation
+    source: Smalley & Bailey 1974, interpolated
+    data:
+    - age: 10
+      tpa: 480
+      ba_sqft_ac: 55
+      qmd_in: 4.6
+      height_ft: 28
+      vol_cuft_ac: 650
+    - age: 15
+      tpa: 420
+      ba_sqft_ac: 85
+      qmd_in: 6.1
+      height_ft: 40
+      vol_cuft_ac: 1400
+    - age: 20
+      tpa: 360
+      ba_sqft_ac: 105
+      qmd_in: 7.3
+      height_ft: 50
+      vol_cuft_ac: 2100
+    - age: 25
+      tpa: 310
+      ba_sqft_ac: 115
+      qmd_in: 8.2
+      height_ft: 60
+      vol_cuft_ac: 2700
+    - age: 30
+      tpa: 270
+      ba_sqft_ac: 125
+      qmd_in: 9.2
+      height_ft: 68
+      vol_cuft_ac: 3200
+    - age: 35
+      tpa: 235
+      ba_sqft_ac: 130
+      qmd_in: 10.0
+      height_ft: 74
+      vol_cuft_ac: 3600
+    - age: 40
+      tpa: 205
+      ba_sqft_ac: 135
+      qmd_in: 11.0
+      height_ft: 80
+      vol_cuft_ac: 3950
+  SI70_T500:
+    site_index: 70
+    site_index_base_age: 25
+    initial_tpa: 500
+    description: Medium site, standard density plantation
+    source: Smalley & Bailey 1974, interpolated
+    data:
+    - age: 10
+      tpa: 475
+      ba_sqft_ac: 70
+      qmd_in: 5.2
+      height_ft: 35
+      vol_cuft_ac: 900
+    - age: 15
+      tpa: 400
+      ba_sqft_ac: 100
+      qmd_in: 6.8
+      height_ft: 48
+      vol_cuft_ac: 1900
+    - age: 20
+      tpa: 330
+      ba_sqft_ac: 120
+      qmd_in: 8.2
+      height_ft: 58
+      vol_cuft_ac: 2800
+    - age: 25
+      tpa: 275
+      ba_sqft_ac: 135
+      qmd_in: 9.5
+      height_ft: 70
+      vol_cuft_ac: 3600
+    - age: 30
+      tpa: 230
+      ba_sqft_ac: 145
+      qmd_in: 10.7
+      height_ft: 78
+      vol_cuft_ac: 4300
+    - age: 35
+      tpa: 195
+      ba_sqft_ac: 150
+      qmd_in: 11.9
+      height_ft: 85
+      vol_cuft_ac: 4850
+    - age: 40
+      tpa: 170
+      ba_sqft_ac: 155
+      qmd_in: 12.9
+      height_ft: 90
+      vol_cuft_ac: 5300
+  SI80_T500:
+    site_index: 80
+    site_index_base_age: 25
+    initial_tpa: 500
+    description: High site, standard density plantation
+    source: Estimated from Silvics Manual and SO-96 patterns
+    data:
+    - age: 10
+      tpa: 470
+      ba_sqft_ac: 85
+      qmd_in: 5.8
+      height_ft: 42
+      vol_cuft_ac: 1200
+    - age: 15
+      tpa: 380
+      ba_sqft_ac: 115
+      qmd_in: 7.4
+      height_ft: 56
+      vol_cuft_ac: 2500
+    - age: 20
+      tpa: 300
+      ba_sqft_ac: 135
+      qmd_in: 9.1
+      height_ft: 68
+      vol_cuft_ac: 3600
+    - age: 25
+      tpa: 245
+      ba_sqft_ac: 150
+      qmd_in: 10.6
+      height_ft: 80
+      vol_cuft_ac: 4600
+    - age: 30
+      tpa: 200
+      ba_sqft_ac: 160
+      qmd_in: 12.1
+      height_ft: 88
+      vol_cuft_ac: 5400
+    - age: 35
+      tpa: 170
+      ba_sqft_ac: 165
+      qmd_in: 13.3
+      height_ft: 94
+      vol_cuft_ac: 6000
+    - age: 40
+      tpa: 145
+      ba_sqft_ac: 170
+      qmd_in: 14.6
+      height_ft: 100
+      vol_cuft_ac: 6500
+growth_benchmarks:
+  diameter_growth_5yr:
+    description: 5-year diameter increment by province (FVS-SN Overview)
+    unit: inches
+    values:
+      province_222_uplands_ky: 0.6
+      province_234_ms_alluvial: 1.2
+      typical_range:
+      - 0.8
+      - 1.0
+  height_mai:
+    description: Mean annual height increment
+    unit: feet/year
+    by_site_index:
+      SI50: 1.8
+      SI60: 2.2
+      SI70: 2.6
+      SI80: 3.0
