@@ -1,0 +1,173 @@
+# FVS-Python Validation Workflow
+# Runs validation tests on push to main and PRs, plus monthly scheduled runs
+
+name: FVS Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'validation/**'
+      - 'cfg/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'validation/**'
+      - 'cfg/**'
+  schedule:
+    # Run monthly validation on the 1st at midnight UTC
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+jobs:
+  validate:
+    name: Run Validation Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Run unit tests
+        run: |
+          uv run pytest tests/ -v --tb=short -x
+
+      - name: Run validation tests
+        run: |
+          uv run pytest tests/test_validation.py -v --tb=short
+
+      - name: Run validation suite
+        run: |
+          uv run python validation/run_validation.py --output validation/results
+
+      - name: Upload validation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-results-py${{ matrix.python-version }}
+          path: validation/results/
+          retention-days: 30
+
+  component-validation:
+    name: Component Model Validation
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Run component validation
+        run: |
+          uv run python validation/run_validation.py --level component -v
+
+      - name: Run single tree validation
+        run: |
+          uv run python validation/run_validation.py --level tree -v
+
+  stand-validation:
+    name: Stand Simulation Validation
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Run stand simulation validation
+        run: |
+          uv run python validation/run_validation.py --level stand -v
+
+      - name: Verify Bakuzis relationships
+        run: |
+          uv run python validation/run_validation.py --level bakuzis -v
+
+  generate-report:
+    name: Generate Validation Report
+    runs-on: ubuntu-latest
+    needs: [component-validation, stand-validation]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Generate full validation report
+        run: |
+          uv run python validation/run_validation.py --output validation/results
+
+      - name: Generate test data
+        run: |
+          uv run python validation/scripts/generate_test_data.py
+
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: |
+            validation/results/
+            validation/reference_data/
+          retention-days: 90
+
+      - name: Upload figures
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-figures
+          path: validation/results/figures/
+          retention-days: 90

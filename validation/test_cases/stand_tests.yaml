@@ -1,0 +1,196 @@
+# Stand-Level Validation Test Cases
+# Full stand simulation scenarios for validation against FVS-SN outputs
+
+---
+metadata:
+  description: "Stand-level validation test scenarios"
+  created: "2025-12-15"
+  version: "1.0"
+  simulation_defaults:
+    time_step: 5
+    total_years: 50
+
+# Standard Validation Scenarios
+# These match the scenarios defined in the validation spec
+scenarios:
+
+  # Loblolly Pine - Site Index Comparison
+  - scenario_id: LP_SI60_T500
+    species: LP
+    site_index: 60
+    trees_per_acre: 500
+    simulation_years: 50
+    description: "Loblolly Pine, Low site (SI=60), Standard density"
+
+    expected_behaviors:
+      - "TPA decreases over time (mortality)"
+      - "Mean DBH increases over time"
+      - "Mean height increases over time"
+      - "Basal area increases then stabilizes"
+
+    acceptance_criteria:
+      age_20:
+        tpa_max_error_pct: 5
+        ba_max_error_pct: 5
+        qmd_max_error_pct: 5
+      age_40:
+        tpa_max_error_pct: 5
+        ba_max_error_pct: 5
+        qmd_max_error_pct: 5
+      age_50:
+        tpa_max_error_pct: 8
+        ba_max_error_pct: 8
+        qmd_max_error_pct: 8
+
+  - scenario_id: LP_SI70_T500
+    species: LP
+    site_index: 70
+    trees_per_acre: 500
+    simulation_years: 50
+    description: "Loblolly Pine, Medium site (SI=70), Standard density"
+
+    expected_behaviors:
+      - "TPA decreases over time (mortality)"
+      - "Mean DBH increases over time"
+      - "Mean height increases over time"
+      - "Basal area increases then stabilizes"
+      - "Higher growth rates than SI=60"
+
+    # Expected approximate values (from FVS literature)
+    expected_values_approximate:
+      age_10:
+        tpa: [400, 480]  # [min, max]
+        ba: [40, 80]
+        qmd: [3.0, 5.0]
+        top_height: [30, 45]
+      age_25:
+        tpa: [250, 350]
+        ba: [100, 140]
+        qmd: [7.0, 10.0]
+        top_height: [55, 70]
+      age_50:
+        tpa: [150, 250]
+        ba: [140, 180]
+        qmd: [12.0, 17.0]
+        top_height: [80, 95]
+
+  - scenario_id: LP_SI80_T500
+    species: LP
+    site_index: 80
+    trees_per_acre: 500
+    simulation_years: 50
+    description: "Loblolly Pine, High site (SI=80), Standard density"
+
+  # Loblolly Pine - Density Comparison
+  - scenario_id: LP_SI70_T300
+    species: LP
+    site_index: 70
+    trees_per_acre: 300
+    simulation_years: 50
+    description: "Loblolly Pine, Medium site, Low density"
+
+    expected_behaviors:
+      - "Lower mortality rates than T500"
+      - "Larger individual tree sizes"
+      - "Lower stand BA than T500"
+
+  - scenario_id: LP_SI70_T700
+    species: LP
+    site_index: 70
+    trees_per_acre: 700
+    simulation_years: 50
+    description: "Loblolly Pine, Medium site, High density"
+
+    expected_behaviors:
+      - "Higher mortality rates than T500"
+      - "Smaller individual tree sizes"
+      - "Higher initial BA but similar at age 50"
+
+  # Other Species
+  - scenario_id: SP_SI65_T450
+    species: SP
+    site_index: 65
+    trees_per_acre: 450
+    simulation_years: 50
+    description: "Shortleaf Pine plantation"
+
+  - scenario_id: LL_SI60_T400
+    species: LL
+    site_index: 60
+    trees_per_acre: 400
+    simulation_years: 50
+    description: "Longleaf Pine plantation"
+
+  - scenario_id: SA_SI70_T550
+    species: SA
+    site_index: 70
+    trees_per_acre: 550
+    simulation_years: 50
+    description: "Slash Pine plantation"
+
+# Bakuzis Matrix Verification
+# Tests for expected stand dynamics relationships
+bakuzis_verification:
+  description: "Verify fundamental stand dynamics relationships"
+
+  relationships:
+    - name: "tpa_vs_age"
+      x_variable: "age"
+      y_variable: "tpa"
+      expected_correlation: "negative"
+      description: "TPA should decrease with age (mortality)"
+
+    - name: "qmd_vs_age"
+      x_variable: "age"
+      y_variable: "qmd"
+      expected_correlation: "positive"
+      description: "QMD should increase with age (growth)"
+
+    - name: "ba_vs_age"
+      x_variable: "age"
+      y_variable: "ba"
+      expected_pattern: "asymptotic"
+      description: "BA increases early, then plateaus"
+
+    - name: "height_vs_age"
+      x_variable: "age"
+      y_variable: "top_height"
+      expected_correlation: "positive"
+      expected_pattern: "s_curve"
+      description: "Height follows site index curve"
+
+    - name: "tpa_vs_qmd"
+      x_variable: "qmd"
+      y_variable: "tpa"
+      expected_correlation: "negative"
+      description: "TPA and QMD are inversely related"
+
+# Edge Case Tests
+edge_cases:
+  - name: "extreme_low_site"
+    species: LP
+    site_index: 40
+    trees_per_acre: 500
+    description: "Very low productivity site"
+    expected: "low_but_positive_growth"
+
+  - name: "extreme_high_site"
+    species: LP
+    site_index: 100
+    trees_per_acre: 500
+    description: "Very high productivity site"
+    expected: "high_growth_rates"
+
+  - name: "low_density"
+    species: LP
+    site_index: 70
+    trees_per_acre: 100
+    description: "Very low initial density"
+    expected: "minimal_mortality"
+
+  - name: "high_density"
+    species: LP
+    site_index: 70
+    trees_per_acre: 1000
+    description: "Very high initial density"
+    expected: "high_early_mortality"

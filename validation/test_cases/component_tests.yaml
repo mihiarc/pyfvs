@@ -1,0 +1,260 @@
+# Component Model Validation Test Cases
+# These test cases validate individual equation implementations against expected values
+
+---
+metadata:
+  description: "Component model test cases for FVS-Python validation"
+  created: "2025-12-15"
+  version: "1.0"
+
+# Height-Diameter Model Tests
+# Validates Curtis-Arney and Wykoff equations
+height_diameter:
+  description: "Height predictions from DBH using species-specific equations"
+  tolerance_feet: 1.0
+  tolerance_percent: 5.0
+
+  test_cases:
+    # Loblolly Pine (LP)
+    - species: LP
+      dbh: 1.0
+      model: curtis_arney
+      min_expected: 4.5
+      max_expected: 15.0
+      notes: "Small tree, near breast height"
+
+    - species: LP
+      dbh: 5.0
+      model: curtis_arney
+      min_expected: 30.0
+      max_expected: 50.0
+      notes: "Medium tree"
+
+    - species: LP
+      dbh: 10.0
+      model: curtis_arney
+      min_expected: 50.0
+      max_expected: 80.0
+      notes: "Large tree"
+
+    - species: LP
+      dbh: 15.0
+      model: curtis_arney
+      min_expected: 60.0
+      max_expected: 95.0
+      notes: "Very large tree"
+
+    # Shortleaf Pine (SP)
+    - species: SP
+      dbh: 5.0
+      model: curtis_arney
+      min_expected: 25.0
+      max_expected: 45.0
+
+    - species: SP
+      dbh: 10.0
+      model: curtis_arney
+      min_expected: 45.0
+      max_expected: 75.0
+
+    # Slash Pine (SA)
+    - species: SA
+      dbh: 5.0
+      model: curtis_arney
+      min_expected: 30.0
+      max_expected: 50.0
+
+    - species: SA
+      dbh: 10.0
+      model: curtis_arney
+      min_expected: 50.0
+      max_expected: 80.0
+
+    # Longleaf Pine (LL)
+    - species: LL
+      dbh: 5.0
+      model: curtis_arney
+      min_expected: 25.0
+      max_expected: 45.0
+
+    - species: LL
+      dbh: 10.0
+      model: curtis_arney
+      min_expected: 45.0
+      max_expected: 75.0
+
+# Bark Ratio Model Tests
+# Validates Clark (1991) DIB/DOB relationship
+bark_ratio:
+  description: "Bark ratio (DIB/DOB) by species and diameter"
+  tolerance: 0.02
+  expected_range:
+    min: 0.80
+    max: 0.99
+
+  test_cases:
+    - species: LP
+      dob: 5.0
+      min_expected_ratio: 0.85
+      max_expected_ratio: 0.95
+
+    - species: LP
+      dob: 10.0
+      min_expected_ratio: 0.88
+      max_expected_ratio: 0.95
+
+    - species: LP
+      dob: 15.0
+      min_expected_ratio: 0.88
+      max_expected_ratio: 0.95
+
+    - species: SP
+      dob: 10.0
+      min_expected_ratio: 0.85
+      max_expected_ratio: 0.95
+
+    - species: SA
+      dob: 10.0
+      min_expected_ratio: 0.82
+      max_expected_ratio: 0.92
+
+    - species: LL
+      dob: 10.0
+      min_expected_ratio: 0.85
+      max_expected_ratio: 0.95
+
+# Crown Ratio Model Tests
+# Validates Weibull-based crown ratio predictions
+crown_ratio:
+  description: "Average crown ratio by RELSDI and species"
+  tolerance: 0.05
+  expected_range:
+    min: 0.05
+    max: 0.95
+
+  test_cases:
+    # Low density - expect high crown ratios
+    - species: LP
+      relsdi: 2.0
+      min_expected: 0.50
+      max_expected: 0.85
+      notes: "Low density stand"
+
+    # Medium density
+    - species: LP
+      relsdi: 5.0
+      min_expected: 0.35
+      max_expected: 0.65
+      notes: "Medium density stand"
+
+    # High density - expect lower crown ratios
+    - species: LP
+      relsdi: 10.0
+      min_expected: 0.20
+      max_expected: 0.50
+      notes: "High density stand"
+
+    - species: SP
+      relsdi: 5.0
+      min_expected: 0.35
+      max_expected: 0.65
+
+    - species: SA
+      relsdi: 5.0
+      min_expected: 0.35
+      max_expected: 0.65
+
+    - species: LL
+      relsdi: 5.0
+      min_expected: 0.35
+      max_expected: 0.65
+
+# Crown Width Model Tests
+# Validates forest-grown and open-grown crown width equations
+crown_width:
+  description: "Crown width predictions by DBH, crown ratio, and type"
+  tolerance_feet: 1.5
+
+  test_cases:
+    # Forest-grown crown width
+    - species: LP
+      dbh: 5.0
+      crown_ratio_pct: 50
+      crown_type: forest
+      min_expected: 5.0
+      max_expected: 12.0
+
+    - species: LP
+      dbh: 10.0
+      crown_ratio_pct: 50
+      crown_type: forest
+      min_expected: 10.0
+      max_expected: 20.0
+
+    # Open-grown crown width (larger)
+    - species: LP
+      dbh: 5.0
+      crown_type: open
+      min_expected: 6.0
+      max_expected: 15.0
+
+    - species: LP
+      dbh: 10.0
+      crown_type: open
+      min_expected: 10.0
+      max_expected: 25.0
+
+    - species: SA
+      dbh: 10.0
+      crown_type: forest
+      min_expected: 8.0
+      max_expected: 18.0
+
+    - species: SA
+      dbh: 10.0
+      crown_type: open
+      min_expected: 10.0
+      max_expected: 25.0
+
+# CCF (Crown Competition Factor) Tests
+# Validates stand-level CCF calculations
+ccf:
+  description: "Stand CCF from tree list using official equation 4.5.1"
+  tolerance: 5.0
+
+  test_cases:
+    # Low density - CCF < 100
+    - species: LP
+      trees_per_acre: 200
+      mean_dbh: 8.0
+      dbh_std: 1.0
+      min_expected_ccf: 50
+      max_expected_ccf: 120
+      notes: "Low density, medium trees"
+
+    # Medium density - CCF ~ 100
+    - species: LP
+      trees_per_acre: 400
+      mean_dbh: 8.0
+      dbh_std: 1.5
+      min_expected_ccf: 100
+      max_expected_ccf: 180
+      notes: "Medium density"
+
+    # High density - CCF > 150
+    - species: LP
+      trees_per_acre: 600
+      mean_dbh: 8.0
+      dbh_std: 2.0
+      min_expected_ccf: 140
+      max_expected_ccf: 250
+      notes: "High density"
+
+    # Large trees
+    - species: LP
+      trees_per_acre: 200
+      mean_dbh: 15.0
+      dbh_std: 2.0
+      min_expected_ccf: 100
+      max_expected_ccf: 200
+      notes: "Larger trees, low density"
