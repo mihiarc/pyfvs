@@ -83,23 +83,24 @@ stand.py
 1. **Competition Factor Not Used in Small Tree Model** (`tree.py:_grow_small_tree()`)
    - Small trees don't respond to competition until transitioning to large-tree model
 
-2. **Test Assertions Too Relaxed** (`tests/test_stand.py`)
-   - Tests pass but may hide calibration issues; review outputs in `/test_output/`
-
-3. **Volume Calculations** (`tree.py:get_volume()`)
+2. **Volume Calculations** (`tree.py:get_volume()`)
    - May not match official FVS exactly; verify against NVEL library if available
+
+3. **Fort Bragg Special Equations** (`cfg/sn_diameter_growth_coefficients.json`)
+   - Coefficients for IFOR=20 exist in config but forest ID system not yet implemented
+
+## Recently Fixed
+
+1. **HGMDCR Crown Ratio Modifier** - Fixed to include 100x multiplier per FVS Fortran source (htgf.f)
+2. **SDI-Mortality Model** - Implemented full FVS equations 5.0.1-5.0.4 with 55%/85% SDImax thresholds
+3. **Chapman-Richards Time Step** - Clarified that equation naturally handles any time step (no fix needed)
+4. **Topographic Effects** - Verified slope/aspect correctly applied in CONSPP term
 
 ## Development Priorities
 
-### Critical Bug Fixes
-1. **Small Tree Growth Time Step**: Chapman-Richards function in `tree.py` assumes 5-year growth; doesn't scale for other time steps
-2. **Tree Age Tracking**: Age incremented before growth calculations causes inconsistencies
-3. **Parameter Validation**: Add bounds checking with species-specific limits from config
-
 ### Code Quality
 1. **Consolidate Simulation Functions**: Three overlapping functions in `main.py` (run_simulation, simulate_stand_growth, generate_yield_table)
-2. **Move Hardcoded Values to Configuration**: Transition zone thresholds, mortality parameters, plant effect values
-3. **Standardize Configuration Loading**: `crown_ratio.py` uses direct JSON loading instead of ConfigLoader
+2. **Standardize Configuration Loading**: `crown_ratio.py` uses direct JSON loading instead of ConfigLoader
 
 ### Testing & Validation
 1. Calibrate expected values against FVS documentation
