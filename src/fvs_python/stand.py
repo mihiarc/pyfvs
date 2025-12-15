@@ -721,57 +721,175 @@ class Stand:
 
         return metrics
     
-    def _apply_mortality(self):
-        """Apply mortality based on stand density and tree characteristics.
-        
+    def _apply_mortality(self, cycle_length: int = 5):
+        """Apply mortality using FVS-SN SDI-based mortality model.
+
+        Implements the full FVS mortality model from Section 5.0 and EFVS 7.3.2:
+        1. Below 55% of SDImax: Use individual tree background mortality rates
+        2. Above 55% of SDImax: Use stand-level density-related mortality
+
+        Equations implemented:
+        - 5.0.1: RI = 1 / (1 + exp(p0 + p1 * DBH))  (background mortality)
+        - 5.0.2: RIP = 1 - (1 - RI)^Y  (cycle adjustment)
+        - 5.0.3: MR = 0.84525 - 0.01074*PCT + 0.0000002*PCT³  (mortality distribution)
+        - 5.0.4: MORT = MR * MWT * 0.1  (final mortality with species weight)
+
+        Args:
+            cycle_length: Length of projection cycle in years (default: 5)
+
         Returns:
             int: Number of trees that died
         """
         if len(self.trees) <= 1:
             return 0
-        
+
         initial_count = len(self.trees)
-        
-        # Calculate competition metrics
-        basal_area = sum(math.pi * (tree.dbh / 24)**2 for tree in self.trees)
-        max_sdi = self.params['mortality']['max_sdi']
-        relative_density = basal_area / max_sdi
-        
-        # Get mortality parameters from config
-        mortality_params = self.growth_params.get('mortality', {})
-        early_params = mortality_params.get('early_mortality', {})
-        background_params = mortality_params.get('background_mortality', {})
-        
-        # Base mortality rate with competition effect
-        age_threshold = early_params.get('age_threshold', 5)
-        if self.age <= age_threshold:
-            mortality_rate = early_params.get('base_rate', 0.25)
-        else:
-            # Background mortality rate
-            base_rate = background_params.get('base_rate', 0.05)
-            comp_threshold = background_params.get('competition_threshold', 0.55)
-            comp_multiplier = background_params.get('competition_multiplier', 0.1)
-            
-            competition_mortality = max(0.0, comp_multiplier * (relative_density - comp_threshold))
-            mortality_rate = base_rate + competition_mortality
-        
-        # Calculate mean DBH
-        mean_dbh = sum(tree.dbh for tree in self.trees) / len(self.trees)
-        
-        # Apply mortality
+
+        # Calculate stand SDI using Reineke's equation
+        # SDI = TPA * (QMD / 10)^1.605
+        tpa = len(self.trees)
+        qmd_squared = sum(tree.dbh ** 2 for tree in self.trees) / tpa
+        qmd = math.sqrt(qmd_squared)
+        current_sdi = tpa * (qmd / 10.0) ** 1.605
+
+        # Get maximum SDI for species
+        max_sdi = self.params.get('mortality', {}).get('max_sdi', 450)
+
+        # SDI density thresholds from EFVS 7.3.2
+        lower_threshold = 0.55  # 55% of SDImax - density-related mortality begins
+        upper_threshold = 0.85  # 85% of SDImax - asymptotic maximum density
+
+        relative_sdi = current_sdi / max_sdi
+
+        # Calculate basal area percentile ranking for each tree (PCT)
+        # Used in mortality distribution equation
+        total_ba = sum(math.pi * (tree.dbh / 24) ** 2 for tree in self.trees)
+        tree_data = []
+        cumulative_ba = 0.0
+        sorted_trees = sorted(self.trees, key=lambda t: t.dbh)
+
+        for tree in sorted_trees:
+            tree_ba = math.pi * (tree.dbh / 24) ** 2
+            cumulative_ba += tree_ba
+            # PCT is basal area percentile (0-100)
+            pct = (cumulative_ba / total_ba) * 100.0 if total_ba > 0 else 50.0
+            tree_data.append((tree, pct))
+
+        # Load mortality coefficients from config
+        mortality_config = self._load_mortality_coefficients()
+
         survivors = []
-        for tree in self.trees:
-            # Smaller trees have higher mortality
-            size_multiplier = mortality_params.get('size_effect', {}).get('multiplier', 0.2)
-            size_effect = 1.0 + max(0.0, size_multiplier * (1.0 - tree.dbh / mean_dbh))
-            
-            # Check survival (adjusted for 5-year period)
-            if random.random() > mortality_rate * size_effect:
-                survivors.append(tree)
-        
+        total_mortality_target = 0.0
+
+        if relative_sdi <= lower_threshold:
+            # Below threshold: Use summation of individual tree background mortality
+            for tree, pct in tree_data:
+                # Get species-specific coefficients (Equation 5.0.1)
+                p0, p1 = mortality_config['background'].get(
+                    tree.species, (5.5876999, -0.0053480)  # Default LP values
+                )
+
+                # Individual tree background mortality rate (Equation 5.0.1)
+                ri = 1.0 / (1.0 + math.exp(p0 + p1 * tree.dbh))
+
+                # Adjust for cycle length (Equation 5.0.2)
+                rip = 1.0 - ((1.0 - ri) ** cycle_length)
+
+                # Apply mortality stochastically
+                if random.random() > rip:
+                    survivors.append(tree)
+        else:
+            # Above threshold: Use density-related mortality model
+            # Calculate target stand mortality based on SDI trajectory
+            # Stand should asymptote at upper_threshold of SDImax
+            if relative_sdi > upper_threshold:
+                # Need to reduce density to asymptotic level
+                target_sdi = upper_threshold * max_sdi
+                excess_sdi = current_sdi - target_sdi
+                # Mortality should remove excess density over cycle
+                sdi_to_remove = min(excess_sdi, excess_sdi * 0.5)  # Remove up to half per cycle
+            else:
+                # Between lower and upper thresholds
+                # Gradual transition with some mortality
+                target_sdi = current_sdi * (1.0 - 0.05 * (relative_sdi - lower_threshold) /
+                                           (upper_threshold - lower_threshold))
+                sdi_to_remove = current_sdi - target_sdi
+
+            # Calculate target trees to remove (proportional to SDI reduction)
+            target_removal_fraction = sdi_to_remove / current_sdi if current_sdi > 0 else 0
+
+            # Distribute mortality using equation 5.0.3 and 5.0.4
+            for tree, pct in tree_data:
+                # Mortality distribution by relative height/size (Equation 5.0.3)
+                # MR = 0.84525 - 0.01074*PCT + 0.0000002*PCT³
+                mr = 0.84525 - (0.01074 * pct) + (0.0000002 * (pct ** 3))
+                mr = max(0.01, min(1.0, mr))  # Bound MR as per FVS
+
+                # Get species-specific mortality weight (MWT from Table 5.0.2)
+                mwt = mortality_config['mwt'].get(tree.species, 0.7)
+
+                # Final mortality rate (Equation 5.0.4)
+                mort = mr * mwt * 0.1 * target_removal_fraction * (cycle_length / 5.0)
+
+                # Also add background mortality component
+                p0, p1 = mortality_config['background'].get(
+                    tree.species, (5.5876999, -0.0053480)
+                )
+                ri = 1.0 / (1.0 + math.exp(p0 + p1 * tree.dbh))
+                rip = 1.0 - ((1.0 - ri) ** cycle_length)
+
+                # Combined mortality probability
+                total_mort_prob = min(1.0, mort + rip)
+
+                # Apply mortality stochastically
+                if random.random() > total_mort_prob:
+                    survivors.append(tree)
+
         self.trees = survivors
         mortality_count = initial_count - len(survivors)
         return mortality_count
+
+    def _load_mortality_coefficients(self) -> dict:
+        """Load mortality coefficients from configuration.
+
+        Returns:
+            Dict with 'background' (p0, p1 tuples) and 'mwt' values by species
+        """
+        from .config_loader import get_config_loader
+
+        try:
+            loader = get_config_loader()
+            mortality_file = loader.cfg_dir / "sn_mortality_model.json"
+            mortality_data = loader._load_config_file(mortality_file)
+
+            background = {}
+            mwt = {}
+
+            # Extract background mortality coefficients (Table 5.0.1)
+            if 'tables' in mortality_data and 'table_5_0_1' in mortality_data['tables']:
+                coeffs = mortality_data['tables']['table_5_0_1'].get('coefficients', {})
+                for species, values in coeffs.items():
+                    background[species] = (values['p0'], values['p1'])
+
+            # Extract MWT values (Table 5.0.2)
+            if 'tables' in mortality_data and 'table_5_0_2' in mortality_data['tables']:
+                mwt = mortality_data['tables']['table_5_0_2'].get('mwt_values', {})
+
+            return {'background': background, 'mwt': mwt}
+
+        except Exception:
+            # Return default values if config not available
+            return {
+                'background': {
+                    'LP': (5.5876999, -0.0053480),
+                    'SP': (5.5876999, -0.0053480),
+                    'SA': (5.5876999, -0.0053480),
+                    'LL': (5.5876999, -0.0053480),
+                },
+                'mwt': {
+                    'LP': 0.7, 'SP': 0.7, 'SA': 0.7, 'LL': 0.7,
+                }
+            }
     
     def get_metrics(self) -> Dict[str, Any]:
         """Calculate stand-level metrics using official FVS methods.

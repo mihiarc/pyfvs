@@ -373,30 +373,37 @@ class LargeTreeHeightGrowthModel:
     
     def calculate_crown_ratio_modifier(self, crown_ratio: float) -> float:
         """Calculate crown ratio modifier using Hoerl's Special Function.
-        
-        Equation 4.7.2.2: HGMDCR = 100 * CR^3.0 * exp(-5.0*CR)
-        
+
+        Equation 4.7.2.2: HGMDCR = CRA * CR^CRB * exp(CRC * CR)
+
+        From official FVS Fortran source (htgf.f):
+            CRA = 100.0, CRB = 3.0, CRC = -5.0
+            IF (HGMDCR .GT. 1.0) HGMDCR = 1.0
+
         Args:
             crown_ratio: Crown ratio as proportion (0-1)
-            
+
         Returns:
-            Crown ratio modifier (bounded to < 1.0)
+            Crown ratio modifier (bounded to 1.0 max)
         """
         # Validate crown ratio bounds (from config: 0.05 < CR < 0.95)
         crown_ratio = max(0.05, min(0.95, crown_ratio))
-        
+
         if crown_ratio <= 0:
             return 0.0
-        
-        # Apply Hoerl's Special Function
-        # Note: The equation in documentation shows "100 * CR^3.0 * exp(-5.0*CR)" 
-        # but this produces values too large. Using the HSF form without the 100 factor
-        # to get values in the expected range of 0.05-0.15
-        hgmdcr = (crown_ratio ** 3.0) * math.exp(-5.0 * crown_ratio)
-        
-        # Bound to less than 1.0 as specified
-        hgmdcr = min(hgmdcr, 0.999)
-        
+
+        # Apply Hoerl's Special Function per official FVS Fortran source
+        # HGMDCR = CRA * CR^CRB * exp(CRC * CR)
+        # where CRA=100, CRB=3, CRC=-5
+        cra = 100.0
+        crb = 3.0
+        crc = -5.0
+
+        hgmdcr = cra * (crown_ratio ** crb) * math.exp(crc * crown_ratio)
+
+        # Bound to maximum of 1.0 as per FVS Fortran: IF (HGMDCR .GT. 1.0) HGMDCR = 1.0
+        hgmdcr = min(hgmdcr, 1.0)
+
         return hgmdcr
     
     def calculate_relative_height_modifier(self, relative_height: float, 
@@ -701,11 +708,16 @@ def validate_large_tree_height_growth_implementation() -> Dict[str, Any]:
         })
     
     # Test crown ratio modifier function
+    # With correct FVS equation: HGMDCR = 100 * CR^3 * exp(-5*CR), capped at 1.0
+    # CR=0.4: 100 * 0.064 * 0.135 = 0.867
+    # CR=0.5: 100 * 0.125 * 0.082 = 1.025 → capped to 1.0
+    # CR=0.6: 100 * 0.216 * 0.050 = 1.079 → capped to 1.0
+    # CR=0.7: 100 * 0.343 * 0.030 = 1.031 → capped to 1.0
     cr_test_cases = [
-        {"crown_ratio": 0.4, "expected_range": (0.002, 0.008)},  # Lower CR should give lower modifier
-        {"crown_ratio": 0.5, "expected_range": (0.008, 0.015)},  # Optimal range
-        {"crown_ratio": 0.6, "expected_range": (0.015, 0.025)},  # Peak range
-        {"crown_ratio": 0.7, "expected_range": (0.010, 0.020)}   # Declining from peak
+        {"crown_ratio": 0.4, "expected_range": (0.80, 0.95)},   # Below peak, not capped
+        {"crown_ratio": 0.5, "expected_range": (0.95, 1.01)},   # Near/at cap
+        {"crown_ratio": 0.6, "expected_range": (0.95, 1.01)},   # At cap (peak is ~0.55)
+        {"crown_ratio": 0.7, "expected_range": (0.95, 1.01)}    # At cap
     ]
     
     for test in cr_test_cases:

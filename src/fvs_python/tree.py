@@ -163,15 +163,24 @@ class Tree:
     
     def _grow_small_tree(self, site_index, competition_factor, time_step=5):
         """Implement small tree height growth model using Chapman-Richards function.
-        
-        The Chapman-Richards model predicts cumulative height at a given age,
-        not periodic growth. We calculate height at current age and future age,
-        then take the difference.
-        
+
+        The Chapman-Richards model (NC-128 form) predicts cumulative height at
+        a given age, not periodic growth. Height growth is calculated as the
+        difference between heights at future age and current age:
+
+            Height(t) = c1 * SI^c2 * (1 - exp(c3 * t))^(c4 * SI^c5)
+            HeightGrowth = Height(age + time_step) - Height(age)
+
+        **Time Step Handling:** Unlike the large tree diameter growth model which
+        requires explicit scaling (DDS * time_step/5), the Chapman-Richards
+        equation naturally handles any time step because it calculates cumulative
+        height at discrete ages. The growth increment is simply the difference
+        between the height curves at two points in time.
+
         Args:
             site_index: Site index (base age 25) in feet
             competition_factor: Competition factor (0-1)
-            time_step: Number of years to grow (default: 5)
+            time_step: Number of years to grow (any positive integer)
         """
         # Get parameters from config
         small_tree_params = self.growth_params.get('small_tree_growth', {})
