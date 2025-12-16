@@ -1,0 +1,267 @@
+# Manuscript Yield Data - Source of Truth for FVS-Python Validation
+# =================================================================
+# Data extracted from: "Toward a timber asset account for the United States:
+#                       A pilot account for Georgia"
+# Authors: Bruck, Mihiar, Mei, Brandeis, Chambers, Hass, Wentland, Warziniack
+#
+# This data represents official FVS Southern Variant outputs used in the
+# timber asset account for Georgia. These values are considered the
+# validation target for fvs-python.
+#
+# FVS Version: FS2025.1
+# Simulation settings:
+#   - Ages 0-40: 1-year increments
+#   - Ages 40-90: 5-year increments
+#   - Target TPA at age 20: 55-95 (varies by species)
+#   - Conversion: 100 CCF = 2 tons (approximately)
+#
+# Note: CCF = cubic feet / 100 (hundred cubic feet)
+
+metadata:
+  source: "Timber Asset Account Manuscript (2025)"
+  fvs_version: "FS2025.1"
+  reference_tables:
+    - "Table 1 (page 24): Loblolly Pine numerical example"
+    - "Figure 3 (page 23): Species yield curves"
+    - "Appendix A, Table I: TPA targets"
+  units:
+    yield: "tons/acre and CCF/acre (CCF = 100 cubic feet)"
+    conversion: "2 tons per CCF (approximate)"
+  regions:
+    north:
+      description: "North Georgia (TMS Region 1)"
+      site_index_used: 55
+      pulp_price: 9.38  # $/ton
+      sawtimber_price: 32.81  # $/ton
+    south:
+      description: "South Georgia (TMS Region 2)"
+      site_index_used: 65
+      pulp_price: 14.45  # $/ton
+      sawtimber_price: 39.77  # $/ton
+
+# =================================================================
+# Table 1: Loblolly Pine (North Georgia, SI=55) - Exact Values
+# =================================================================
+# This is the most detailed data from the manuscript (page 24)
+# Pre-merchantable valuation example
+
+loblolly_pine_north_si55:
+  species_code: "LP"
+  region: "north"
+  site_index: 55
+  merchantable_age: 15  # First merchantable age (DBH ~5")
+  lev_max_age: 23  # Age at maximum LEV ($1,672/acre)
+  lev_max_value: 1672  # $/acre at optimal rotation
+  # Target TPA: 55-95 at age 20 (from Schumacher and Coile 1960)
+  yields:
+    # Age: [tons_per_acre, ccf_per_acre, cubic_feet_per_acre]
+    # cubic_feet = ccf * 100
+    0:  [0, 0, 0]
+    1:  [0, 0, 0]
+    2:  [0, 0, 0]
+    3:  [8, 4, 400]
+    4:  [16, 8, 800]
+    5:  [26, 13, 1300]
+    6:  [40, 20, 2000]
+    7:  [52, 26, 2600]
+    8:  [68, 34, 3400]
+    9:  [84, 42, 4200]
+    10: [100, 50, 5000]
+    11: [116, 58, 5800]
+    12: [134, 67, 6700]
+    13: [150, 75, 7500]
+    14: [166, 83, 8300]
+    15: [184, 92, 9200]
+    16: [202, 101, 10100]
+    17: [222, 111, 11100]
+    18: [242, 121, 12100]
+    19: [262, 131, 13100]
+    20: [280, 140, 14000]
+    21: [300, 150, 15000]
+    22: [320, 160, 16000]
+    23: [340, 170, 17000]
+
+# =================================================================
+# Figure 3: Species Yield Curves (Approximate values from graph)
+# =================================================================
+# Values read from Figure 3 (page 23) yield curves
+# These are approximate and have wider tolerance ranges
+
+# Yield curve approximate values at key ages (tons/acre)
+# Read from Figure 3 graph with approximate ±10% tolerance
+
+species_yield_curves:
+  # Format: age -> [tons_per_acre_north, tons_per_acre_south]
+
+  loblolly_pine:
+    species_code: "LP"
+    site_index_north: 55
+    site_index_south: 65
+    # Values from Figure 3
+    yields_by_age:
+      5:  [26, 50]      # North ~26, South ~50
+      10: [100, 180]    # North ~100, South ~180
+      15: [184, 300]    # North ~184, South ~300
+      20: [280, 430]    # North ~280, South ~430
+      25: [370, 540]    # North ~370, South ~540
+      30: [450, 640]    # North ~450, South ~640
+      35: [520, 720]    # North ~520, South ~720
+      40: [580, 780]    # North ~580, South ~780
+      45: [650, 830]    # North ~650, South ~830
+    # Maximum yields from Figure 3 (at age 45)
+    max_yield_north: 650
+    max_yield_south: 830
+
+  slash_pine:
+    species_code: "SA"
+    site_index_north: 55
+    site_index_south: 65
+    yields_by_age:
+      5:  [15, 30]      # Slower early growth than loblolly
+      10: [65, 120]
+      15: [130, 220]
+      20: [200, 320]
+      25: [270, 400]
+      30: [330, 470]
+      35: [380, 520]
+      40: [420, 550]
+      45: [450, 580]
+    max_yield_north: 450
+    max_yield_south: 580
+
+  shortleaf_pine:
+    species_code: "SP"
+    site_index_north: 55
+    site_index_south: 65
+    yields_by_age:
+      5:  [12, 25]      # Slowest early growth
+      10: [55, 100]
+      15: [110, 180]
+      20: [170, 260]
+      25: [230, 330]
+      30: [280, 380]
+      35: [320, 410]
+      40: [350, 430]
+      45: [380, 450]
+    max_yield_north: 380
+    max_yield_south: 450
+
+  longleaf_pine:
+    species_code: "LL"
+    site_index_north: 55
+    site_index_south: 65
+    yields_by_age:
+      5:  [8, 18]       # Slowest growth, "grass stage"
+      10: [40, 80]
+      15: [85, 150]
+      20: [140, 220]
+      25: [190, 280]
+      30: [230, 330]
+      35: [260, 360]
+      40: [280, 380]
+      45: [300, 400]
+    max_yield_north: 300
+    max_yield_south: 400
+    notes: "Longleaf has longest rotation (32 years North, 26 years South)"
+
+# =================================================================
+# LEV (Land Expectation Value) Results from Manuscript
+# =================================================================
+# Table II (Appendix B) - LEV maximization ages
+
+lev_results:
+  # Format: species -> region -> {max_lev_age, max_lev_value}
+  loblolly_pine:
+    north:
+      max_lev_age: 23
+      max_lev_value: 1672  # $/acre
+    south:
+      max_lev_age: 18
+      max_lev_value: 4236  # $/acre
+
+  slash_pine:
+    north:
+      max_lev_age: 28
+      max_lev_value: 836
+    south:
+      max_lev_age: 22
+      max_lev_value: 2100  # approximate
+
+  shortleaf_pine:
+    north:
+      max_lev_age: 26
+      max_lev_value: 1200  # approximate
+    south:
+      max_lev_age: 21
+      max_lev_value: 2506
+
+  longleaf_pine:
+    north:
+      max_lev_age: 32
+      max_lev_value: 515
+    south:
+      max_lev_age: 26
+      max_lev_value: 1423
+
+# =================================================================
+# Validation Tolerances
+# =================================================================
+# Acceptable deviation ranges for validation tests
+
+tolerances:
+  # For Table 1 exact values (Loblolly SI=55)
+  table1_exact:
+    tons_per_acre_pct: 15  # ±15% tolerance
+    ccf_per_acre_pct: 15   # ±15% tolerance
+
+  # For Figure 3 approximate values (read from graph)
+  figure3_approximate:
+    tons_per_acre_pct: 25  # ±25% tolerance (graph reading uncertainty)
+
+  # Relative comparisons (species rankings, growth trends)
+  relative:
+    growth_increase_required: true  # Volume must increase with age
+    mortality_after_age_30: true    # Some mortality expected
+
+  # Growth rate relationships
+  species_ranking:
+    # Expected productivity ranking (highest to lowest)
+    high_site: ["LP", "SA", "SP", "LL"]  # Loblolly > Slash > Shortleaf > Longleaf
+    notes: "Loblolly should consistently produce highest yields"
+
+# =================================================================
+# Conversion Factors (from manuscript)
+# =================================================================
+conversion_factors:
+  ccf_to_tons: 2.0  # 100 cubic feet ≈ 2 tons (short tons)
+  mbf_to_tons: 7.0  # 1000 board feet ≈ 7 short tons
+  cord_to_tons: 2.6  # 1 cord ≈ 2.6 short tons
+  ccf_to_cubic_feet: 100  # By definition
+
+  # Volume-weight conversion (green weight)
+  # Varies by species, but manuscript uses ~50 lbs/cubic foot for SYP
+  cubic_foot_to_pounds: 50  # approximate for green SYP
+  tons_per_cubic_foot: 0.025  # 50 lbs / 2000 lbs/ton
+
+# =================================================================
+# Stand Parameters Used in Manuscript FVS Simulations
+# =================================================================
+simulation_parameters:
+  # From Appendix A, Table I
+  target_tpa_at_age_20:
+    range: [55, 95]  # Trees per acre
+    reference: "Schumacher and Coile (1960)"
+
+  # Initial planting density (typical for SYP plantations)
+  initial_tpa:
+    typical: [400, 700]  # Common planting range
+    manuscript_implied: 500  # Based on TPA targets
+
+  # Discount rate used for LEV calculations
+  discount_rate: 0.04  # 4%
+
+  # Site establishment cost
+  site_establishment_cost: 300  # $/acre
+
+  # Annual costs (administration, tax, land opportunity cost)
+  annual_cost: 30  # $/acre/year
