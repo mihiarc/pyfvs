@@ -43,9 +43,17 @@ Stand.initialize_planted() → Tree objects → grow() each cycle → Stand.appl
 ```
 
 1. **Tree** (`tree.py`) - Individual tree attributes and growth methods. Uses small-tree model (height-driven) or large-tree model (diameter-driven) based on DBH threshold.
-2. **Stand** (`stand.py`) - Manages tree collections, competition metrics, mortality application, and stand-level statistics.
+2. **Stand** (`stand.py`) - Manages tree collections using composition pattern. Delegates to specialized component classes.
 3. **Growth models** - Modular components in separate files implementing specific FVS equations.
-4. **ConfigLoader** (`config_loader.py`) - Loads species parameters from `/cfg/` directory (YAML/JSON).
+4. **ConfigLoader** (`config_loader.py`) - Unified configuration loading for YAML, TOML, and JSON files with caching.
+
+### Stand Class Composition (Refactored)
+The Stand class uses composition with these specialized components:
+- **StandMetricsCalculator** (`stand_metrics.py`) - CCF, QMD, SDI, basal area, top height calculations
+- **MortalityModel** (`mortality.py`) - Background and density-dependent mortality
+- **HarvestManager** (`harvest.py`) - Thinning operations (from below/above, selection, clearcut)
+- **CompetitionCalculator** (`competition.py`) - Tree-level competition metrics (PBAL, rank, relative height)
+- **StandOutputGenerator** (`stand_output.py`) - Yield tables, tree lists, stock tables, exports
 
 ### Growth Model Transition (Critical Logic)
 - `DBH < Xmin`: Small-tree model only (height growth drives DBH)
@@ -56,22 +64,30 @@ Stand.initialize_planted() → Tree objects → grow() each cycle → Stand.appl
 ### Key Module Dependencies
 ```
 tree.py
+  ├── large_tree_height_growth.py (FVS Section 4.7.2 equations)
   ├── height_diameter.py (Curtis-Arney/Wykoff equations)
   ├── crown_ratio.py (Weibull-based crown ratio)
   ├── bark_ratio.py (Clark 1991 DIB/DOB)
   ├── crown_width.py (forest/open grown equations)
   └── validation.py (parameter bounds checking)
 
-stand.py
-  ├── tree.py
-  ├── crown_competition_factor.py (CCF, Hopkins index)
-  └── config_loader.py
+stand.py (composition)
+  ├── stand_metrics.py (StandMetricsCalculator)
+  ├── mortality.py (MortalityModel)
+  ├── harvest.py (HarvestManager)
+  ├── competition.py (CompetitionCalculator)
+  ├── stand_output.py (StandOutputGenerator)
+  └── tree.py
+
+config_loader.py
+  └── All coefficient modules use load_coefficient_file() with caching
 ```
 
 ### Configuration System
 - Species configs: `/cfg/species/*.yaml` (~80+ species)
-- Model coefficients: `/cfg/sn_*.json` (height-diameter, crown width, etc.)
+- Model coefficients: `/cfg/sn_*.json` (height-diameter, crown width, bark ratio, CCF, etc.)
 - Functional forms: `/cfg/functional_forms.yaml` (equation specifications)
+- All JSON loading uses `ConfigLoader.load_coefficient_file()` with centralized caching
 
 ### Testing
 - Unit tests in `/tests/` for individual modules
@@ -98,6 +114,10 @@ stand.py
 5. **Crown Ratio Time Step Scaling** - Fixed `_update_crown_ratio_weibull()` to scale changes by time_step
 6. **Stand.grow() Time Step Handling** - Fixed to respect years parameter instead of forcing 5-year cycles
 7. **Mortality Time Step Scaling** - Fixed to pass cycle_length parameter to mortality calculation
+8. **Stand Class Decomposition** - Refactored 2000-line Stand class into 5 focused component modules using composition
+9. **Tree Height Growth Duplication** - Eliminated duplicate code; `tree.py` now calls `large_tree_height_growth.py` module
+10. **Configuration Unification** - All modules now use `ConfigLoader.load_coefficient_file()` with centralized caching
+11. **Bark Ratio Path Bug** - Fixed critical bug where `bark_ratio.py` looked in `/docs/` instead of `/cfg/`
 
 ## Validation Status (Manuscript Comparison)
 
@@ -112,9 +132,12 @@ Validation against timber asset account manuscript ("Toward a timber asset accou
 
 ### Code Quality
 1. **Consolidate Simulation Functions**: Three overlapping functions in `main.py` (run_simulation, simulate_stand_growth, generate_yield_table)
-2. **Standardize Configuration Loading**: `crown_ratio.py` uses direct JSON loading instead of ConfigLoader
 
 ### Testing & Validation
 1. Calibrate expected values against FVS documentation
 2. Add regression tests with known good outputs
 3. Test with large stands (1000+ trees) for performance
+
+### Growth Model Calibration
+1. Investigate diameter growth rates (currently 0.2 in/year vs expected 0.3-0.5 in/year)
+2. Implement NVEL volume equations or find alternative for macOS
