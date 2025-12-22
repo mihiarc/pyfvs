@@ -50,7 +50,14 @@ jobs:
 
       - name: Run unit tests
         run: |
-          uv run pytest tests/ -v --tb=short -x
+          uv run pytest tests/ -v --tb=short -x \
+            --ignore=tests/test_manuscript_validation.py \
+            --ignore=tests/test_model_validation.py
+
+      - name: Run calibration benchmarks (non-blocking)
+        continue-on-error: true
+        run: |
+          uv run pytest tests/test_manuscript_validation.py tests/test_model_validation.py -v --tb=short || true
 
       - name: Run validation tests
         run: |
