@@ -186,27 +186,20 @@ class Tree:
         height at discrete ages. The growth increment is simply the difference
         between the height curves at two points in time.
 
-        **Ecological Unit Effect:** The ecounit modifier is applied to small tree
-        height growth as a multiplicative factor. Since the large-tree DDS model
-        uses ecounit as an additive term in ln(DDS), the equivalent multiplicative
-        effect is exp(ecounit_coefficient). This ensures consistent growth rates
-        across the small-to-large tree transition.
+        **Ecological Unit Effect:** Unlike the large-tree DDS model which applies
+        ecounit as an additive term in ln(DDS), the small-tree model does NOT
+        apply an ecounit modifier. This is because:
+        1. Site Index already incorporates regional productivity - SI=55 means
+           height at base age 25 = 55 feet, regardless of region
+        2. The Chapman-Richards curve is calibrated to match SI at base age
+        3. The FVS large-tree height growth (POTHTG) also does NOT apply ecounit
+        4. Ecounit affects DIAMETER growth (DDS), not height growth
 
         Args:
             site_index: Site index (base age 25) in feet
             competition_factor: Competition factor (0-1)
             time_step: Number of years to grow (any positive integer)
         """
-        # Get ecological unit effect for small tree growth
-        # This applies the same regional productivity adjustment as large trees
-        ecounit_multiplier = 1.0
-        if self._ecounit is not None:
-            from .ecological_unit import get_ecounit_effect
-            ecounit_effect = get_ecounit_effect(self.species, self._ecounit)
-            # Convert additive ln(DDS) effect to multiplicative height growth effect
-            # For M231 with LP: ecounit_effect = 0.790, exp(0.790) ≈ 2.2x growth
-            ecounit_multiplier = math.exp(ecounit_effect)
-
         # Get parameters from config
         small_tree_params = self.growth_params.get('small_tree_growth', {})
         if self.species in small_tree_params:
@@ -262,9 +255,9 @@ class Tree:
         # Height growth is the difference
         height_growth = future_height - current_height
 
-        # Apply ecological unit modifier (regional productivity adjustment)
-        # For M231 with LP: ecounit_multiplier ≈ 2.2x, matching large-tree behavior
-        height_growth = height_growth * ecounit_multiplier
+        # NOTE: No ecounit modifier is applied to height growth. Site Index
+        # already incorporates regional productivity through the Chapman-Richards
+        # curve. However, the ecounit effect IS applied to DIAMETER growth below.
 
         # Apply a modifier for competition (subtle effect for small trees)
         # Small trees are less affected by competition than large trees
@@ -272,12 +265,32 @@ class Tree:
             'small_tree_competition', {}).get('max_reduction', 0.2)
         competition_modifier = 1.0 - (max_reduction * competition_factor)
         actual_growth = height_growth * competition_modifier
-        
+
         # Update height with bounds checking
         self.height = max(4.5, self.height + actual_growth)
-        
-        # Update DBH using height-diameter relationship
+
+        # Get ecological unit effect for DIAMETER growth (not height)
+        # This matches how FVS applies ecounit to the DDS equation for large trees
+        ecounit_multiplier = 1.0
+        if self._ecounit is not None:
+            from .ecological_unit import get_ecounit_effect
+            ecounit_effect = get_ecounit_effect(self.species, self._ecounit)
+            # Convert additive ln(DDS) effect to multiplicative diameter increment effect
+            # For M231 with LP: ecounit_effect = 0.790, exp(0.790) ≈ 2.2x growth
+            ecounit_multiplier = math.exp(ecounit_effect)
+
+        # Save original DBH before height-diameter update
+        original_dbh = self.dbh
+
+        # Calculate new DBH from height using height-diameter relationship
         self._update_dbh_from_height()
+
+        # Apply ecounit effect to the DBH INCREMENT (not to height)
+        # This ensures regional productivity affects diameter growth
+        if ecounit_multiplier != 1.0 and self.dbh > original_dbh:
+            dbh_increment = self.dbh - original_dbh
+            adjusted_increment = dbh_increment * ecounit_multiplier
+            self.dbh = original_dbh + adjusted_increment
     
     def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5):
         """Implement large tree diameter growth model using official FVS-SN equations.
