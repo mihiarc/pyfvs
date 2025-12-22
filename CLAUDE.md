@@ -127,7 +127,7 @@ config_loader.py
     - Added scale factor normalization to ensure Height(base_age=25) = SI (was missing, causing ~40% lower POTHTG)
     - Fixed growth timing to calculate growth TO current age FROM previous age (was calculating FROM current TO future, causing 5-year lag)
     - Lowered minimum age bound from 15 to 5 years for trees in transition zone (DBH 1-3")
-    **Result: Heights at age 25 now reach 96% of site index (was 73%)**
+18. **DDS Bark Ratio Conversion** - FVS applies DDS to inside-bark diameter, not outside-bark DBH. From dgdriv.f: `D=DBH(I)*BRATIO(...)` then `DG=(SQRT(DSQ+DDS)-D)`. Fixed tree.py to convert DBH to inside-bark, apply DDS, then convert back. **Result: Diameter growth improved from 0.26 to 0.31 inch/year (now in expected 0.3-0.5 range)**
 
 ## Ecological Unit Effects on Growth
 
@@ -157,15 +157,17 @@ stand = Stand(site_index=70, species='LP', ecounit='M231')
 ## Validation Status (Manuscript Comparison)
 
 Validation against timber asset account manuscript ("Toward a timber asset account for the United States"):
-- **With M231 ecounit: 53.6% of manuscript expectations** (up from 14% with base ecounit)
-- **With base ecounit (232): 14% of expectations** - appropriate for coastal Georgia
+- **With M231 ecounit: 64% of manuscript expectations** (up from 14% with base ecounit)
+- **With base ecounit (232): 20% of expectations** - appropriate for coastal Georgia
 - **Improvements made**:
   - Combined-variable volume equations (Amateis & Burkhart 1987) - validated against published research
   - Fixed height growth cap (was limiting POTHTG to 4 ft/5yr)
   - Fixed relative height calculation (was suppressing codominant tree growth)
   - Ecounit propagation from Stand to Trees (M231 adds +0.790 to growth)
-  - **Small-tree ecounit effect** - ecounit now applies to all trees, not just large trees (DBH ≥ 3")
-- **Remaining gap (~46%)**: May be due to Chapman-Richards height curve calibration, height-diameter relationship, or volume equation differences from NVEL
+  - Small-tree ecounit effect - ecounit now applies to all trees, not just large trees
+  - Large-tree POTHTG consistency - scale factor, timing, and minimum age fixes
+  - **DDS bark ratio conversion** - applies DDS to inside-bark diameter per FVS source (dgdriv.f)
+- **Remaining gap (~36%)**: Likely due to manuscript management (thinning), volume equation differences from NVEL, or different FVS settings
 - See `test_output/manuscript_validation/` for validation reports
 
 ## Development Priorities
