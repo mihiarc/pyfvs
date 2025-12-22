@@ -964,10 +964,13 @@ def test_tree_list_volume_consistency():
     total_mcuft = sum(r['McuFt'] for r in tree_list)
     total_bdft = sum(r['BdFt'] for r in tree_list)
 
-    # Should match stand metrics (with small tolerance for rounding)
-    assert abs(total_tcuft - metrics['volume']) < 1.0
-    assert abs(total_mcuft - metrics['merchantable_volume']) < 1.0
-    assert abs(total_bdft - metrics['board_feet']) < 1.0
+    # Should match stand metrics with tolerance for per-tree rounding
+    # Tree list rounds TcuFt to 0.01, McuFt to 0.01, BdFt to 0.1
+    # With ~500 trees, cumulative rounding error can be significant
+    # Using 0.5% relative tolerance as a reasonable threshold
+    assert abs(total_tcuft - metrics['volume']) < max(1.0, metrics['volume'] * 0.005)
+    assert abs(total_mcuft - metrics['merchantable_volume']) < max(1.0, metrics['merchantable_volume'] * 0.005)
+    assert abs(total_bdft - metrics['board_feet']) < max(1.0, metrics['board_feet'] * 0.005)
 
 
 # ============================================================================

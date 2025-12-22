@@ -277,12 +277,43 @@ class Stand:
     def grow(self, years: int = 5):
         """Grow stand for specified number of years.
 
+        The FVS growth model was calibrated for 5-year cycles. To ensure
+        consistent results regardless of the user-specified time step, cycles
+        longer than 5 years are internally subdivided into 5-year sub-cycles.
+        This recalculates competition metrics at appropriate intervals,
+        preventing longer cycles from accumulating excessive growth due to
+        stale (low) competition values.
+
         Args:
             years: Number of years to grow (default 5 years to match FVS)
         """
         if years <= 0:
             return
 
+        # Standard FVS cycle length for which the model was calibrated
+        BASE_CYCLE = 5
+
+        # For cycles > 5 years, internally subdivide to maintain consistent
+        # dynamics. This ensures competition is recalculated appropriately.
+        if years > BASE_CYCLE:
+            remaining = years
+            while remaining > 0:
+                sub_cycle = min(BASE_CYCLE, remaining)
+                self._grow_single_cycle(sub_cycle)
+                remaining -= sub_cycle
+        else:
+            self._grow_single_cycle(years)
+
+    def _grow_single_cycle(self, years: int):
+        """Execute a single growth cycle (internal helper).
+
+        This method performs the actual growth calculation for a single cycle.
+        It should only be called with cycle lengths <= 5 years to ensure
+        the growth model operates within its calibrated parameters.
+
+        Args:
+            years: Number of years to grow (should be <= 5 for best accuracy)
+        """
         # Store initial metrics
         initial_count = len(self.trees)
         initial_metrics = self.get_metrics() if self.trees else None

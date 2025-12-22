@@ -128,6 +128,7 @@ config_loader.py
     - Fixed growth timing to calculate growth TO current age FROM previous age (was calculating FROM current TO future, causing 5-year lag)
     - Lowered minimum age bound from 15 to 5 years for trees in transition zone (DBH 1-3")
 18. **DDS Bark Ratio Conversion** - FVS applies DDS to inside-bark diameter, not outside-bark DBH. From dgdriv.f: `D=DBH(I)*BRATIO(...)` then `DG=(SQRT(DSQ+DDS)-D)`. Fixed tree.py to convert DBH to inside-bark, apply DDS, then convert back. **Result: Diameter growth improved from 0.26 to 0.31 inch/year (now in expected 0.3-0.5 range)**
+19. **Cycle Length Time-Step Consistency** - FVS was calibrated for 5-year cycles. Longer cycles (e.g., 10 years) produced ~15% more volume because competition was calculated once at cycle start and held constant. Fixed `stand.grow()` to internally subdivide cycles > 5 years into 5-year sub-cycles, ensuring consistent dynamics regardless of user-specified time step. Competition is now recalculated at appropriate 5-year intervals.
 
 ## Ecological Unit Effects on Growth
 
