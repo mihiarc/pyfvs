@@ -123,6 +123,11 @@ config_loader.py
 14. **Height Growth Cap** - Removed artificial 4.0 ft/5yr cap on POTHTG that was limiting young tree height growth; now uses site-index-based maximum (SI × 0.20)
 15. **Relative Height Default** - Fixed relative height (RELHT) to default to 1.0 for codominant trees instead of incorrectly comparing tree height to site index, which was suppressing height growth
 16. **Small-Tree Ecounit Effect** - Applied ecological unit modifiers to small-tree height growth model; previously ecounit effects (e.g., M231 +0.790) only applied to large trees (DBH ≥ 3.0"), causing plantations to miss regional productivity boost during first 5-10 years. Now uses exp(ecounit_effect) as multiplicative modifier for consistency with large-tree DDS model. **Result: M231 now produces ~4x yield improvement, achieving 53.6% of manuscript expectations (up from ~14%)**
+17. **Large-Tree POTHTG Consistency** - Fixed three critical issues in large_tree_height_growth.py:
+    - Added scale factor normalization to ensure Height(base_age=25) = SI (was missing, causing ~40% lower POTHTG)
+    - Fixed growth timing to calculate growth TO current age FROM previous age (was calculating FROM current TO future, causing 5-year lag)
+    - Lowered minimum age bound from 15 to 5 years for trees in transition zone (DBH 1-3")
+    **Result: Heights at age 25 now reach 96% of site index (was 73%)**
 
 ## Ecological Unit Effects on Growth
 
