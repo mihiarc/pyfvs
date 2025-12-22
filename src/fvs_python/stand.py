@@ -219,7 +219,9 @@ class Stand:
         cls,
         trees_per_acre: int,
         site_index: float = 70,
-        species: str = 'LP'
+        species: str = 'LP',
+        ecounit: Optional[str] = None,
+        forest_type: Optional[str] = None
     ):
         """Create a new planted stand.
 
@@ -227,6 +229,8 @@ class Stand:
             trees_per_acre: Number of trees per acre to plant
             site_index: Site index (base age 25) in feet
             species: Species code for the plantation
+            ecounit: Ecological unit code (e.g., "M231", "232") for regional growth effects
+            forest_type: FVS forest type group (e.g., "FTYLPN")
 
         Returns:
             Stand: New stand instance
@@ -264,7 +268,7 @@ class Stand:
             for _ in range(trees_per_acre)
         ]
 
-        return cls(trees, site_index, species)
+        return cls(trees, site_index, species, forest_type=forest_type, ecounit=ecounit)
 
     # =========================================================================
     # Growth

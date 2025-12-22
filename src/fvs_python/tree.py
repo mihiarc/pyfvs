@@ -186,11 +186,27 @@ class Tree:
         height at discrete ages. The growth increment is simply the difference
         between the height curves at two points in time.
 
+        **Ecological Unit Effect:** The ecounit modifier is applied to small tree
+        height growth as a multiplicative factor. Since the large-tree DDS model
+        uses ecounit as an additive term in ln(DDS), the equivalent multiplicative
+        effect is exp(ecounit_coefficient). This ensures consistent growth rates
+        across the small-to-large tree transition.
+
         Args:
             site_index: Site index (base age 25) in feet
             competition_factor: Competition factor (0-1)
             time_step: Number of years to grow (any positive integer)
         """
+        # Get ecological unit effect for small tree growth
+        # This applies the same regional productivity adjustment as large trees
+        ecounit_multiplier = 1.0
+        if self._ecounit is not None:
+            from .ecological_unit import get_ecounit_effect
+            ecounit_effect = get_ecounit_effect(self.species, self._ecounit)
+            # Convert additive ln(DDS) effect to multiplicative height growth effect
+            # For M231 with LP: ecounit_effect = 0.790, exp(0.790) ≈ 2.2x growth
+            ecounit_multiplier = math.exp(ecounit_effect)
+
         # Get parameters from config
         small_tree_params = self.growth_params.get('small_tree_growth', {})
         if self.species in small_tree_params:
@@ -245,7 +261,11 @@ class Tree:
         
         # Height growth is the difference
         height_growth = future_height - current_height
-        
+
+        # Apply ecological unit modifier (regional productivity adjustment)
+        # For M231 with LP: ecounit_multiplier ≈ 2.2x, matching large-tree behavior
+        height_growth = height_growth * ecounit_multiplier
+
         # Apply a modifier for competition (subtle effect for small trees)
         # Small trees are less affected by competition than large trees
         max_reduction = self.growth_params.get('competition_effects', {}).get(
