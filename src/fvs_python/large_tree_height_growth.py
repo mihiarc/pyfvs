@@ -215,24 +215,49 @@ class LargeTreeHeightGrowthModel:
         if tree_age is None:
             tree_age = self._estimate_age_from_height(tree_height, site_index, small_tree_coeffs)
         
-        # Bound tree age to reasonable range for large trees
-        tree_age = max(15.0, min(150.0, tree_age))
+        # Bound tree age to reasonable range
+        # Allow ages as young as 5 for trees in the transition zone (DBH 1-3")
+        # Very young trees won't use the large tree model anyway
+        tree_age = max(5.0, min(150.0, tree_age))
         
         # Calculate potential height using Chapman-Richards equation
         # POTHT = c1 * SI^c2 * (1 - exp(-c3 * AGET))^(c4 * SI^c5)
-        c1, c2, c3, c4, c5 = (small_tree_coeffs['c1'], small_tree_coeffs['c2'], 
-                              small_tree_coeffs['c3'], small_tree_coeffs['c4'], 
+        c1, c2, c3, c4, c5 = (small_tree_coeffs['c1'], small_tree_coeffs['c2'],
+                              small_tree_coeffs['c3'], small_tree_coeffs['c4'],
                               small_tree_coeffs['c5'])
-        
+
+        # Site index base age for southern pines
+        base_age = 25
+
+        def _raw_chapman_richards(age: float) -> float:
+            """Calculate unscaled Chapman-Richards height."""
+            if age <= 0:
+                return 1.0
+            return c1 * (site_index ** c2) * (1.0 - math.exp(c3 * age)) ** (c4 * (site_index ** c5))
+
         try:
-            # Current potential height
-            current_potht = c1 * (site_index ** c2) * (1.0 - math.exp(c3 * tree_age)) ** (c4 * (site_index ** c5))
-            
-            # Future potential height (5 years ahead)
-            future_potht = c1 * (site_index ** c2) * (1.0 - math.exp(c3 * (tree_age + 5))) ** (c4 * (site_index ** c5))
-            
-            # Potential height growth = future - current
-            potential_height_growth = future_potht - current_potht
+            # Calculate scaling factor to ensure Height(base_age=25) = SI
+            # This is critical for consistency with the small tree model
+            raw_height_at_base = _raw_chapman_richards(base_age)
+            if raw_height_at_base > 0:
+                scale_factor = site_index / raw_height_at_base
+            else:
+                scale_factor = 1.0
+
+            # Note: tree_age is the age AFTER the growth period (consistent with
+            # how grow() increments age before calling growth functions).
+            # So we calculate growth TO current age FROM previous age (5 years ago).
+            # This matches the small tree model's approach.
+            previous_age = max(0, tree_age - 5)
+
+            # Height at previous age (start of growth period)
+            previous_potht = _raw_chapman_richards(previous_age) * scale_factor
+
+            # Height at current age (end of growth period, scaled)
+            current_potht = _raw_chapman_richards(tree_age) * scale_factor
+
+            # Potential height growth = current - previous (growth TO this age)
+            potential_height_growth = current_potht - previous_potht
             
             # Apply constraints based on tree size and site quality
             # Large trees should have slower height growth
