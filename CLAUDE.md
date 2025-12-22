@@ -29,7 +29,7 @@ uv run flake8 src/fvs_python tests
 uv run mypy src/fvs_python
 
 # Run simulation via CLI
-uv run fvs-simulate run --years 50 --species LP --site-index 70
+uv run fvs-python simulate --species LP --tpa 500 --site-index 70 --years 50
 
 # Run main module directly
 uv run python -m fvs_python.main
@@ -84,7 +84,7 @@ config_loader.py
 ```
 
 ### Configuration System
-- Species configs: `/cfg/species/*.yaml` (~80+ species)
+- Species configs: `/cfg/species/*.yaml` (90 species)
 - Model coefficients: `/cfg/sn_*.json` (height-diameter, crown width, bark ratio, CCF, etc.)
 - Functional forms: `/cfg/functional_forms.yaml` (equation specifications)
 - All JSON loading uses `ConfigLoader.load_coefficient_file()` with centralized caching
@@ -122,7 +122,7 @@ config_loader.py
 13. **Volume Equations** - Replaced simple form-factor calculation with combined-variable equations (V = a + b × D²H) from Amateis & Burkhart (1987), matching published research with R² > 0.97
 14. **Height Growth Cap** - Removed artificial 4.0 ft/5yr cap on POTHTG that was limiting young tree height growth; now uses site-index-based maximum (SI × 0.20)
 15. **Relative Height Default** - Fixed relative height (RELHT) to default to 1.0 for codominant trees instead of incorrectly comparing tree height to site index, which was suppressing height growth
-16. **Small-Tree Ecounit Effect** - Applied ecological unit modifiers to small-tree height growth model; previously ecounit effects (e.g., M231 +0.790) only applied to large trees (DBH ≥ 3.0"), causing plantations to miss regional productivity boost during first 5-10 years. Now uses exp(ecounit_effect) as multiplicative modifier for consistency with large-tree DDS model. **Result: M231 now produces ~4x yield improvement, achieving 53.6% of manuscript expectations (up from ~14%)**
+16. **Small-Tree Ecounit Effect** - Applied ecological unit modifiers to small-tree height growth model; previously ecounit effects (e.g., M231 +0.790) only applied to large trees (DBH ≥ 3.0"), causing plantations to miss regional productivity boost during first 5-10 years. Now uses exp(ecounit_effect) as multiplicative modifier for consistency with large-tree DDS model. **Result: M231 now produces ~4x yield improvement, achieving ~54% of manuscript expectations (up from ~14%)**
 17. **Large-Tree POTHTG Consistency** - Fixed three critical issues in large_tree_height_growth.py:
     - Added scale factor normalization to ensure Height(base_age=25) = SI (was missing, causing ~40% lower POTHTG)
     - Fixed growth timing to calculate growth TO current age FROM previous age (was calculating FROM current TO future, causing 5-year lag)
@@ -158,8 +158,8 @@ stand = Stand(site_index=70, species='LP', ecounit='M231')
 ## Validation Status (Manuscript Comparison)
 
 Validation against timber asset account manuscript ("Toward a timber asset account for the United States"):
-- **With M231 ecounit: 64% of manuscript expectations** (up from 14% with base ecounit)
-- **With base ecounit (232): 20% of expectations** - appropriate for coastal Georgia
+- **With M231 ecounit: ~54% of manuscript yield expectations** (up from ~14% with base ecounit)
+- **With base ecounit (232): ~20% of expectations** - appropriate for coastal Georgia
 - **Improvements made**:
   - Combined-variable volume equations (Amateis & Burkhart 1987) - validated against published research
   - Fixed height growth cap (was limiting POTHTG to 4 ft/5yr)
@@ -168,7 +168,7 @@ Validation against timber asset account manuscript ("Toward a timber asset accou
   - Small-tree ecounit effect - ecounit now applies to all trees, not just large trees
   - Large-tree POTHTG consistency - scale factor, timing, and minimum age fixes
   - **DDS bark ratio conversion** - applies DDS to inside-bark diameter per FVS source (dgdriv.f)
-- **Remaining gap (~36%)**: Likely due to manuscript management (thinning), volume equation differences from NVEL, or different FVS settings
+- **Remaining gap (~46%)**: Likely due to manuscript management (thinning), volume equation differences from NVEL, or different FVS settings
 - See `test_output/manuscript_validation/` for validation reports
 
 ## Development Priorities
@@ -177,7 +177,7 @@ Validation against timber asset account manuscript ("Toward a timber asset accou
 1. **Consolidate Simulation Functions**: Three overlapping functions in `main.py` (run_simulation, simulate_stand_growth, generate_yield_table)
 
 ### Testing & Validation
-1. ~~Re-run manuscript validation tests with appropriate ecounit settings~~ **DONE** - M231 achieves 53.6%
+1. ~~Re-run manuscript validation tests with appropriate ecounit settings~~ **DONE** - M231 achieves ~54%
 2. Add regression tests with known good outputs
 3. Test with large stands (1000+ trees) for performance
 
