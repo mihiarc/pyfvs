@@ -229,10 +229,10 @@ class SimulationEngine:
             species: Species code
             tpa: Initial trees per acre
             site_index: Site index
-            export_formats: List of formats to export ('csv', 'json', 'xml', 'excel')
+            export_formats: List of formats to export ('csv', 'json', 'excel')
         """
         base_filename = f"sim_{species}_TPA{tpa}_SI{int(site_index)}"
-        
+
         exported_files = {}
         for format_type in export_formats:
             try:
@@ -241,16 +241,14 @@ class SimulationEngine:
                     filepath = self.exporter.export_to_csv(df, base_filename, include_metadata=False)
                 elif format_type == 'json':
                     filepath = self.exporter.export_to_json(df, base_filename)
-                elif format_type == 'xml':
-                    filepath = self.exporter.export_to_xml(df, base_filename)
                 elif format_type == 'excel':
                     filepath = self.exporter.export_to_excel(df, base_filename)
                 else:
                     self.logger.warning(f"Unsupported export format: {format_type}")
                     continue
-                    
+
                 exported_files[format_type] = filepath
-                
+
             except Exception as e:
                 self.logger.error(f"Failed to export {format_type}: {e}")
         
