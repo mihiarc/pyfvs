@@ -2846,7 +2846,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pyfvs"
+name = "pyfvs-fia"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [
