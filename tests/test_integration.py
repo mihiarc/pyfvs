@@ -7,10 +7,10 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from fvs_python.simulation_engine import SimulationEngine
-from fvs_python.stand import Stand
-from fvs_python.tree import Tree
-from fvs_python.exceptions import (
+from pyfvs.simulation_engine import SimulationEngine
+from pyfvs.stand import Stand
+from pyfvs.tree import Tree
+from pyfvs.exceptions import (
     SpeciesNotFoundError, 
     InvalidParameterError,
     EmptyStandError

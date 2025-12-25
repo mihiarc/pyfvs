@@ -125,10 +125,10 @@ class ValidationSuite:
 
     def validate_component_models(self) -> None:
         """Level 1: Validate individual equation implementations."""
-        from fvs_python.height_diameter import create_height_diameter_model
-        from fvs_python.bark_ratio import create_bark_ratio_model
-        from fvs_python.crown_ratio import create_crown_ratio_model
-        from fvs_python.crown_width import create_crown_width_model
+        from pyfvs.height_diameter import create_height_diameter_model
+        from pyfvs.bark_ratio import create_bark_ratio_model
+        from pyfvs.crown_ratio import create_crown_ratio_model
+        from pyfvs.crown_width import create_crown_width_model
 
         species_list = ["LP", "SP", "SA", "LL"]
 
@@ -240,7 +240,7 @@ class ValidationSuite:
 
     def validate_single_tree_growth(self) -> None:
         """Level 2: Validate tree-level growth predictions."""
-        from fvs_python.tree import Tree
+        from pyfvs.tree import Tree
 
         species_list = ["LP", "SP", "SA", "LL"]
 
@@ -318,7 +318,7 @@ class ValidationSuite:
 
     def validate_stand_simulations(self) -> None:
         """Level 3: Validate full stand simulations."""
-        from fvs_python.stand import Stand
+        from pyfvs.stand import Stand
 
         # Test scenarios
         scenarios = [
@@ -373,7 +373,7 @@ class ValidationSuite:
 
     def verify_bakuzis(self) -> None:
         """Level 4: Verify Bakuzis Matrix relationships."""
-        from fvs_python.stand import Stand
+        from pyfvs.stand import Stand
 
         stand = Stand.initialize_planted(
             trees_per_acre=500,

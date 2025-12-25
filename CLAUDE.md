@@ -29,7 +29,7 @@ uv run flake8 src/fvs_python tests
 uv run mypy src/fvs_python
 
 # Run simulation via CLI
-uv run fvs-python simulate --species LP --tpa 500 --site-index 70 --years 50
+uv run pyfvs simulate --species LP --tpa 500 --site-index 70 --years 50
 
 # Run main module directly
 uv run python -m fvs_python.main
@@ -183,14 +183,14 @@ Validation against timber asset account manuscript ("Toward a timber asset accou
 
 ### Comparison to Published Yield Tables
 
-| Source | Volume/acre at Age 25 | Ratio to FVS-Python |
+| Source | Volume/acre at Age 25 | Ratio to PyFVS |
 |--------|----------------------|---------------------|
-| FVS-Python (800 TPA) | 9,367 cuft | 100% (our best) |
+| PyFVS (800 TPA) | 9,367 cuft | 100% (our best) |
 | Schumacher & Coile 1960 | 4,500 cuft | 48% of ours |
 | USFS Misc. Pub. 50 | 3,000 cuft | 32% of ours |
 | Manuscript expected | 18,500 cuft | 197% of ours |
 
-**Key finding**: FVS-Python produces **208% of Schumacher & Coile (1960)** published values. The growth model exceeds historical yield tables.
+**Key finding**: PyFVS produces **208% of Schumacher & Coile (1960)** published values. The growth model exceeds historical yield tables.
 
 ### Understanding the Gap
 The gap vs manuscript expectations is NOT due to under-prediction:
@@ -208,7 +208,7 @@ The gap vs manuscript expectations is NOT due to under-prediction:
 - DDS bark ratio conversion - applies DDS to inside-bark diameter per FVS source (dgdriv.f)
 
 ### Validation Conclusion
-**FVS-Python is producing reasonable yields** - exceeding published historical yield tables by 2x. The gap vs manuscript is likely due to:
+**PyFVS is producing reasonable yields** - exceeding published historical yield tables by 2x. The gap vs manuscript is likely due to:
 - Different volume measurement standards (total tree vs merchantable stem)
 - Manuscript using specific FVS settings or post-processing
 - Unit interpretation differences
@@ -236,7 +236,7 @@ See `test_output/manuscript_validation/` for validation reports
 
 ### Testing & Validation
 1. ~~Re-run manuscript validation tests with appropriate ecounit settings~~ **DONE**
-2. ~~Investigate yield gap vs manuscript~~ **RESOLVED** - FVS-Python exceeds historical yield tables by 2x; manuscript expectations appear unusually high
+2. ~~Investigate yield gap vs manuscript~~ **RESOLVED** - PyFVS exceeds historical yield tables by 2x; manuscript expectations appear unusually high
 3. ~~Validate thinned stands~~ **DONE** - Thinning produces larger individual trees but lower total volume
 4. Add regression tests with known good outputs
 5. Test with large stands (1000+ trees) for performance

@@ -7,7 +7,7 @@ import math
 import numpy as np
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from fvs_python.tree import Tree
+from pyfvs.tree import Tree
 from tests.utils import setup_test_output, plot_tree_growth_comparison, generate_test_report
 
 # Setup output directory
@@ -478,7 +478,7 @@ class TestTreeValidation:
         
         assert volume == default_volume
     
-    @patch('fvs_python.volume_library.calculate_tree_volume')
+    @patch('pyfvs.volume_library.calculate_tree_volume')
     def test_volume_calculation_error_handling(self, mock_calculate):
         """Test error handling in volume calculations."""
         # Mock volume calculation to raise an exception

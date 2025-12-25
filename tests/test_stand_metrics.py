@@ -6,14 +6,14 @@ identical results to the original Stand class methods.
 """
 import pytest
 import math
-from fvs_python.stand_metrics import (
+from pyfvs.stand_metrics import (
     StandMetricsCalculator,
     get_metrics_calculator,
     calculate_stand_ccf,
     calculate_stand_sdi,
     calculate_stand_basal_area
 )
-from fvs_python.tree import Tree
+from pyfvs.tree import Tree
 
 
 class TestStandMetricsCalculator:
@@ -289,7 +289,7 @@ class TestMetricsEquivalence:
     @pytest.fixture
     def trees_and_stand(self):
         """Create trees and a Stand for comparison testing."""
-        from fvs_python.stand import Stand
+        from pyfvs.stand import Stand
 
         trees = []
         for i in range(20):

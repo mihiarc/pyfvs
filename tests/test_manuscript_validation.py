@@ -25,8 +25,8 @@ import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 
-from fvs_python.stand import Stand
-from fvs_python.tree import Tree
+from pyfvs.stand import Stand
+from pyfvs.tree import Tree
 
 # Import test utilities if available
 try:

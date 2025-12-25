@@ -4,7 +4,7 @@ All tests use 1 acre as the standard area for simplicity.
 """
 import pytest
 from pathlib import Path
-from fvs_python.stand import Stand
+from pyfvs.stand import Stand
 from tests.utils import (
     setup_test_output, 
     plot_stand_development, 
@@ -415,7 +415,7 @@ def test_board_feet_sawlog_threshold():
 
     Softwoods need >= 9" DBH for board foot volume.
     """
-    from fvs_python.tree import Tree
+    from pyfvs.tree import Tree
 
     # Create trees of various sizes
     small_tree = Tree(dbh=6.0, height=40.0, species='LP')  # Below sawlog threshold
@@ -987,7 +987,7 @@ def test_generate_yield_table_basic():
     assert len(yield_table) == 7
 
     # All records should be YieldRecord objects
-    from fvs_python.stand import YieldRecord
+    from pyfvs.stand import YieldRecord
     for record in yield_table:
         assert isinstance(record, YieldRecord)
 

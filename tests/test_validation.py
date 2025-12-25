@@ -14,12 +14,12 @@ import numpy as np
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from fvs_python.tree import Tree
-from fvs_python.stand import Stand
-from fvs_python.height_diameter import create_height_diameter_model
-from fvs_python.bark_ratio import create_bark_ratio_model
-from fvs_python.crown_ratio import create_crown_ratio_model
-from fvs_python.crown_width import create_crown_width_model
+from pyfvs.tree import Tree
+from pyfvs.stand import Stand
+from pyfvs.height_diameter import create_height_diameter_model
+from pyfvs.bark_ratio import create_bark_ratio_model
+from pyfvs.crown_ratio import create_crown_ratio_model
+from pyfvs.crown_width import create_crown_width_model
 
 
 class TestComponentModels:

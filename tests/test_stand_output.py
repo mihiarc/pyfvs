@@ -8,14 +8,14 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
-from fvs_python.stand_output import (
+from pyfvs.stand_output import (
     StandOutputGenerator,
     YieldRecord,
     get_output_generator,
     generate_tree_list
 )
-from fvs_python.stand_metrics import StandMetricsCalculator
-from fvs_python.tree import Tree
+from pyfvs.stand_metrics import StandMetricsCalculator
+from pyfvs.tree import Tree
 
 
 class TestYieldRecord:
@@ -381,7 +381,7 @@ class TestOutputEquivalence:
     @pytest.fixture
     def trees_and_stand(self):
         """Create trees and a Stand for comparison testing."""
-        from fvs_python.stand import Stand
+        from pyfvs.stand import Stand
 
         trees = []
         for i in range(30):

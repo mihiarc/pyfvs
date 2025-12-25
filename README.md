@@ -1,7 +1,7 @@
-# FVS-Python: Southern Yellow Pine Growth Simulator
+# PyFVS: Southern Yellow Pine Growth Simulator
 
 ## Overview
-FVS-Python is a Python implementation of the Southern variant of the Forest Vegetation Simulator (FVS). It simulates the growth and yield of four southern yellow pine species:
+PyFVS is a Python implementation of the Southern variant of the Forest Vegetation Simulator (FVS). It simulates the growth and yield of four southern yellow pine species:
 - Loblolly Pine (Pinus taeda, LP)
 - Shortleaf Pine (Pinus echinata, SP)
 - Longleaf Pine (Pinus palustris, LL)
@@ -17,7 +17,7 @@ The simulator generates yield tables for planted stands from age 0 to 50 years, 
 graph TB
     %% Main Entry Points
     CLI["`**CLI Interface**
-    fvs-simulate`"]
+    pyfvs-simulate`"]
     MAIN["`**Main Module**
     Simulation Engine`"]
     API["`**Direct API**
@@ -174,9 +174,9 @@ graph TD
 ### Entry Points (Blue)
 
 #### CLI Interface (`cli.py`)
-- **Command**: `fvs-simulate`
+- **Command**: `pyfvs-simulate`
 - **Functions**: Run simulations, convert configs, validate configurations
-- **Usage**: `fvs-simulate run --years 50 --species LP --site-index 70`
+- **Usage**: `pyfvs-simulate run --years 50 --species LP --site-index 70`
 
 #### Main Module (`main.py`)
 - **Purpose**: Core simulation engine
@@ -185,7 +185,7 @@ graph TD
 
 #### Direct API
 - **Usage**: Import classes and functions directly in Python code
-- **Example**: `from fvs_python import Stand, Tree, create_height_diameter_model`
+- **Example**: `from pyfvs import Stand, Tree, create_height_diameter_model`
 
 ### Core Classes (Purple)
 
@@ -655,19 +655,19 @@ def generate_yield_table(species, site_classes, tpa_range):
 ### Command Line
 ```bash
 # Basic simulation
-fvs-simulate run
+pyfvs-simulate run
 
 # Custom parameters
-fvs-simulate run --years 40 --species LP --site-index 80 --trees-per-acre 600
+pyfvs-simulate run --years 40 --species LP --site-index 80 --trees-per-acre 600
 
 # Configuration management
-fvs-simulate convert-config --output-dir ./cfg/toml
-fvs-simulate validate-config
+pyfvs-simulate convert-config --output-dir ./cfg/toml
+pyfvs-simulate validate-config
 ```
 
 ### Python API
 ```python
-from fvs_python import Stand, Tree
+from pyfvs import Stand, Tree
 
 # Create a planted stand
 stand = Stand.initialize_planted(trees_per_acre=500, site_index=70)
@@ -694,7 +694,7 @@ This will:
 ## File Structure
 
 ```
-src/fvs_python/
+src/pyfvs/
 ├── __init__.py              # Package exports
 ├── tree.py                  # Tree class
 ├── stand.py                 # Stand class
@@ -750,4 +750,4 @@ open _build/html/index.html
 
 ---
 
-*This documentation reflects the current state of the FVS-Python project and serves as a comprehensive guide for understanding the codebase structure, data flow patterns, and usage.*
+*This documentation reflects the current state of the PyFVS project and serves as a comprehensive guide for understanding the codebase structure, data flow patterns, and usage.*

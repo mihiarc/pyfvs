@@ -1,6 +1,6 @@
-# Contributing to FVS-Python
+# Contributing to PyFVS
 
-Thank you for your interest in contributing to FVS-Python! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to PyFVS! This document provides guidelines for contributing to the project.
 
 ## Getting Started
 
@@ -8,8 +8,8 @@ Thank you for your interest in contributing to FVS-Python! This document provide
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/mihiarc/fvs-python.git
-   cd fvs-python
+   git clone https://github.com/mihiarc/pyfvs.git
+   cd pyfvs
    ```
 
 2. **Create a virtual environment with uv (recommended)**
@@ -31,7 +31,7 @@ Thank you for your interest in contributing to FVS-Python! This document provide
 ### Project Structure
 
 ```
-fvs-python/
+pyfvs/
 ├── src/fvs_python/     # Main source code
 │   ├── tree.py         # Individual tree growth models
 │   ├── stand.py        # Stand-level management
@@ -375,8 +375,8 @@ Include:
 
 ## Questions?
 
-- Open a [GitHub Issue](https://github.com/mihiarc/fvs-python/issues)
+- Open a [GitHub Issue](https://github.com/mihiarc/pyfvs/issues)
 - Check existing documentation in `docs/`
 - Review the [CLAUDE.md](CLAUDE.md) for project context
 
-Thank you for contributing to FVS-Python!
+Thank you for contributing to PyFVS!

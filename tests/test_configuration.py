@@ -8,8 +8,8 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from fvs_python.config_loader import ConfigLoader, get_config_loader
-from fvs_python.exceptions import (
+from pyfvs.config_loader import ConfigLoader, get_config_loader
+from pyfvs.exceptions import (
     ConfigurationError, 
     SpeciesNotFoundError,
     FileNotFoundError as FVSFileNotFoundError,
@@ -252,7 +252,7 @@ class TestGrowthModelParameters:
     
     def test_species_specific_parameters(self):
         """Test that species-specific parameters override defaults."""
-        from fvs_python.tree import Tree
+        from pyfvs.tree import Tree
         
         # Create tree and check it loads parameters
         tree = Tree(dbh=2.0, height=15.0, species='LP')
@@ -268,7 +268,7 @@ class TestGrowthModelParameters:
     
     def test_fallback_values(self):
         """Test that fallback values work when config is missing."""
-        from fvs_python.tree import Tree
+        from pyfvs.tree import Tree
         
         # Temporarily rename config file to simulate missing file
         loader = get_config_loader()

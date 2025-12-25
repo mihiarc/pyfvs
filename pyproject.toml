@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fvs-python"
-version = "0.1.0"
-description = "Python implementation of the Southern variant of the Forest Vegetation Simulator"
+name = "pyfvs"
+version = "0.2.0"
+description = "Python implementation of the Forest Vegetation Simulator - Part of the FIA Python Ecosystem"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -14,7 +14,7 @@ authors = [
 maintainers = [
     {name = "Chris Mihiar", email = "chris.mihiar@gmail.com"}
 ]
-keywords = ["forestry", "growth-simulation", "fvs", "southern-pine", "yield-tables"]
+keywords = ["forestry", "growth-simulation", "fvs", "southern-pine", "yield-tables", "fia"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -68,24 +68,24 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mihiarc/fvs-python"
-Repository = "https://github.com/mihiarc/fvs-python"
-Documentation = "https://github.com/mihiarc/fvs-python/docs"
-"Bug Tracker" = "https://github.com/mihiarc/fvs-python/issues"
+Homepage = "https://github.com/mihiarc/pyfvs"
+Repository = "https://github.com/mihiarc/pyfvs"
+Documentation = "https://github.com/mihiarc/pyfvs/docs"
+"Bug Tracker" = "https://github.com/mihiarc/pyfvs/issues"
 
 [project.scripts]
-fvs-python = "fvs_python.cli:main"
-fvs-simulate = "fvs_python.cli:main"
+pyfvs = "pyfvs.cli:main"
+pyfvs-simulate = "pyfvs.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["fvs_python*"]
+include = ["pyfvs*"]
 
 [tool.setuptools.package-data]
-fvs_python = ["cfg/**/*.yaml", "cfg/**/*.yml"]
+pyfvs = ["cfg/**/*.yaml", "cfg/**/*.yml"]
 
 # Black configuration
 [tool.black]
@@ -112,7 +112,7 @@ extend-exclude = '''
 profile = "black"
 multi_line_output = 3
 line_length = 88
-known_first_party = ["fvs_python"]
+known_first_party = ["pyfvs"]
 skip_glob = ["archive/*"]
 
 # MyPy configuration
@@ -147,7 +147,7 @@ addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
-    "--cov=fvs_python",
+    "--cov=pyfvs",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
@@ -194,4 +194,4 @@ dev = [
 ]
 
 # Flake8 configuration (in setup.cfg since flake8 doesn't support pyproject.toml yet)
-# See setup.cfg for flake8 configuration 
+# See setup.cfg for flake8 configuration

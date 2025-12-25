@@ -13,7 +13,7 @@ import os
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from fvs_python.crown_ratio import (
+from pyfvs.crown_ratio import (
     CrownRatioModel,
     create_crown_ratio_model,
     calculate_average_crown_ratio,

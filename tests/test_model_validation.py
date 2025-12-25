@@ -7,9 +7,9 @@ import yaml
 import numpy as np
 from pathlib import Path
 
-from fvs_python.tree import Tree
-from fvs_python.stand import Stand
-from fvs_python.simulation_engine import SimulationEngine
+from pyfvs.tree import Tree
+from pyfvs.stand import Stand
+from pyfvs.simulation_engine import SimulationEngine
 from tests.utils import setup_test_output
 
 

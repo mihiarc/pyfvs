@@ -6,14 +6,14 @@ results consistent with the original Stand class implementation.
 """
 import pytest
 import math
-from fvs_python.harvest import (
+from pyfvs.harvest import (
     HarvestManager,
     HarvestRecord,
     HarvestResult,
     get_harvest_manager,
     thin_stand_from_below
 )
-from fvs_python.tree import Tree
+from pyfvs.tree import Tree
 
 
 class TestHarvestManager:
@@ -427,7 +427,7 @@ class TestHarvestEquivalence:
     @pytest.fixture
     def trees_and_stand(self):
         """Create trees and a Stand for comparison testing."""
-        from fvs_python.stand import Stand
+        from pyfvs.stand import Stand
 
         trees = []
         for i in range(100):

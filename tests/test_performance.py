@@ -8,9 +8,9 @@ import tracemalloc
 import numpy as np
 from pathlib import Path
 
-from fvs_python.simulation_engine import SimulationEngine
-from fvs_python.stand import Stand
-from fvs_python.tree import Tree
+from pyfvs.simulation_engine import SimulationEngine
+from pyfvs.stand import Stand
+from pyfvs.tree import Tree
 from tests.utils import setup_test_output
 
 
@@ -166,7 +166,7 @@ class TestPerformance:
     
     def test_configuration_loading_speed(self):
         """Test configuration loading performance."""
-        from fvs_python.config_loader import get_config_loader
+        from pyfvs.config_loader import get_config_loader
         
         # Time loading all species configs
         loader = get_config_loader()
@@ -188,8 +188,8 @@ class TestPerformance:
     
     def test_growth_model_calculations(self):
         """Benchmark individual growth model components."""
-        from fvs_python.height_diameter import create_height_diameter_model
-        from fvs_python.crown_ratio import create_crown_ratio_model
+        from pyfvs.height_diameter import create_height_diameter_model
+        from pyfvs.crown_ratio import create_crown_ratio_model
         
         # Test height-diameter calculations
         hd_model = create_height_diameter_model('LP')

@@ -19,8 +19,8 @@ from rich import box
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from fvs_python.stand import Stand
-from fvs_python.config_loader import ConfigLoader
+from pyfvs.stand import Stand
+from pyfvs.config_loader import ConfigLoader
 
 console = Console()
 

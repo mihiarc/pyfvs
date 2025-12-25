@@ -1,8 +1,14 @@
 """
-FVS-Python: Southern Yellow Pine Growth Simulator
+PyFVS: Forest Vegetation Simulator for Python
 
-A Python implementation of forest growth models based on the 
+A Python implementation of forest growth models based on the
 Forest Vegetation Simulator (FVS) Southern variant.
+
+Part of the FIA Python Ecosystem:
+- PyFIA: Survey/plot data analysis (https://github.com/mihiarc/pyfia)
+- GridFIA: Spatial raster analysis (https://github.com/mihiarc/gridfia)
+- PyFVS: Growth/yield simulation (this package)
+- AskFIA: AI conversational interface (https://github.com/mihiarc/askfia)
 """
 
 from .stand import Stand
@@ -29,8 +35,8 @@ from .ecological_unit import (
 )
 from .main import main
 
-__version__ = "0.1.0"
-__author__ = "FVS-Python Development Team"
+__version__ = "0.2.0"
+__author__ = "PyFVS Development Team"
 
 __all__ = [
     "Stand",

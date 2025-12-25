@@ -6,14 +6,14 @@ results consistent with the original Stand class implementation.
 """
 import pytest
 import math
-from fvs_python.competition import (
+from pyfvs.competition import (
     CompetitionCalculator,
     TreeCompetition,
     get_competition_calculator,
     calculate_stand_competition
 )
-from fvs_python.stand_metrics import StandMetricsCalculator
-from fvs_python.tree import Tree
+from pyfvs.stand_metrics import StandMetricsCalculator
+from pyfvs.tree import Tree
 
 
 class TestCompetitionCalculator:
@@ -346,7 +346,7 @@ class TestCompetitionEquivalence:
     @pytest.fixture
     def trees_and_stand(self):
         """Create trees and a Stand for comparison testing."""
-        from fvs_python.stand import Stand
+        from pyfvs.stand import Stand
 
         trees = []
         for i in range(50):

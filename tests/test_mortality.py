@@ -7,13 +7,13 @@ results consistent with the original Stand class implementation.
 import pytest
 import math
 import random
-from fvs_python.mortality import (
+from pyfvs.mortality import (
     MortalityModel,
     MortalityResult,
     get_mortality_model,
     apply_stand_mortality
 )
-from fvs_python.tree import Tree
+from pyfvs.tree import Tree
 
 
 class TestMortalityModel:
@@ -306,7 +306,7 @@ class TestMortalityEquivalence:
     @pytest.fixture
     def trees_and_stand(self):
         """Create trees and a Stand for comparison testing."""
-        from fvs_python.stand import Stand
+        from pyfvs.stand import Stand
 
         trees = []
         for i in range(100):
