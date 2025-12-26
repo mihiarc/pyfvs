@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://fiatools.org/logos/pyfvs-logo.svg" alt="pyFVS" width="140">
+  <img src="https://fiatools.org/logos/pyfvs_logo.png" alt="pyFVS" width="140">
 
   <h1>pyFVS</h1>
 
