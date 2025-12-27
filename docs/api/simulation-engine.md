@@ -33,6 +33,14 @@ results = engine.simulate_stand(
 print(results.tail())
 ```
 
+!!! example "Expected output"
+    ```
+       age  tpa  basal_area   volume  mean_dbh  mean_height    qmd  top_height
+    8   40  395       308.2   9143.5     11.85        82.14  11.93       85.67
+    9   45  380       332.1  10621.8     12.59        87.04  12.66       90.11
+    10  50  367       352.7  12045.3     13.27        91.23  13.33       93.89
+    ```
+
 ## Single Stand Simulation
 
 ```python

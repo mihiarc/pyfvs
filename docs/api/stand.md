@@ -35,6 +35,12 @@ print(f"Volume: {metrics['volume']:.0f} ft³/acre")
 print(f"Basal area: {metrics['basal_area']:.1f} ft²/acre")
 ```
 
+!!! example "Expected output"
+    ```
+    Volume: 10621 ft³/acre
+    Basal area: 353.9 ft²/acre
+    ```
+
 ## Creating Stands
 
 ### Planted Stand (Recommended)

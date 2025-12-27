@@ -100,6 +100,13 @@ stand.grow(years=10)  # Age 30
 print(f"Final: {stand.get_metrics()['volume']:.0f} ft³/acre, {stand.get_metrics()['qmd']:.1f}\" QMD")
 ```
 
+!!! example "Expected output"
+    ```
+    Pre-thin: 661 TPA, 8.6" QMD
+    Post-thin: 350 TPA
+    Final: 7988 ft³/acre, 16.0" QMD
+    ```
+
 ### Sawtimber Rotation
 
 ```python
@@ -118,6 +125,12 @@ metrics = stand.get_metrics()
 print(f"Final DBH: {metrics['qmd']:.1f} inches")
 print(f"Final volume: {metrics['volume']:.0f} ft³/acre")
 ```
+
+!!! example "Expected output"
+    ```
+    Final DBH: 13.9 inches
+    Final volume: 4819 ft³/acre
+    ```
 
 ## Tracking Harvest Volume
 

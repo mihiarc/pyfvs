@@ -27,6 +27,14 @@ print(f"Volume: {metrics['volume']:.0f} ft³/acre")
 print(f"Mean DBH: {metrics['qmd']:.1f} inches")
 ```
 
+!!! example "Expected output"
+    ```
+    Age: 30 years
+    Trees/acre: 439
+    Volume: 6976 ft³/acre
+    Mean DBH: 9.3 inches
+    ```
+
 ## Thinning Scenarios
 
 ### Single Thin
@@ -54,6 +62,13 @@ stand.grow(years=15)
 print(f"Final volume: {stand.get_metrics()['volume']:.0f} ft³/acre")
 ```
 
+!!! example "Expected output"
+    ```
+    Pre-thin: 659 TPA
+    Post-thin: 300 TPA
+    Final volume: 10222 ft³/acre
+    ```
+
 ### Multiple Thins
 
 ```python
@@ -80,6 +95,11 @@ stand.grow(years=15)
 metrics = stand.get_metrics()
 print(f"Final: {metrics['volume']:.0f} ft³/acre, {metrics['qmd']:.1f}\" DBH")
 ```
+
+!!! example "Expected output"
+    ```
+    Final: 10997 ft³/acre, 16.8" DBH
+    ```
 
 ## Yield Table Generation
 
@@ -113,6 +133,17 @@ for si in [60, 70, 80]:
 df = pd.DataFrame(results)
 print(df.to_string(index=False))
 ```
+
+!!! example "Expected output"
+    ```
+     site_index  initial_tpa  final_volume  final_tpa  final_qmd
+             60          400        9759.0        357       13.3
+             60          600       11330.0        531       11.8
+             70          400       11950.0        351       13.8
+             70          600       13493.0        510       12.1
+             80          400       14150.0        350       14.1
+             80          600       16138.0        519       12.3
+    ```
 
 ### Using SimulationEngine
 
@@ -154,6 +185,16 @@ for sp in species_list:
     print(f"{sp}: {m['volume']:,.0f} ft³/acre")
 ```
 
+!!! example "Expected output"
+    ```
+    Volume at age 30 (SI=70, 500 TPA):
+    ----------------------------------------
+    LP: 13,169 ft³/acre
+    SP: 5,802 ft³/acre
+    SA: 6,367 ft³/acre
+    LL: 5,806 ft³/acre
+    ```
+
 ## Export Results
 
 ### To CSV
@@ -162,7 +203,10 @@ for sp in species_list:
 from pyfvs import Stand
 
 stand = Stand.initialize_planted(trees_per_acre=500, site_index=70, species='LP')
-yield_table = stand.grow(years=50)
+stand.grow(years=50)
+
+# Generate yield table
+yield_table = stand.get_yield_table_dataframe(years=50, period_length=5)
 
 # Export yield table
 yield_table.to_csv('yield_table.csv', index=False)

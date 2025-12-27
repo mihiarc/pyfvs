@@ -51,6 +51,14 @@ print(f"Basal area: {metrics['basal_area']:.1f} ft²/acre")
 print(f"Volume: {metrics['volume']:.0f} ft³/acre")
 ```
 
+!!! example "Expected output"
+    ```
+    Age: 30 years
+    Trees per acre: 430
+    Basal area: 205.5 ft²/acre
+    Volume: 6881 ft³/acre
+    ```
+
 ### Understanding Site Index
 
 Site index represents the expected height of dominant trees at a base age of 25 years. Higher site index means better growing conditions:
@@ -80,6 +88,11 @@ stand = Stand.initialize_planted(
 stand.grow(years=25)
 print(f"Volume: {stand.get_metrics()['volume']:.0f} ft³/acre")
 ```
+
+!!! example "Expected output"
+    ```
+    Volume: 10729 ft³/acre
+    ```
 
 Available ecounits and their effects on diameter growth:
 
@@ -111,6 +124,11 @@ stand.grow(years=15)
 print(f"Final TPA: {stand.get_metrics()['tpa']:.0f}")
 ```
 
+!!! example "Expected output"
+    ```
+    Final TPA: 189
+    ```
+
 ### Thinning from Above
 
 Remove the largest trees (high-grade harvest):
@@ -124,7 +142,7 @@ stand.thin_from_above(target_tpa=300)
 Remove trees to achieve a target basal area:
 
 ```python
-stand.selection_thin(target_basal_area=80)  # Target 80 ft²/acre
+stand.selection_harvest(target_basal_area=80)  # Target 80 ft²/acre
 ```
 
 ## Working with Results
@@ -137,10 +155,27 @@ Generate a time series of stand metrics:
 from pyfvs import Stand
 
 stand = Stand.initialize_planted(trees_per_acre=500, site_index=70, species='LP')
-yield_table = stand.grow(years=50, time_step=5)
+yield_table = stand.get_yield_table_dataframe(years=50, period_length=5)
 
-print(yield_table[['age', 'tpa', 'qmd', 'volume']])
+# Display key columns (Age, TPA, QMD, TCuFt=total cubic feet)
+print(yield_table[['Age', 'TPA', 'QMD', 'TCuFt']])
 ```
+
+!!! example "Expected output"
+    ```
+     Age  TPA       QMD        TCuFt
+       0  500  0.506281    93.610400
+       5  480  2.878952   314.004340
+      10  472  4.519664   956.536667
+      15  466  6.112528  2187.534923
+      20  461  7.414849  3759.174794
+      25  448  8.463868  5362.540417
+      30  436  9.332694  6935.371646
+      35  429 10.065301  8495.195330
+      40  423 10.691508  9963.346609
+      45  413 11.237817 11196.221399
+      50  406 11.726117 12371.302295
+    ```
 
 ### Export to CSV
 

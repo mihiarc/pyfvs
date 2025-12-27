@@ -20,7 +20,6 @@ Each tree maintains:
 | `age` | int | Tree age (years) |
 | `crown_ratio` | float | Crown ratio (0-1) |
 | `species` | str | Species code (LP, SP, SA, LL) |
-| `tpa` | float | Trees per acre this tree represents |
 
 ## Quick Start
 
@@ -31,9 +30,8 @@ from pyfvs import Tree
 tree = Tree(
     dbh=6.0,
     height=45.0,
-    age=10,
     species='LP',
-    tpa=100  # This tree represents 100 trees per acre
+    age=10
 )
 
 # Get volume
@@ -51,6 +49,13 @@ tree.grow(
 print(f"New DBH: {tree.dbh:.2f} inches")
 print(f"New height: {tree.height:.1f} feet")
 ```
+
+!!! example "Expected output"
+    ```
+    Volume: 4.24 ft³
+    New DBH: 7.23 inches
+    New height: 56.5 feet
+    ```
 
 ## Growth Models
 
@@ -107,10 +112,9 @@ from pyfvs import Tree
 tree = Tree(
     dbh=12.0,
     height=75.0,
-    age=25,
     species='LP',
-    crown_ratio=0.35,  # Optional, will be estimated if not provided
-    tpa=50
+    age=25,
+    crown_ratio=0.35  # Optional, will be estimated if not provided
 )
 ```
 
@@ -136,15 +140,11 @@ tree.grow(
 ### Getting Tree Information
 
 ```python
-# Volume
-total_volume = tree.get_volume()
+# Volume (cubic feet)
+volume = tree.get_volume()
 
-# Per-acre volume (for expansion)
-volume_per_acre = tree.get_volume() * tree.tpa
-
-# Basal area contribution
-ba = tree.get_basal_area()  # ft² for this tree
-ba_per_acre = ba * tree.tpa  # ft²/acre
+# Basal area (ft² for this tree)
+ba = tree.get_basal_area()
 ```
 
 ## Species Codes
@@ -172,4 +172,3 @@ ba_per_acre = ba * tree.tpa  # ft²/acre
         - age
         - crown_ratio
         - species
-        - tpa
