@@ -1,17 +1,19 @@
+---
+title: PyFVS - Python Forest Vegetation Simulator
+description: Python implementation of the Forest Vegetation Simulator (FVS) for southern pine growth modeling. Simulate growth and yield for loblolly, shortleaf, longleaf, and slash pine.
+---
+
 # PyFVS Documentation
 
-[![PyPI version](https://badge.fury.io/py/pyfvs-fia.svg)](https://badge.fury.io/py/pyfvs-fia)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![FIAtools Ecosystem](https://img.shields.io/badge/FIAtools-Ecosystem-2E7D32)](https://fiatools.org)
+[![PyPI version](https://img.shields.io/pypi/v/pyfvs-fia?color=006D6D&label=PyPI)](https://pypi.org/project/pyfvs-fia/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-006D6D.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-006D6D.svg)](https://opensource.org/licenses/MIT)
+
+!!! tip "Part of the FIAtools Ecosystem"
+    PyFVS is part of the [FIAtools Python ecosystem](https://fiatools.org) - a unified suite of open-source tools for forest inventory analysis. Visit [fiatools.org](https://fiatools.org) to explore all tools.
 
 **PyFVS** is a Python implementation of the Forest Vegetation Simulator (FVS) Southern variant for simulating growth and yield of southern yellow pine species.
-
-Part of the **FIA Python Ecosystem**:
-
-- [PyFIA](https://github.com/mihiarc/pyfia) - Survey/plot data analysis
-- [GridFIA](https://github.com/mihiarc/gridfia) - Spatial raster analysis
-- **PyFVS** - Growth/yield simulation (this package)
-- [AskFIA](https://github.com/mihiarc/askfia) - AI conversational interface
 
 ## Quick Example
 
@@ -89,3 +91,20 @@ Or with uv:
 ```bash
 uv add pyfvs-fia
 ```
+
+## The FIAtools Ecosystem
+
+PyFVS is part of the [FIAtools Python ecosystem](https://fiatools.org) - a unified suite of open-source tools for forest inventory analysis:
+
+| Tool | Purpose | Key Features |
+|------|---------|--------------|
+| [**PyFIA**](https://fiatools.org) | Survey & plot data | DuckDB backend, 10-100x faster than EVALIDator |
+| [**GridFIA**](https://fiatools.org) | Spatial raster analysis | 327 species at 30m resolution, Zarr storage |
+| [**PyFVS**](https://fiatools.org) | Growth simulation | Chapman-Richards curves, yield projections |
+| [**AskFIA**](https://fiatools.org) | AI interface | Natural language queries for forest data |
+
+---
+
+<div align="center">
+<strong><a href="https://fiatools.org">fiatools.org</a></strong> - Python Ecosystem for Forest Inventory Analysis
+</div>

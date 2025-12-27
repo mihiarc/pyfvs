@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyfvs-fia"
-version = "0.2.0"
+version = "0.2.1"
 description = "Python implementation of the Forest Vegetation Simulator - Part of the FIA Python Ecosystem"
 readme = "README.md"
 license = {text = "MIT"}
@@ -14,20 +14,47 @@ authors = [
 maintainers = [
     {name = "Chris Mihiar", email = "chris.mihiar@gmail.com"}
 ]
-keywords = ["forestry", "growth-simulation", "fvs", "southern-pine", "yield-tables", "fia"]
+keywords = [
+    # Core functionality
+    "fvs",
+    "forest-vegetation-simulator",
+    "growth-simulation",
+    "yield-tables",
+    "forestry",
+    # Species & regions
+    "southern-pine",
+    "loblolly-pine",
+    "longleaf-pine",
+    "slash-pine",
+    "shortleaf-pine",
+    # Methods
+    "chapman-richards",
+    "individual-tree-growth",
+    "stand-projection",
+    "timber-volume",
+    # Ecosystem
+    "fia",
+    "fiatools",
+    "forest-inventory",
+    "usda",
+    "forest-service",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Information Analysis",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Natural Language :: English",
+    "Environment :: Console",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering",
-    "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 requires-python = ">=3.8"
 dependencies = [
@@ -70,10 +97,13 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mihiarc/pyfvs"
+Homepage = "https://fiatools.org"
 Repository = "https://github.com/mihiarc/pyfvs"
-Documentation = "https://github.com/mihiarc/pyfvs/docs"
+Documentation = "https://mihiarc.github.io/pyfvs/"
+"Source Code" = "https://github.com/mihiarc/pyfvs"
 "Bug Tracker" = "https://github.com/mihiarc/pyfvs/issues"
+Changelog = "https://github.com/mihiarc/pyfvs/releases"
+"FIA Ecosystem" = "https://fiatools.org"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
