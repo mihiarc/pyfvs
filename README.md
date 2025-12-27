@@ -1,13 +1,11 @@
 <div align="center">
-  <img src="https://fiatools.org/logos/pyfvs_logo.png" alt="pyFVS" width="140">
-
-  <h1>pyFVS</h1>
+  <a href="https://github.com/mihiarc/pyfvs"><img src="https://fiatools.org/logos/pyfvs_logo.png" alt="pyFVS" width="400"></a>
 
   <p><strong>Forest growth modeling in Python</strong></p>
 
   <p>
-    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-8B6914" alt="License: MIT"></a>
-    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-8B6914" alt="Python 3.9+"></a>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-006D6D" alt="License: MIT"></a>
+    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-006D6D" alt="Python 3.9+"></a>
   </p>
 
   <p>
@@ -179,12 +177,8 @@ stand.grow(years=30)
 }
 ```
 
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
 ---
 
 <div align="center">
-  <sub>Built with 🌲 by <a href="https://github.com/mihiarc">Chris Mihiar</a> · USDA Forest Service Southern Research Station</sub>
+  <sub>Built by <a href="https://github.com/mihiarc">Chris Mihiar</a> · USDA Forest Service Southern Research Station</sub>
 </div>
