@@ -293,19 +293,25 @@ class FIATreeRecord:
             PyFVS Tree object or None if species not supported
         """
         from .tree import Tree
+        from .exceptions import SpeciesNotFoundError
 
         fvs_code = mapper.spcd_to_fvs(self.spcd)
         if fvs_code is None:
             logger.warning(f"Unsupported species code: {self.spcd}")
             return None
 
-        return Tree(
-            dbh=self.dia,
-            height=self.ht,
-            species=fvs_code,
-            age=self.age or 0,
-            crown_ratio=self.crown_ratio_proportion
-        )
+        try:
+            return Tree(
+                dbh=self.dia,
+                height=self.ht,
+                species=fvs_code,
+                age=self.age or 0,
+                crown_ratio=self.crown_ratio_proportion
+            )
+        except SpeciesNotFoundError:
+            # Species is recognized but doesn't have a config file in PyFVS
+            logger.warning(f"Species {fvs_code} (SPCD={self.spcd}) has no PyFVS config")
+            return None
 
 
 @dataclass
