@@ -1,7 +1,7 @@
 site_name: PyFVS - Python Forest Vegetation Simulator
 site_description: Python implementation of the Forest Vegetation Simulator for southern pine growth modeling. Part of the FIAtools ecosystem.
 site_author: Christopher Mihiar
-site_url: https://mihiarc.github.io/pyfvs/
+site_url: https://pyfvs.fiatools.org/
 repo_url: https://github.com/mihiarc/pyfvs
 repo_name: mihiarc/pyfvs
 
@@ -26,7 +26,7 @@ extra:
     - property: og:type
       content: website
     - property: og:url
-      content: https://mihiarc.github.io/pyfvs/
+      content: https://pyfvs.fiatools.org/
     - property: og:image
       content: https://fiatools.org/logos/pyfvs_logo.png
     - property: og:site_name
