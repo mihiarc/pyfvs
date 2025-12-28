@@ -270,6 +270,213 @@ class Stand:
 
         return cls(trees, site_index, species, forest_type=forest_type, ecounit=ecounit)
 
+    @classmethod
+    def from_fia_data(
+        cls,
+        tree_df: 'pl.DataFrame',
+        cond_df: Optional['pl.DataFrame'] = None,
+        site_index: Optional[float] = None,
+        condid: Optional[int] = None,
+        ecounit: Optional[str] = None,
+        forest_type: Optional[str] = None,
+        weight_by_tpa: bool = True,
+        min_dia: float = 1.0,
+        max_trees: int = 1000,
+        random_seed: Optional[int] = None,
+        condition_strategy: str = "dominant"
+    ) -> 'Stand':
+        """
+        Create a Stand from FIA plot data.
+
+        This factory method converts FIA tree-level data (from pyFIA) into a
+        PyFVS Stand for growth projection. It handles species code conversion,
+        unit transformations, and multi-condition plot handling.
+
+        Part of the FIA Python Ecosystem integration:
+        - PyFIA: Survey/plot data analysis (source)
+        - PyFVS: Growth/yield simulation (this package)
+
+        Args:
+            tree_df: Polars DataFrame with FIA TREE table columns.
+                Required: SPCD, DIA, HT, TPA_UNADJ
+                Optional: CR, CONDID, STATUSCD, BHAGE, TOTAGE
+            cond_df: Optional COND table DataFrame for site index and forest type.
+                Used columns: CONDID, SICOND, FORTYPCD, ECOSUBCD, STDAGE
+            site_index: Override site index. If None, derives from SICOND in cond_df
+                or uses default of 70.
+            condid: Specific condition to use (for multi-condition plots).
+                If None, uses condition_strategy to select.
+            ecounit: Ecological unit code (e.g., "M231", "232").
+                Can be derived from ECOSUBCD if available.
+            forest_type: FVS forest type group (e.g., "FTYLPN").
+                If None, auto-determined from FORTYPCD or species composition.
+            weight_by_tpa: If True, replicate trees based on TPA_UNADJ.
+                If False, use one Tree per FIA tree record.
+            min_dia: Minimum DBH threshold (inches). Trees smaller are excluded.
+            max_trees: Maximum trees to include (random subsample if exceeded).
+            random_seed: Seed for reproducible subsampling.
+            condition_strategy: Strategy for selecting condition when condid is None:
+                - "dominant": Use condition with most basal area (default)
+                - "first": Use condition 1
+                - "forested": Use first forested condition
+
+        Returns:
+            Stand: PyFVS Stand object ready for growth simulation.
+
+        Raises:
+            ValueError: If required columns missing or no valid trees found.
+            TypeError: If input is not a Polars DataFrame.
+
+        Example:
+            >>> from pyfia import FIA
+            >>> from pyfvs import Stand
+            >>>
+            >>> # Load FIA data using pyFIA
+            >>> with FIA("nc.duckdb") as db:
+            ...     db.clip_by_state(37)  # North Carolina
+            ...     db.clip_most_recent(eval_type="VOL")
+            ...
+            ...     # Get tree and condition data for a specific plot
+            ...     trees = db.get_trees()
+            ...     conds = db.get_conditions()
+            ...
+            ...     plot_cn = trees["PLT_CN"][0]  # First plot
+            ...     plot_trees = trees.filter(pl.col("PLT_CN") == plot_cn)
+            ...     plot_conds = conds.filter(pl.col("PLT_CN") == plot_cn)
+            >>>
+            >>> # Create stand for simulation
+            >>> stand = Stand.from_fia_data(
+            ...     tree_df=plot_trees,
+            ...     cond_df=plot_conds,
+            ...     ecounit="M231"  # Appalachian Mountains
+            ... )
+            >>>
+            >>> # Project growth for 25 years
+            >>> stand.grow(years=25)
+            >>> print(stand.get_metrics())
+
+        Notes:
+            - FIA species codes (SPCD) are converted to FVS 2-letter codes
+            - Crown ratio is converted from percentage to proportion
+            - Unknown species are logged and excluded
+            - Age defaults to 0 if not available (affects small-tree model only)
+            - Live trees only (STATUSCD=1) are included by default
+            - Multi-condition plots: use condid parameter or condition with
+              most basal area is used by default
+
+        See Also:
+            - :func:`initialize_planted`: Create a planted stand
+            - :mod:`pyfvs.fia_integration`: Detailed FIA integration utilities
+        """
+        from .fia_integration import (
+            FIASpeciesMapper,
+            validate_fia_input,
+            transform_fia_trees,
+            select_condition,
+            derive_site_index,
+            derive_forest_type,
+            derive_ecounit,
+            derive_stand_age,
+            determine_dominant_species,
+            create_trees_from_fia,
+        )
+
+        # Validate input DataFrame
+        validate_fia_input(tree_df)
+
+        # Handle lazy frames
+        import polars as pl
+        if isinstance(tree_df, pl.LazyFrame):
+            tree_df = tree_df.collect()
+        if cond_df is not None and isinstance(cond_df, pl.LazyFrame):
+            cond_df = cond_df.collect()
+
+        # Select condition for multi-condition plots
+        if condid is not None:
+            if "CONDID" in tree_df.columns:
+                tree_df = tree_df.filter(pl.col("CONDID") == condid)
+            selected_condid = condid
+        else:
+            tree_df, selected_condid = select_condition(
+                tree_df, cond_df, strategy=condition_strategy
+            )
+
+        # Filter condition data to selected condition
+        if cond_df is not None and "CONDID" in cond_df.columns:
+            cond_df = cond_df.filter(pl.col("CONDID") == selected_condid)
+
+        # Transform FIA tree records (filters live trees and applies min_dia)
+        fia_records = transform_fia_trees(
+            tree_df,
+            min_dia=min_dia,
+            status_filter=1  # Live trees only
+        )
+
+        if not fia_records:
+            raise ValueError(
+                f"No valid trees found after filtering. "
+                f"Check that tree_df contains live trees (STATUSCD=1) "
+                f"with DIA >= {min_dia}"
+            )
+
+        # Initialize species mapper
+        mapper = FIASpeciesMapper()
+
+        # Derive or use provided parameters
+        final_site_index = site_index
+        if final_site_index is None:
+            final_site_index = derive_site_index(cond_df, tree_df, selected_condid)
+
+        final_forest_type = forest_type
+        if final_forest_type is None:
+            final_forest_type = derive_forest_type(cond_df, tree_df, mapper, selected_condid)
+
+        final_ecounit = ecounit
+        if final_ecounit is None:
+            final_ecounit = derive_ecounit(cond_df, selected_condid)
+
+        # Get stand age if available
+        stand_age = derive_stand_age(cond_df, tree_df, selected_condid)
+
+        # Create PyFVS Tree objects
+        trees = create_trees_from_fia(
+            fia_records,
+            mapper,
+            weight_by_tpa=weight_by_tpa,
+            max_trees=max_trees,
+            random_seed=random_seed
+        )
+
+        if not trees:
+            raise ValueError(
+                "No trees could be converted. All species may be unsupported."
+            )
+
+        # Determine dominant species for stand parameters
+        dominant_species = determine_dominant_species(trees)
+
+        # Create stand
+        stand = cls(
+            trees=trees,
+            site_index=final_site_index,
+            species=dominant_species,
+            forest_type=final_forest_type,
+            ecounit=final_ecounit
+        )
+
+        # Set stand age if available
+        if stand_age is not None:
+            stand.age = stand_age
+
+        # Log creation summary
+        stand.logger.info(
+            f"Created stand from FIA data: {len(trees)} trees, "
+            f"SI={final_site_index}, species={dominant_species}, "
+            f"forest_type={final_forest_type}, ecounit={final_ecounit}"
+        )
+
+        return stand
+
     # =========================================================================
     # Growth
     # =========================================================================

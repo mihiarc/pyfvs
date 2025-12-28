@@ -33,9 +33,15 @@ from .ecological_unit import (
     create_classifier as create_ecounit_classifier, get_ecounit_summary,
     MOUNTAIN_PROVINCE_ECOUNITS, LOWLAND_ECOUNITS
 )
+from .fia_integration import (
+    FIASpeciesMapper, FIATreeRecord, FIAPlotData,
+    validate_fia_input, transform_fia_trees, select_condition,
+    derive_site_index, derive_forest_type, derive_ecounit,
+    derive_stand_age, create_trees_from_fia
+)
 from .main import main
 
-__version__ = "0.2.0"
+__version__ = "0.2.3"
 __author__ = "PyFVS Development Team"
 
 __all__ = [
@@ -85,5 +91,17 @@ __all__ = [
     "get_ecounit_summary",
     "MOUNTAIN_PROVINCE_ECOUNITS",
     "LOWLAND_ECOUNITS",
+    # FIA Integration
+    "FIASpeciesMapper",
+    "FIATreeRecord",
+    "FIAPlotData",
+    "validate_fia_input",
+    "transform_fia_trees",
+    "select_condition",
+    "derive_site_index",
+    "derive_forest_type",
+    "derive_ecounit",
+    "derive_stand_age",
+    "create_trees_from_fia",
     "main"
 ]
