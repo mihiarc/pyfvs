@@ -11,7 +11,6 @@ Harvest operations include:
 - Clearcut (remove all trees)
 - Selection harvest (targeted basal area reduction)
 """
-import math
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 

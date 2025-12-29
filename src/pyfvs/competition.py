@@ -10,7 +10,6 @@ Competition metrics include:
 - Relative height (RELHT)
 - Forest type and ecological unit effects
 """
-import math
 from dataclasses import dataclass
 from typing import List, Dict, Optional, TYPE_CHECKING
 

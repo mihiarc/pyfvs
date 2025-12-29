@@ -17,7 +17,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
-from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area
+from .tree_utils import calculate_stand_basal_area
 
 if TYPE_CHECKING:
     from .tree import Tree
