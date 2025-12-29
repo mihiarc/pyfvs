@@ -20,7 +20,7 @@ from .bark_ratio import create_bark_ratio_model, calculate_dib_from_dob, calcula
 from .crown_width import create_crown_width_model, calculate_forest_crown_width, calculate_open_crown_width, calculate_ccf_contribution, calculate_hopkins_index
 from .crown_competition_factor import create_ccf_model, calculate_individual_ccf, calculate_stand_ccf, calculate_ccf_from_stand, interpret_ccf
 from .volume_library import (
-    VolumeLibrary, VolumeResult, calculate_tree_volume,
+    VolumeCalculator, VolumeLibrary, VolumeResult, calculate_tree_volume,
     get_volume_library, get_volume_library_info, validate_volume_library
 )
 from .forest_type import (
@@ -69,7 +69,8 @@ __all__ = [
     "calculate_stand_ccf",
     "calculate_ccf_from_stand",
     "interpret_ccf",
-    "VolumeLibrary",
+    "VolumeCalculator",
+    "VolumeLibrary",  # Alias for VolumeCalculator (backwards compatibility)
     "VolumeResult",
     "calculate_tree_volume",
     "get_volume_library",
