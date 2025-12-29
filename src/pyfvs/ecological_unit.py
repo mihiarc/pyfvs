@@ -8,9 +8,8 @@ The system uses two coefficient tables:
 - Table 4.7.1.5: For mountain/province-level ecounits (M221, M222, M231, 221, 222, 231T)
 - Table 4.7.1.6: For lowland ecounits (231L, 232, 234, 255, 411)
 """
-import json
 from typing import Dict, Any, Optional, Set
-from .config_loader import get_config_loader
+from .config_loader import load_coefficient_file
 from .exceptions import ConfigurationError
 
 
@@ -66,31 +65,24 @@ class EcologicalUnitClassifier:
     def _load_coefficient_tables(self) -> None:
         """Load coefficient tables from JSON files in the cfg directory."""
         try:
-            loader = get_config_loader()
-            cfg_dir = loader.cfg_dir
-
             # Load Table 4.7.1.5 (mountain/province ecounits)
-            table_5_path = cfg_dir / "ecounit_coefficients_table_4_7_1_5.json"
-            if table_5_path.exists():
-                with open(table_5_path, 'r', encoding='utf-8') as f:
-                    EcologicalUnitClassifier._coefficients_table_5 = json.load(f)
-            else:
+            try:
+                EcologicalUnitClassifier._coefficients_table_5 = load_coefficient_file(
+                    'ecounit_coefficients_table_4_7_1_5.json'
+                )
+            except FileNotFoundError:
                 EcologicalUnitClassifier._coefficients_table_5 = self._get_empty_table()
 
             # Load Table 4.7.1.6 (lowland ecounits)
-            table_6_path = cfg_dir / "ecounit_coefficients_table_4_7_1_6.json"
-            if table_6_path.exists():
-                with open(table_6_path, 'r', encoding='utf-8') as f:
-                    EcologicalUnitClassifier._coefficients_table_6 = json.load(f)
-            else:
+            try:
+                EcologicalUnitClassifier._coefficients_table_6 = load_coefficient_file(
+                    'ecounit_coefficients_table_4_7_1_6.json'
+                )
+            except FileNotFoundError:
                 EcologicalUnitClassifier._coefficients_table_6 = self._get_empty_table()
 
             EcologicalUnitClassifier._tables_loaded = True
 
-        except json.JSONDecodeError as e:
-            raise ConfigurationError(
-                f"Failed to parse ecological unit coefficient files: {str(e)}"
-            ) from e
         except Exception as e:
             if isinstance(e, ConfigurationError):
                 raise

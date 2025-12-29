@@ -15,10 +15,9 @@ Metrics include:
 - Point Basal Area in Larger trees (PBAL)
 """
 import math
-import json
-from pathlib import Path
 from typing import List, Dict, Optional, TYPE_CHECKING
 
+from .config_loader import load_coefficient_file
 from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area as calculate_util_stand_basal_area
 
 if TYPE_CHECKING:
@@ -56,18 +55,13 @@ class StandMetricsCalculator:
     def _load_sdi_maximums(cls) -> None:
         """Load SDI maximum values from configuration."""
         try:
-            sdi_file = Path(__file__).parent.parent.parent / "cfg" / "sn_stand_density_index.json"
-            if sdi_file.exists():
-                with open(sdi_file, 'r') as f:
-                    sdi_data = json.load(f)
-                cls._sdi_maximums = {
-                    species: data['sdi_maximum']
-                    for species, data in sdi_data.get('sdi_maximums', {}).items()
-                }
-            else:
-                cls._sdi_maximums = {'LP': 480, 'SP': 490, 'SA': 385, 'LL': 332}
+            sdi_data = load_coefficient_file('sn_stand_density_index.json')
+            cls._sdi_maximums = {
+                species: data['sdi_maximum']
+                for species, data in sdi_data.get('sdi_maximums', {}).items()
+            }
             cls._sdi_loaded = True
-        except Exception:
+        except (FileNotFoundError, KeyError):
             cls._sdi_maximums = {'LP': 480, 'SP': 490, 'SA': 385, 'LL': 332}
             cls._sdi_loaded = True
 
