@@ -1,3 +1,0 @@
-2025-06-19 12:36:25,296 - fvs_python.simulation_engine - INFO - Starting simulation: LP, TPA=300, SI=70
-2025-06-19 12:36:32,706 - fvs_python.simulation_engine - INFO -   Age 10: TPA=173, BA=7.3, Volume=42
-2025-06-19 12:36:32,709 - fvs_python.simulation_engine - INFO - Simulation completed successfully

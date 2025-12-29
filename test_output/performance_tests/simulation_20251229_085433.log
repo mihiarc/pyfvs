@@ -1,4 +1,0 @@
-{"timestamp": "2025-12-29T13:54:33.043148+00:00", "level": "INFO", "logger": "pyfvs.simulation_engine", "message": "Starting simulation: species=LP, years=25, TPA=500, SI=70", "module": "logging_config", "function": "log_simulation_start", "line": 165}
-{"timestamp": "2025-12-29T13:54:43.661838+00:00", "level": "INFO", "logger": "pyfvs.simulation_engine", "message": "  Age 10: TPA=482, BA=53.7, Volume=977", "module": "simulation_engine", "function": "_run_growth_simulation", "line": 217}
-{"timestamp": "2025-12-29T13:54:44.637711+00:00", "level": "INFO", "logger": "pyfvs.simulation_engine", "message": "  Age 20: TPA=462, BA=138.4, Volume=3763", "module": "simulation_engine", "function": "_run_growth_simulation", "line": 217}
-{"timestamp": "2025-12-29T13:54:45.112644+00:00", "level": "INFO", "logger": "pyfvs.simulation_engine", "message": "Simulation completed successfully", "module": "simulation_engine", "function": "simulate_stand", "line": 122}

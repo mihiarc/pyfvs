@@ -42,11 +42,32 @@ ENV/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
+# Testing
+.coverage
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+
+# Test outputs
+test_output/**/*.log
 tests/test_output/
+
+# Generated data files (root level)
+yield.csv
+yield.json
+treelist.csv
+treelist.json
+stock.csv
+no_extension.json
+
+# Outputs
 outputs/data/sqlite_databases/*.db
+
+# Jupyter notebooks (except examples)
 *.ipynb
 !notebooks/*.ipynb
+
+# Documentation chunks
 docs/EconUserGuide_chunks.json
 docs/EssentialFVS_chunks.json
 docs/FVSsn_Overview_chunks.json
@@ -56,4 +77,6 @@ docs/FVSsn_Overview_chunks.json
 
 # External source code
 fvs-source/
+
+# Build outputs
 site/
