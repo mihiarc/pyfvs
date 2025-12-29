@@ -23,14 +23,14 @@ timber asset account manuscript data.
 
 | Species   | Region   |   Site_Index |   Volume_Tons |   Mean_DBH |   TPA |
 |:----------|:---------|-------------:|--------------:|-----------:|------:|
-| LP        | North    |           55 |          40   |       6.49 |   455 |
-| LP        | South    |           65 |          49.9 |       6.9  |   447 |
-| SA        | North    |           55 |          31.8 |       5.51 |   445 |
-| SA        | South    |           65 |          42.8 |       5.96 |   455 |
-| SP        | North    |           55 |          39.6 |       6.03 |   461 |
-| SP        | South    |           65 |          51.6 |       6.5  |   458 |
-| LL        | North    |           55 |          29.6 |       5.3  |   461 |
-| LL        | South    |           65 |          39   |       5.77 |   459 |
+| LP        | North    |           55 |          76.1 |       7.77 |   468 |
+| LP        | South    |           65 |          98.3 |       8.25 |   462 |
+| SA        | North    |           55 |          63   |       6.72 |   464 |
+| SA        | South    |           65 |          83.9 |       7.29 |   453 |
+| SP        | North    |           55 |          72.2 |       7.17 |   454 |
+| SP        | South    |           65 |          95.3 |       7.65 |   454 |
+| LL        | North    |           55 |          54.6 |       6.36 |   457 |
+| LL        | South    |           65 |          73.7 |       6.91 |   451 |
 
 ### Files Generated
 

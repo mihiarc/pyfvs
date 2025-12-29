@@ -15,6 +15,8 @@ import random
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 
+from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area
+
 if TYPE_CHECKING:
     from .tree import Tree
 
@@ -208,13 +210,13 @@ class MortalityModel:
         Returns:
             List of (tree, percentile) tuples sorted by DBH
         """
-        total_ba = sum(math.pi * (tree.dbh / 24) ** 2 for tree in trees)
+        total_ba = calculate_stand_basal_area(trees)
         tree_data = []
         cumulative_ba = 0.0
         sorted_trees = sorted(trees, key=lambda t: t.dbh)
 
         for tree in sorted_trees:
-            tree_ba = math.pi * (tree.dbh / 24) ** 2
+            tree_ba = calculate_tree_basal_area(tree.dbh)
             cumulative_ba += tree_ba
             pct = (cumulative_ba / total_ba) * 100.0 if total_ba > 0 else 50.0
             tree_data.append((tree, pct))

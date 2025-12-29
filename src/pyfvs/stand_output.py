@@ -17,6 +17,8 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
+from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area
+
 if TYPE_CHECKING:
     from .tree import Tree
     from .stand_metrics import StandMetricsCalculator
@@ -250,7 +252,7 @@ class StandOutputGenerator:
             if class_trees:
                 # Calculate class metrics
                 tpa = len(class_trees)
-                ba = sum(math.pi * (t.dbh / 24) ** 2 for t in class_trees)
+                ba = calculate_stand_basal_area(class_trees)
                 tcuft = sum(t.get_volume('total_cubic') for t in class_trees)
                 mcuft = sum(t.get_volume('merchantable_cubic') for t in class_trees)
                 bdft = sum(t.get_volume('board_foot') for t in class_trees)

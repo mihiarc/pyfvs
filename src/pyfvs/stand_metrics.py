@@ -19,6 +19,8 @@ import json
 from pathlib import Path
 from typing import List, Dict, Optional, TYPE_CHECKING
 
+from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area as calculate_util_stand_basal_area
+
 if TYPE_CHECKING:
     from .tree import Tree
 
@@ -112,7 +114,7 @@ class StandMetricsCalculator:
             tree_species = getattr(tree, 'species', species)
 
             sum_dbh_squared += dbh ** 2
-            ba = math.pi * (dbh / 24.0) ** 2
+            ba = calculate_tree_basal_area(dbh)
             total_ba += ba
             species_ba[tree_species] = species_ba.get(tree_species, 0.0) + ba
 
@@ -275,7 +277,7 @@ class StandMetricsCalculator:
         if not trees:
             return 0.0
 
-        return sum(math.pi * (tree.dbh / 24.0) ** 2 for tree in trees)
+        return calculate_util_stand_basal_area(trees)
 
     def calculate_sdi(self, trees: List['Tree']) -> float:
         """Calculate Stand Density Index using Reineke's equation.
@@ -348,7 +350,7 @@ class StandMetricsCalculator:
 
         for tree in trees:
             species = getattr(tree, 'species', default_species)
-            ba = math.pi * (tree.dbh / 24.0) ** 2
+            ba = calculate_tree_basal_area(tree.dbh)
             species_ba[species] = species_ba.get(species, 0.0) + ba
             total_ba += ba
 
@@ -368,7 +370,7 @@ class StandMetricsCalculator:
         """
         target_dbh = target_tree.dbh
         pbal = sum(
-            math.pi * (tree.dbh / 24.0) ** 2
+            calculate_tree_basal_area(tree.dbh)
             for tree in trees
             if tree.dbh > target_dbh
         )

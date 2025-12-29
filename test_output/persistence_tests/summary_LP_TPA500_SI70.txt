@@ -1,0 +1,34 @@
+FVS-Python Simulation Summary Report
+==================================================
+
+Generated: 2025-12-29 08:47:36
+Software: FVS-Python v1.0.0
+
+Simulation Parameters:
+-------------------------
+species: LP
+trees_per_acre: 500
+site_index: 70
+years: 20
+time_step: 5
+
+Final Stand Metrics:
+-------------------------
+Age: 20.0 years
+Trees per Acre: 461
+Mean DBH: 7.4 inches
+Mean Height: 58.0 feet
+Basal Area: 137.8 sq ft/acre
+Volume: 3746 cubic feet/acre
+
+Growth Summary:
+-------------------------
+Total DBH Growth: 6.9 inches
+Total Height Growth: 57.0 feet
+Total Volume Growth: 3653 cu ft/acre
+Survival Rate: 92.2%
+
+Associated Files:
+-------------------------
+csv: /Users/mihiarc/fiatools/pyfvs/test_output/persistence_tests/sim_LP_TPA500_SI70.csv
+json: /Users/mihiarc/fiatools/pyfvs/test_output/persistence_tests/sim_LP_TPA500_SI70.json

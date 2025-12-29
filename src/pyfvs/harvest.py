@@ -15,6 +15,8 @@ import math
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
+from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area
+
 if TYPE_CHECKING:
     from .tree import Tree
 
@@ -99,7 +101,7 @@ class HarvestManager:
         """
         if not trees:
             return 0.0
-        return sum(math.pi * (tree.dbh / 24.0) ** 2 for tree in trees)
+        return calculate_stand_basal_area(trees)
 
     def _create_harvest_record(
         self,
@@ -241,7 +243,7 @@ class HarvestManager:
             else:
                 # Remove this tree
                 removed_trees.append(tree)
-                tree_ba = math.pi * (tree.dbh / 24) ** 2
+                tree_ba = calculate_tree_basal_area(tree.dbh)
                 current_ba -= tree_ba
                 current_tpa -= 1
 
@@ -315,7 +317,7 @@ class HarvestManager:
             else:
                 # Remove this tree
                 removed_trees.append(tree)
-                tree_ba = math.pi * (tree.dbh / 24) ** 2
+                tree_ba = calculate_tree_basal_area(tree.dbh)
                 current_ba -= tree_ba
                 current_tpa -= 1
 
@@ -481,7 +483,7 @@ class HarvestManager:
             if current_ba <= target_ba:
                 break
 
-            tree_ba = math.pi * (tree.dbh / 24) ** 2
+            tree_ba = calculate_tree_basal_area(tree.dbh)
             removed_indices.add(idx)
             removed_trees.append(tree)
             current_ba -= tree_ba

@@ -43,6 +43,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+from .tree_utils import calculate_tree_basal_area
+
 if TYPE_CHECKING:
     import polars as pl
     from .tree import Tree
@@ -767,7 +769,7 @@ def determine_dominant_species(trees: List['Tree']) -> str:
 
     species_ba: Dict[str, float] = Counter()
     for tree in trees:
-        ba = tree.dbh ** 2 * 0.005454  # Basal area factor
+        ba = calculate_tree_basal_area(tree.dbh)
         species_ba[tree.species] += ba
 
     if not species_ba:
@@ -793,7 +795,7 @@ def classify_stand_purity(trees: List['Tree']) -> str:
     total_ba = 0.0
 
     for tree in trees:
-        ba = tree.dbh ** 2 * 0.005454
+        ba = calculate_tree_basal_area(tree.dbh)
         species_ba[tree.species] += ba
         total_ba += ba
 

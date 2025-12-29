@@ -1,0 +1,5 @@
+Yield table exported: 11 rows
+Tree list exported: 403 trees
+
+Yield table columns: StandID, Year, Age, TPA, BA, SDI, CCF, TopHt, QMD, TCuFt, MCuFt, BdFt, RTpa, RTCuFt, RMCuFt, RBdFt, AThinBA, AThinSDI, AThinCCF, AThinTopHt, AThinQMD, PrdLen, Acc, Mort, MAI, ForTyp, SizeCls, StkCls
+Tree list columns: TreeId, Species, Year, TPA, DBH, DG, Ht, HtG, PctCr, CrWidth, Age, BAPctile, PtBAL, TcuFt, McuFt, BdFt, StandID

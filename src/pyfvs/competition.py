@@ -14,6 +14,8 @@ import math
 from dataclasses import dataclass
 from typing import List, Dict, Optional, TYPE_CHECKING
 
+from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area
+
 if TYPE_CHECKING:
     from .tree import Tree
     from .stand_metrics import StandMetricsCalculator
@@ -274,7 +276,7 @@ class CompetitionCalculator:
             return 50.0
 
         # Calculate total basal area and cumulative BA
-        total_ba = sum(math.pi * (t.dbh / 24) ** 2 for t in trees)
+        total_ba = calculate_stand_basal_area(trees)
         if total_ba <= 0:
             return 50.0
 
@@ -283,7 +285,7 @@ class CompetitionCalculator:
 
         cumulative_ba = 0.0
         for t in sorted_trees:
-            tree_ba = math.pi * (t.dbh / 24) ** 2
+            tree_ba = calculate_tree_basal_area(t.dbh)
             cumulative_ba += tree_ba
             if id(t) == id(tree):
                 return (cumulative_ba / total_ba) * 100.0

@@ -1,0 +1,6 @@
+Volume at age 30 (SI=70, 500 TPA):
+----------------------------------------
+LP: 13,024 ft³/acre
+SP: 5,715 ft³/acre
+SA: 6,423 ft³/acre
+LL: 5,819 ft³/acre

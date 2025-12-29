@@ -14,9 +14,9 @@ Parameters:
   c: 2.8517
 
 Predictions at different densities:
-  RELSDI 2.0: ACR=0.408, Individual CR=0.076
-  RELSDI 5.0: ACR=0.350, Individual CR=0.076
-  RELSDI 8.0: ACR=0.332, Individual CR=0.076
+  RELSDI 2.0: ACR=0.408, Individual CR=0.394
+  RELSDI 5.0: ACR=0.350, Individual CR=0.327
+  RELSDI 8.0: ACR=0.332, Individual CR=0.306
 
 Species: SP
 --------------------
@@ -31,9 +31,9 @@ Parameters:
   c: 3.0228
 
 Predictions at different densities:
-  RELSDI 2.0: ACR=0.428, Individual CR=0.073
-  RELSDI 5.0: ACR=0.363, Individual CR=0.073
-  RELSDI 8.0: ACR=0.330, Individual CR=0.073
+  RELSDI 2.0: ACR=0.428, Individual CR=0.410
+  RELSDI 5.0: ACR=0.363, Individual CR=0.350
+  RELSDI 8.0: ACR=0.330, Individual CR=0.319
 
 Species: WO
 --------------------
@@ -48,9 +48,9 @@ Parameters:
   c: 3.5016
 
 Predictions at different densities:
-  RELSDI 2.0: ACR=0.528, Individual CR=0.077
-  RELSDI 5.0: ACR=0.473, Individual CR=0.077
-  RELSDI 8.0: ACR=0.447, Individual CR=0.077
+  RELSDI 2.0: ACR=0.528, Individual CR=0.491
+  RELSDI 5.0: ACR=0.473, Individual CR=0.430
+  RELSDI 8.0: ACR=0.447, Individual CR=0.401
 
 Species: RM
 --------------------
@@ -65,9 +65,9 @@ Parameters:
   c: 2.9951
 
 Predictions at different densities:
-  RELSDI 2.0: ACR=0.443, Individual CR=0.074
-  RELSDI 5.0: ACR=0.419, Individual CR=0.074
-  RELSDI 8.0: ACR=0.407, Individual CR=0.074
+  RELSDI 2.0: ACR=0.443, Individual CR=0.405
+  RELSDI 5.0: ACR=0.419, Individual CR=0.373
+  RELSDI 8.0: ACR=0.407, Individual CR=0.357
 
 Species: CA
 --------------------
@@ -82,9 +82,9 @@ Parameters:
   c: 3.7345
 
 Predictions at different densities:
-  RELSDI 2.0: ACR=0.441, Individual CR=0.076
-  RELSDI 5.0: ACR=0.388, Individual CR=0.076
-  RELSDI 8.0: ACR=0.361, Individual CR=0.076
+  RELSDI 2.0: ACR=0.441, Individual CR=0.400
+  RELSDI 5.0: ACR=0.388, Individual CR=0.343
+  RELSDI 8.0: ACR=0.361, Individual CR=0.313
 
 Species: AB
 --------------------
@@ -99,9 +99,9 @@ Parameters:
   c: 3.5571
 
 Predictions at different densities:
-  RELSDI 2.0: ACR=0.576, Individual CR=0.074
-  RELSDI 5.0: ACR=0.556, Individual CR=0.074
-  RELSDI 8.0: ACR=0.546, Individual CR=0.074
+  RELSDI 2.0: ACR=0.576, Individual CR=0.541
+  RELSDI 5.0: ACR=0.556, Individual CR=0.520
+  RELSDI 8.0: ACR=0.546, Individual CR=0.509
 
 Species: AS
 --------------------
@@ -116,9 +116,9 @@ Parameters:
   c: 2.74
 
 Predictions at different densities:
-  RELSDI 2.0: ACR=0.367, Individual CR=0.066
-  RELSDI 5.0: ACR=0.344, Individual CR=0.066
-  RELSDI 8.0: ACR=0.321, Individual CR=0.066
+  RELSDI 2.0: ACR=0.367, Individual CR=0.322
+  RELSDI 5.0: ACR=0.344, Individual CR=0.297
+  RELSDI 8.0: ACR=0.321, Individual CR=0.272
 
 Species: WA
 --------------------
@@ -133,7 +133,7 @@ Parameters:
   c: 3.8475
 
 Predictions at different densities:
-  RELSDI 2.0: ACR=0.418, Individual CR=0.076
-  RELSDI 5.0: ACR=0.388, Individual CR=0.076
-  RELSDI 8.0: ACR=0.370, Individual CR=0.076
+  RELSDI 2.0: ACR=0.418, Individual CR=0.386
+  RELSDI 5.0: ACR=0.388, Individual CR=0.354
+  RELSDI 8.0: ACR=0.370, Individual CR=0.336
 
