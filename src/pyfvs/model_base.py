@@ -25,6 +25,7 @@ from abc import ABC
 from typing import Dict, Any, Optional
 
 from .config_loader import load_coefficient_file
+from .species import SpeciesCode
 
 
 class ParameterizedModel(ABC):
@@ -48,7 +49,7 @@ class ParameterizedModel(ABC):
     COEFFICIENT_FILE: str = None
     COEFFICIENT_KEY: str = 'species_coefficients'
     FALLBACK_PARAMETERS: Dict[str, Dict[str, Any]] = {}
-    DEFAULT_SPECIES: str = "LP"
+    DEFAULT_SPECIES: str = SpeciesCode.LOBLOLLY_PINE.value
 
     def __init__(self, species_code: str = None):
         """Initialize the model with species-specific parameters.

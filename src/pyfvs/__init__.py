@@ -16,6 +16,8 @@ Part of the FIA Python Ecosystem:
 # =============================================================================
 from .stand import Stand
 from .tree import Tree
+from .growth_parameters import GrowthParameters
+from .species import SpeciesCode, get_species_code, validate_species_code
 
 # =============================================================================
 # Configuration
@@ -142,6 +144,10 @@ __all__ = [
     # Core Classes
     "Stand",
     "Tree",
+    "GrowthParameters",
+    "SpeciesCode",
+    "get_species_code",
+    "validate_species_code",
     # Configuration
     "get_config_loader",
     "load_stand_config",

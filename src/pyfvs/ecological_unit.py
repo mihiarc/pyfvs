@@ -11,6 +11,7 @@ The system uses two coefficient tables:
 from typing import Dict, Any, Optional, Set
 from .config_loader import load_coefficient_file
 from .exceptions import ConfigurationError
+from .utils import normalize_species_code, normalize_ecounit
 
 
 # Define the ecological unit groups for each table
@@ -111,8 +112,8 @@ class EcologicalUnitClassifier:
             The coefficient value to add to the growth equation.
             Returns 0.0 if the species or ecounit is not found.
         """
-        normalized_species = species_code.upper().strip()
-        normalized_ecounit = ecounit_group.upper().strip()
+        normalized_species = normalize_species_code(species_code)
+        normalized_ecounit = normalize_ecounit(ecounit_group)
 
         # Select the appropriate table
         table_name = select_ecounit_table(normalized_ecounit)

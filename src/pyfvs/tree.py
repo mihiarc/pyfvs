@@ -3,10 +3,11 @@ Tree class representing an individual tree.
 Implements both small-tree and large-tree growth models.
 """
 import math
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 from .validation import ParameterValidator
 from .logging_config import get_logger, log_model_transition
+from .growth_parameters import GrowthParameters
 
 __all__ = ['Tree']
 
@@ -75,22 +76,85 @@ class Tree:
                 }}
             }
     
-    def grow(self, site_index: float, competition_factor: float, rank: float = 0.5, relsdi: float = 5.0, ba: float = 100, pbal: float = 50, slope: float = 0.05, aspect: float = 0, time_step: int = 5, ecounit: str = None, forest_type: str = None) -> None:
+    def grow(
+        self,
+        params_or_site_index: Union[GrowthParameters, float] = None,
+        competition_factor: float = None,
+        rank: float = 0.5,
+        relsdi: float = 5.0,
+        ba: float = 100,
+        pbal: float = 50,
+        slope: float = 0.05,
+        aspect: float = 0,
+        time_step: int = 5,
+        ecounit: str = None,
+        forest_type: str = None,
+        *,
+        site_index: float = None
+    ) -> None:
         """Grow the tree for the specified number of years.
 
+        This method accepts either a GrowthParameters dataclass or individual
+        parameters for backwards compatibility.
+
         Args:
-            site_index: Site index (base age 25) in feet
-            competition_factor: Competition factor (0-1)
-            rank: Tree's rank in diameter distribution (0-1)
-            relsdi: Relative stand density index (0-12)
-            ba: Stand basal area (sq ft/acre)
-            pbal: Plot basal area in larger trees (sq ft/acre)
-            slope: Ground slope (proportion)
-            aspect: Aspect in radians
-            time_step: Number of years to grow the tree (default: 5)
-            ecounit: Ecological unit code (e.g., "232", "M231") - passed from Stand
-            forest_type: Forest type group (e.g., "FTYLPN") - passed from Stand
+            params_or_site_index: Either a GrowthParameters object containing all
+                growth parameters, or the site_index value (for backwards compatibility).
+            competition_factor: Competition factor (0-1). Required if using individual
+                parameters.
+            rank: Tree's rank in diameter distribution (0-1). Default: 0.5.
+            relsdi: Relative stand density index (0-12). Default: 5.0.
+            ba: Stand basal area (sq ft/acre). Default: 100.
+            pbal: Plot basal area in larger trees (sq ft/acre). Default: 50.
+            slope: Ground slope (proportion). Default: 0.05.
+            aspect: Aspect in radians. Default: 0.
+            time_step: Number of years to grow the tree. Default: 5.
+            ecounit: Ecological unit code (e.g., "232", "M231") - passed from Stand.
+            forest_type: Forest type group (e.g., "FTYLPN") - passed from Stand.
+            site_index: Alternative keyword argument for site_index (for clarity when
+                not using GrowthParameters).
+
+        Examples:
+            Using GrowthParameters (recommended):
+                >>> params = GrowthParameters(site_index=70, ba=100, ecounit='M231')
+                >>> tree.grow(params)
+
+            Using individual parameters (backwards compatible):
+                >>> tree.grow(site_index=70, competition_factor=0.3, ba=100)
+
+            Legacy positional style (still supported):
+                >>> tree.grow(70, 0.3, ba=100)
         """
+        # Handle the two calling conventions:
+        # 1. GrowthParameters object as first argument
+        # 2. Individual parameters (site_index as first positional or keyword arg)
+        if isinstance(params_or_site_index, GrowthParameters):
+            # Extract all parameters from the dataclass
+            params = params_or_site_index
+            site_index = params.site_index
+            competition_factor = params.competition_factor
+            rank = params.rank
+            relsdi = params.relsdi
+            ba = params.ba
+            pbal = params.pbal
+            slope = params.slope
+            aspect = params.aspect
+            time_step = params.time_step
+            ecounit = params.ecounit
+            forest_type = params.forest_type
+        else:
+            # Individual parameters - handle both positional and keyword site_index
+            if params_or_site_index is not None:
+                site_index = params_or_site_index
+            elif site_index is None:
+                raise ValueError(
+                    "site_index is required. Provide either a GrowthParameters object "
+                    "or site_index as the first positional argument or keyword argument."
+                )
+            # competition_factor defaults to 0.0 if not provided
+            if competition_factor is None:
+                competition_factor = 0.0
+
         # Store ecounit and forest_type for use in growth methods
         self._ecounit = ecounit
         self._forest_type = forest_type
@@ -197,18 +261,22 @@ class Tree:
             competition_factor: Competition factor (0-1)
             time_step: Number of years to grow (any positive integer)
         """
-        # Get parameters from config
-        small_tree_params = self.growth_params.get('small_tree_growth', {})
-        if self.species in small_tree_params:
-            p = small_tree_params[self.species]
-        else:
-            p = small_tree_params.get('default', {
-                'c1': 1.1421,
-                'c2': 1.0042,
-                'c3': -0.0374,
-                'c4': 0.7632,
-                'c5': 0.0358
-            })
+        # Get species-specific parameters from species config
+        # The species config has the correct NC-128 coefficients for each species
+        p = self.species_params.get('small_tree_height_growth', {})
+        if not p:
+            # Fallback to growth_params if species config doesn't have it
+            small_tree_params = self.growth_params.get('small_tree_growth', {})
+            if self.species in small_tree_params:
+                p = small_tree_params[self.species]
+            else:
+                p = small_tree_params.get('default', {
+                    'c1': 1.1421,
+                    'c2': 1.0042,
+                    'c3': -0.0374,
+                    'c4': 0.7632,
+                    'c5': 0.0358
+                })
         
         # Chapman-Richards predicts cumulative height at age t
         # Height(t) = c1 * SI^c2 * (1 - exp(c3 * t))^(c4 * SI^c5)
