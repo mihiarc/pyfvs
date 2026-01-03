@@ -11,6 +11,19 @@ from tests.utils import setup_test_output, plot_tree_growth_comparison, generate
 output_dir = setup_test_output()
 tree_test_dir = output_dir / 'tree_tests'
 
+# Species codes for parametrized tests (southern yellow pines)
+SOUTHERN_PINE_SPECIES = ["LP", "SP", "SA", "LL"]
+
+# DBH sizes for parametrized tests
+DBH_TEST_SIZES = [
+    (1.0, 6.0, 2, "small"),      # small tree
+    (2.5, 20.0, 8, "transition"), # transition zone
+    (6.0, 40.0, 15, "large"),     # large tree
+]
+
+# Site indices for parametrized tests
+SITE_INDICES = [50, 60, 70, 80]
+
 @pytest.fixture
 def small_tree():
     """Create a small tree for testing."""
@@ -342,4 +355,171 @@ def test_small_tree_annual_growth():
     
     # Chapman-Richards should show non-linear growth pattern
     # The assertion may need adjustment based on actual growth patterns
-    assert early_height_growth != late_height_growth, "Growth should not be perfectly linear" 
+    assert early_height_growth != late_height_growth, "Growth should not be perfectly linear"
+
+
+# =============================================================================
+# Parametrized Tests - Multi-species and multi-size coverage
+# =============================================================================
+
+class TestMultiSpeciesGrowth:
+    """Parametrized tests across multiple species."""
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    def test_species_tree_creation(self, species):
+        """Test that trees can be created for all southern pine species."""
+        tree = Tree(dbh=5.0, height=30.0, species=species, age=10)
+        assert tree.species == species
+        assert tree.dbh == 5.0
+        assert tree.height == 30.0
+        assert tree.age == 10
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    def test_species_growth_positive(self, species):
+        """Test that all species show positive growth under normal conditions."""
+        tree = Tree(dbh=5.0, height=30.0, species=species, age=10)
+        initial_dbh = tree.dbh
+        initial_height = tree.height
+
+        tree.grow(site_index=70, competition_factor=0.0, ba=100, pbal=30, slope=0.05, aspect=0)
+
+        assert tree.dbh > initial_dbh, f"{species} should show positive DBH growth"
+        assert tree.height > initial_height, f"{species} should show positive height growth"
+        assert 0.05 <= tree.crown_ratio <= 0.95, f"{species} crown ratio out of bounds"
+        assert tree.age == 15, f"{species} age should increment by 5"
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    def test_species_volume_positive(self, species):
+        """Test that volume calculations work for all species."""
+        tree = Tree(dbh=8.0, height=50.0, species=species, age=15)
+        volume = tree.get_volume()
+
+        assert volume > 0, f"{species} should have positive volume"
+        # Volume should be less than cylinder volume
+        basal_area = math.pi * (tree.dbh / 24)**2
+        cylinder_volume = basal_area * tree.height
+        assert volume < cylinder_volume, f"{species} volume should be less than cylinder"
+
+    @pytest.mark.parametrize("species,dbh,height,age,size_class", [
+        ("LP", 1.0, 6.0, 2, "small"),
+        ("LP", 2.5, 20.0, 8, "transition"),
+        ("LP", 6.0, 40.0, 15, "large"),
+        ("SP", 1.0, 6.0, 2, "small"),
+        ("SP", 6.0, 40.0, 15, "large"),
+        ("SA", 1.0, 6.0, 2, "small"),
+        ("SA", 6.0, 40.0, 15, "large"),
+        ("LL", 1.0, 6.0, 2, "small"),
+        ("LL", 6.0, 40.0, 15, "large"),
+    ])
+    def test_species_size_combinations(self, species, dbh, height, age, size_class):
+        """Test growth for various species and size combinations."""
+        tree = Tree(dbh=dbh, height=height, species=species, age=age)
+        initial_dbh = tree.dbh
+        initial_height = tree.height
+
+        tree.grow(site_index=70, competition_factor=0.0, ba=100, pbal=30, slope=0.05, aspect=0)
+
+        assert tree.dbh > initial_dbh, f"{species} {size_class} should grow in DBH"
+        assert tree.height > initial_height, f"{species} {size_class} should grow in height"
+
+
+class TestMultiSiteIndexGrowth:
+    """Parametrized tests across site indices."""
+
+    @pytest.mark.parametrize("site_index", SITE_INDICES)
+    def test_site_index_affects_growth(self, site_index):
+        """Test that trees grow under various site indices."""
+        tree = Tree(dbh=5.0, height=30.0, species="LP", age=10)
+        initial_dbh = tree.dbh
+        initial_height = tree.height
+
+        tree.grow(site_index=site_index, competition_factor=0.0, ba=100, pbal=30, slope=0.05, aspect=0)
+
+        assert tree.dbh > initial_dbh, f"SI={site_index} should allow DBH growth"
+        assert tree.height > initial_height, f"SI={site_index} should allow height growth"
+
+    @pytest.mark.parametrize("site_index", SITE_INDICES)
+    def test_higher_si_more_growth(self, site_index):
+        """Test that higher site index produces more height growth."""
+        # Create baseline tree at SI=50
+        baseline_tree = Tree(dbh=5.0, height=30.0, species="LP", age=10)
+        baseline_tree.grow(site_index=50, competition_factor=0.0, ba=100, pbal=30, slope=0.05, aspect=0)
+
+        # Create test tree at current site index
+        test_tree = Tree(dbh=5.0, height=30.0, species="LP", age=10)
+        test_tree.grow(site_index=site_index, competition_factor=0.0, ba=100, pbal=30, slope=0.05, aspect=0)
+
+        if site_index > 50:
+            assert test_tree.height >= baseline_tree.height, \
+                f"SI={site_index} should produce >= height growth than SI=50"
+
+
+class TestTreeSizeClasses:
+    """Parametrized tests across tree size classes."""
+
+    @pytest.mark.parametrize("dbh,height,age,size_class", DBH_TEST_SIZES)
+    def test_size_class_growth(self, dbh, height, age, size_class):
+        """Test growth for different size classes."""
+        tree = Tree(dbh=dbh, height=height, species="LP", age=age)
+        initial_dbh = tree.dbh
+        initial_height = tree.height
+
+        tree.grow(site_index=70, competition_factor=0.0, ba=100, pbal=30, slope=0.05, aspect=0)
+
+        assert tree.dbh > initial_dbh, f"{size_class} tree should grow in DBH"
+        assert tree.height > initial_height, f"{size_class} tree should grow in height"
+        assert 0.05 <= tree.crown_ratio <= 0.95, f"{size_class} crown ratio out of bounds"
+
+    @pytest.mark.parametrize("dbh,height,age,size_class", DBH_TEST_SIZES)
+    def test_size_class_volume(self, dbh, height, age, size_class):
+        """Test volume calculation for different size classes."""
+        tree = Tree(dbh=dbh, height=height, species="LP", age=age)
+        volume = tree.get_volume()
+
+        assert volume > 0, f"{size_class} tree should have positive volume"
+
+
+class TestCompetitionLevels:
+    """Parametrized tests for competition effects."""
+
+    @pytest.mark.parametrize("competition_factor,rank,ba,pbal,label", [
+        (0.0, 0.8, 80, 30, "no_competition"),
+        (0.5, 0.5, 120, 60, "medium_competition"),
+        (0.9, 0.2, 160, 90, "high_competition"),
+    ])
+    def test_competition_reduces_growth(self, competition_factor, rank, ba, pbal, label):
+        """Test that growth occurs under various competition levels."""
+        tree = Tree(dbh=6.0, height=40.0, species="LP", age=15)
+        initial_dbh = tree.dbh
+        initial_height = tree.height
+
+        tree.grow(
+            site_index=70,
+            competition_factor=competition_factor,
+            rank=rank,
+            ba=ba,
+            pbal=pbal,
+            slope=0.05,
+            aspect=0
+        )
+
+        assert tree.dbh > initial_dbh, f"{label}: tree should still grow in DBH"
+        assert tree.height > initial_height, f"{label}: tree should still grow in height"
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    @pytest.mark.parametrize("competition_factor", [0.0, 0.5, 0.9])
+    def test_species_competition_interaction(self, species, competition_factor):
+        """Test that all species respond to competition."""
+        tree = Tree(dbh=6.0, height=40.0, species=species, age=15)
+        initial_dbh = tree.dbh
+
+        tree.grow(
+            site_index=70,
+            competition_factor=competition_factor,
+            ba=120,
+            pbal=50,
+            slope=0.05,
+            aspect=0
+        )
+
+        assert tree.dbh > initial_dbh, f"{species} with comp={competition_factor} should grow" 

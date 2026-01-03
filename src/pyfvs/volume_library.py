@@ -315,20 +315,22 @@ class VolumeCalculator:
 VolumeLibrary = VolumeCalculator
 
 
-# Global calculator instance
-_volume_calculator: Optional[VolumeCalculator] = None
+# Module-level cache for VolumeCalculator instances, keyed by species code
+_volume_calculators: Dict[str, VolumeCalculator] = {}
 
 
-def get_volume_library() -> VolumeCalculator:
-    """Get the global volume calculator instance.
+def get_volume_library(species_code: str = "LP") -> VolumeCalculator:
+    """Get a cached volume calculator instance for the given species.
+
+    Args:
+        species_code: FVS species code (default: LP for Loblolly Pine)
 
     Returns:
-        VolumeCalculator instance (singleton)
+        VolumeCalculator instance (cached per species)
     """
-    global _volume_calculator
-    if _volume_calculator is None:
-        _volume_calculator = VolumeCalculator()
-    return _volume_calculator
+    if species_code not in _volume_calculators:
+        _volume_calculators[species_code] = VolumeCalculator(species_code)
+    return _volume_calculators[species_code]
 
 
 def calculate_tree_volume(
@@ -339,8 +341,8 @@ def calculate_tree_volume(
 ) -> VolumeResult:
     """Calculate tree volume.
 
-    Convenience function for calculating tree volume without creating
-    a VolumeCalculator instance.
+    Convenience function for calculating tree volume using a cached
+    VolumeCalculator instance for the given species.
 
     Args:
         dbh: Diameter at breast height (inches, outside bark)
@@ -351,7 +353,7 @@ def calculate_tree_volume(
     Returns:
         VolumeResult object with calculated volumes
     """
-    calculator = VolumeCalculator(species_code)
+    calculator = get_volume_library(species_code)
     return calculator.calculate_volume(dbh, height)
 
 

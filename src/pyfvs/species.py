@@ -23,6 +23,8 @@ Usage:
 from enum import Enum
 from typing import Optional
 
+from .utils import normalize_code
+
 
 class SpeciesCode(str, Enum):
     """
@@ -304,10 +306,10 @@ class SpeciesCode(str, Enum):
         if code is None:
             raise ValueError("Species code cannot be None")
 
-        normalized_code = code.upper().strip()
+        normalized = normalize_code(code)
 
         for member in cls:
-            if member.value == normalized_code:
+            if member.value == normalized:
                 return member
 
         valid_codes = [m.value for m in cls]
@@ -336,9 +338,9 @@ class SpeciesCode(str, Enum):
         if code is None:
             return False
 
-        normalized_code = code.upper().strip()
+        normalized = normalize_code(code)
 
-        return any(member.value == normalized_code for member in cls)
+        return any(member.value == normalized for member in cls)
 
     @classmethod
     def get_pine_species(cls) -> list["SpeciesCode"]:

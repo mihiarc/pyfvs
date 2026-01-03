@@ -21,6 +21,13 @@ from pyfvs.height_diameter import (
     compare_models
 )
 
+# Species codes for parametrized tests
+SOUTHERN_PINE_SPECIES = ["LP", "SP", "SA", "LL"]
+# Extended species list including hardwoods
+EXTENDED_SPECIES = ["LP", "SP", "SA", "LL", "WO", "RM"]
+# DBH values for round-trip tests
+DBH_TEST_VALUES = [3.0, 6.0, 12.0, 18.0, 24.0]
+
 
 class TestHeightDiameterModel:
     """Test the HeightDiameterModel class."""
@@ -366,34 +373,187 @@ def test_create_summary_report():
     if coeffs_path.exists():
         with open(coeffs_path, 'r') as f:
             coeffs = json.load(f)
-        
+
         # Create summary table
         output_dir = Path("test_output")
         output_dir.mkdir(exist_ok=True)
-        
+
         with open(output_dir / "height_diameter_summary.txt", 'w') as f:
             f.write("Height-Diameter Model Parameters Summary\n")
             f.write("=" * 50 + "\n\n")
             f.write(f"Total species: {len(coeffs)}\n\n")
-            
+
             f.write("Curtis-Arney Parameters (P2, P3, P4, Dbw):\n")
             f.write("-" * 40 + "\n")
             f.write(f"{'Species':<8} {'P2':<12} {'P3':<12} {'P4':<12} {'Dbw':<8}\n")
             f.write("-" * 40 + "\n")
-            
+
             for species, params in sorted(coeffs.items()):
                 f.write(f"{species:<8} {params['P2']:<12.2f} {params['P3']:<12.6f} "
                        f"{params['P4']:<12.6f} {params['Dbw']:<8.1f}\n")
-            
+
             f.write("\n\nWykoff Parameters (B1, B2):\n")
             f.write("-" * 25 + "\n")
             f.write(f"{'Species':<8} {'B1':<12} {'B2':<12}\n")
             f.write("-" * 25 + "\n")
-            
+
             for species, params in sorted(coeffs.items()):
                 f.write(f"{species:<8} {params['Wykoff_B1']:<12.4f} {params['Wykoff_B2']:<12.4f}\n")
-        
+
         assert (output_dir / "height_diameter_summary.txt").exists()
+
+
+# =============================================================================
+# Parametrized Tests - Multi-species coverage
+# =============================================================================
+
+class TestMultiSpeciesHeightDiameter:
+    """Parametrized tests across multiple species for height-diameter models."""
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    def test_model_initialization_multi_species(self, species):
+        """Test that models initialize correctly for all southern pine species."""
+        model = create_height_diameter_model(species)
+        assert model.species_code == species
+        assert "curtis_arney" in model.hd_params
+        assert "wykoff" in model.hd_params
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    def test_curtis_arney_basic_multi_species(self, species):
+        """Test Curtis-Arney model returns valid heights for all species."""
+        model = create_height_diameter_model(species)
+
+        # Test small DBH (should return 4.5)
+        height_small = model.curtis_arney_height(0.05)
+        assert height_small == 4.5, f"{species}: small DBH should return 4.5"
+
+        # Test normal DBH
+        height_normal = model.curtis_arney_height(10.0)
+        assert height_normal > 4.5, f"{species}: 10\" DBH should produce height > 4.5"
+        assert height_normal < 200, f"{species}: 10\" DBH should produce height < 200"
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    def test_wykoff_basic_multi_species(self, species):
+        """Test Wykoff model returns valid heights for all species."""
+        model = create_height_diameter_model(species)
+
+        # Test zero DBH
+        height_zero = model.wykoff_height(0.0)
+        assert height_zero == 4.5, f"{species}: zero DBH should return 4.5"
+
+        # Test normal DBH
+        height_normal = model.wykoff_height(10.0)
+        assert height_normal > 4.5, f"{species}: 10\" DBH should produce height > 4.5"
+        assert height_normal < 200, f"{species}: 10\" DBH should produce height < 200"
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    @pytest.mark.parametrize("dbh", DBH_TEST_VALUES)
+    def test_height_increases_with_dbh(self, species, dbh):
+        """Test that height increases monotonically with DBH."""
+        model = create_height_diameter_model(species)
+
+        height_current = model.predict_height(dbh)
+        height_smaller = model.predict_height(dbh * 0.5)
+
+        assert height_current >= height_smaller, \
+            f"{species}: height at DBH={dbh} should be >= height at DBH={dbh*0.5}"
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    @pytest.mark.parametrize("dbh", DBH_TEST_VALUES)
+    def test_solve_dbh_round_trip(self, species, dbh):
+        """Test DBH -> Height -> DBH round-trip accuracy for multiple species and sizes."""
+        model = create_height_diameter_model(species)
+
+        # Forward: DBH -> Height
+        height = model.predict_height(dbh)
+
+        # Inverse: Height -> DBH
+        solved_dbh = model.solve_dbh_from_height(height)
+
+        # Should be close to original (within tolerance)
+        assert abs(solved_dbh - dbh) < 0.5, \
+            f"{species}: round-trip error too large: original={dbh}, solved={solved_dbh}"
+
+
+class TestModelConsistency:
+    """Parametrized tests for model consistency across species."""
+
+    @pytest.mark.parametrize("species", EXTENDED_SPECIES)
+    def test_model_parameters_exist(self, species):
+        """Test that all expected parameters exist for each species."""
+        model = create_height_diameter_model(species)
+
+        ca_params = model.get_model_parameters("curtis_arney")
+        assert "p2" in ca_params, f"{species}: missing Curtis-Arney p2"
+        assert "p3" in ca_params, f"{species}: missing Curtis-Arney p3"
+        assert "p4" in ca_params, f"{species}: missing Curtis-Arney p4"
+        assert "dbw" in ca_params, f"{species}: missing Curtis-Arney dbw"
+
+        wy_params = model.get_model_parameters("wykoff")
+        assert "b1" in wy_params, f"{species}: missing Wykoff b1"
+        assert "b2" in wy_params, f"{species}: missing Wykoff b2"
+
+    @pytest.mark.parametrize("species", EXTENDED_SPECIES)
+    @pytest.mark.parametrize("model_type", ["curtis_arney", "wykoff"])
+    def test_predict_height_method(self, species, model_type):
+        """Test predict_height method works for all species and model types."""
+        model = create_height_diameter_model(species)
+
+        height = model.predict_height(10.0, model_type)
+        assert height > 4.5, f"{species}/{model_type}: height should be > 4.5 for 10\" DBH"
+        assert height < 200, f"{species}/{model_type}: height should be < 200 for 10\" DBH"
+
+    @pytest.mark.parametrize("species", SOUTHERN_PINE_SPECIES)
+    def test_models_reasonably_close(self, species):
+        """Test that Curtis-Arney and Wykoff models produce similar heights."""
+        model = create_height_diameter_model(species)
+
+        dbh = 12.0
+        ca_height = model.curtis_arney_height(dbh)
+        wy_height = model.wykoff_height(dbh)
+
+        # Heights should be within 20% of each other for same DBH
+        ratio = max(ca_height, wy_height) / min(ca_height, wy_height)
+        assert ratio < 1.3, \
+            f"{species}: CA ({ca_height:.1f}) and Wykoff ({wy_height:.1f}) differ by {(ratio-1)*100:.1f}%"
+
+
+class TestDBHRanges:
+    """Parametrized tests across DBH ranges."""
+
+    @pytest.mark.parametrize("dbh", [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0])
+    def test_dbh_range_loblolly(self, dbh):
+        """Test height predictions across full DBH range for loblolly pine."""
+        model = create_height_diameter_model("LP")
+
+        ca_height = model.curtis_arney_height(dbh)
+        wy_height = model.wykoff_height(dbh)
+
+        # Both should produce valid heights
+        assert ca_height >= 4.5, f"CA height should be >= 4.5 at DBH={dbh}"
+        assert wy_height >= 4.5, f"Wykoff height should be >= 4.5 at DBH={dbh}"
+
+        # Heights should be reasonable (not infinite or negative)
+        assert ca_height < 200, f"CA height unreasonably high at DBH={dbh}"
+        assert wy_height < 200, f"Wykoff height unreasonably high at DBH={dbh}"
+
+    @pytest.mark.parametrize("species,dbh", [
+        ("LP", 5.0), ("LP", 15.0), ("LP", 25.0),
+        ("SP", 5.0), ("SP", 15.0), ("SP", 25.0),
+        ("SA", 5.0), ("SA", 15.0), ("SA", 25.0),
+        ("LL", 5.0), ("LL", 15.0), ("LL", 25.0),
+    ])
+    def test_species_dbh_combinations(self, species, dbh):
+        """Test height predictions for species/DBH combinations."""
+        model = create_height_diameter_model(species)
+
+        height = model.predict_height(dbh)
+
+        # Height should be reasonable for the DBH
+        assert height > 4.5, f"{species} at DBH={dbh} should have height > 4.5"
+        # Larger trees should have greater height (general check)
+        if dbh >= 15.0:
+            assert height > 40, f"{species} at DBH={dbh} should have height > 40"
 
 
 if __name__ == "__main__":

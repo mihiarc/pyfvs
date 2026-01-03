@@ -9,20 +9,67 @@ Part of the FIA Python Ecosystem:
 - GridFIA: Spatial raster analysis (https://github.com/mihiarc/gridfia)
 - PyFVS: Growth/yield simulation (this package)
 - AskFIA: AI conversational interface (https://github.com/mihiarc/askfia)
+
+Quick Start:
+    >>> from pyfvs import Stand
+    >>> stand = Stand.initialize_planted(trees_per_acre=500, site_index=70, species='LP')
+    >>> stand.grow(years=25)
+    >>> print(stand.get_metrics())
 """
 
 # =============================================================================
-# Core Classes
+# Package Metadata
+# =============================================================================
+__version__ = "0.2.3"
+__author__ = "PyFVS Development Team"
+
+# =============================================================================
+# Core Classes - Primary API
 # =============================================================================
 from .stand import Stand
 from .tree import Tree
 from .growth_parameters import GrowthParameters
+
+# =============================================================================
+# Species and Classification
+# =============================================================================
 from .species import SpeciesCode, get_species_code, validate_species_code
 
 # =============================================================================
-# Configuration
+# Ecological Unit Classification
+# =============================================================================
+from .ecological_unit import (
+    EcologicalUnitClassifier,
+    get_ecounit_effect,
+    select_ecounit_table,
+    create_classifier as create_ecounit_classifier,
+    get_ecounit_summary,
+    MOUNTAIN_PROVINCE_ECOUNITS,
+    LOWLAND_ECOUNITS,
+)
+
+# =============================================================================
+# Forest Type Classification
+# =============================================================================
+from .forest_type import (
+    ForestTypeClassifier,
+    ForestTypeGroup,
+    ForestTypeResult,
+    get_forest_type_effect,
+    classify_forest_type_from_species,
+    map_fia_to_fvs,
+    get_forest_type_group_info,
+)
+
+# =============================================================================
+# Configuration Loading
 # =============================================================================
 from .config_loader import get_config_loader, load_stand_config, load_tree_config
+
+# =============================================================================
+# Simulation Engine
+# =============================================================================
+from .simulation_engine import SimulationEngine
 
 # =============================================================================
 # Growth Models - Height-Diameter
@@ -87,32 +134,6 @@ from .volume_library import (
 )
 
 # =============================================================================
-# Forest Type Classification
-# =============================================================================
-from .forest_type import (
-    ForestTypeClassifier,
-    ForestTypeGroup,
-    ForestTypeResult,
-    get_forest_type_effect,
-    classify_forest_type_from_species,
-    map_fia_to_fvs,
-    get_forest_type_group_info,
-)
-
-# =============================================================================
-# Ecological Unit Classification
-# =============================================================================
-from .ecological_unit import (
-    EcologicalUnitClassifier,
-    get_ecounit_effect,
-    select_ecounit_table,
-    create_classifier as create_ecounit_classifier,
-    get_ecounit_summary,
-    MOUNTAIN_PROVINCE_ECOUNITS,
-    LOWLAND_ECOUNITS,
-)
-
-# =============================================================================
 # FIA Integration
 # =============================================================================
 from .fia_integration import (
@@ -130,28 +151,79 @@ from .fia_integration import (
 )
 
 # =============================================================================
+# Data Export
+# =============================================================================
+from .data_export import DataExporter
+
+# =============================================================================
+# Utilities
+# =============================================================================
+from .utils import normalize_code, normalize_species_code, normalize_ecounit
+
+# =============================================================================
+# Exceptions
+# =============================================================================
+from .exceptions import (
+    FVSError,
+    ConfigurationError,
+    SpeciesNotFoundError,
+    ParameterError,
+    InvalidParameterError,
+    SimulationError,
+    GrowthModelError,
+    StandError,
+    EmptyStandError,
+    DataError,
+    InvalidDataError,
+)
+
+# =============================================================================
+# Base Classes (for extension)
+# =============================================================================
+from .model_base import ParameterizedModel
+
+# =============================================================================
 # Entry Point
 # =============================================================================
 from .main import main
 
 # =============================================================================
-# Package Metadata
+# Public API Definition
 # =============================================================================
-__version__ = "0.2.3"
-__author__ = "PyFVS Development Team"
-
 __all__ = [
+    # Package Metadata
+    "__version__",
+    "__author__",
     # Core Classes
     "Stand",
     "Tree",
     "GrowthParameters",
+    # Species and Classification
     "SpeciesCode",
     "get_species_code",
     "validate_species_code",
+    # Ecological Unit Classification
+    "EcologicalUnitClassifier",
+    "get_ecounit_effect",
+    "select_ecounit_table",
+    "create_ecounit_classifier",
+    "get_ecounit_summary",
+    "MOUNTAIN_PROVINCE_ECOUNITS",
+    "LOWLAND_ECOUNITS",
+    # Forest Type Classification
+    "ForestTypeClassifier",
+    "ForestTypeGroup",
+    "ForestTypeResult",
+    "get_forest_type_effect",
+    "classify_forest_type_from_species",
+    "map_fia_to_fvs",
+    "get_forest_type_group_info",
     # Configuration
     "get_config_loader",
     "load_stand_config",
     "load_tree_config",
+    # Simulation Engine
+    "SimulationEngine",
     # Height-Diameter Models
     "create_height_diameter_model",
     "curtis_arney_height",
@@ -184,22 +256,6 @@ __all__ = [
     "get_volume_library",
     "get_volume_library_info",
     "validate_volume_library",
-    # Forest Type Classification
-    "ForestTypeClassifier",
-    "ForestTypeGroup",
-    "ForestTypeResult",
-    "get_forest_type_effect",
-    "classify_forest_type_from_species",
-    "map_fia_to_fvs",
-    "get_forest_type_group_info",
-    # Ecological Unit Classification
-    "EcologicalUnitClassifier",
-    "get_ecounit_effect",
-    "select_ecounit_table",
-    "create_ecounit_classifier",
-    "get_ecounit_summary",
-    "MOUNTAIN_PROVINCE_ECOUNITS",
-    "LOWLAND_ECOUNITS",
     # FIA Integration
     "FIASpeciesMapper",
     "FIATreeRecord",
@@ -212,6 +268,26 @@ __all__ = [
     "derive_ecounit",
     "derive_stand_age",
     "create_trees_from_fia",
+    # Data Export
+    "DataExporter",
+    # Utilities
+    "normalize_code",
+    "normalize_species_code",
+    "normalize_ecounit",
+    # Exceptions
+    "FVSError",
+    "ConfigurationError",
+    "SpeciesNotFoundError",
+    "ParameterError",
+    "InvalidParameterError",
+    "SimulationError",
+    "GrowthModelError",
+    "StandError",
+    "EmptyStandError",
+    "DataError",
+    "InvalidDataError",
+    # Base Classes
+    "ParameterizedModel",
     # Entry Point
     "main",
 ]

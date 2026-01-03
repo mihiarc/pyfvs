@@ -34,7 +34,7 @@ def select_ecounit_table(ecounit_group: str) -> str:
     Returns:
         Table identifier string: "table_4_7_1_5" or "table_4_7_1_6"
     """
-    normalized_group = ecounit_group.upper().strip()
+    normalized_group = normalize_ecounit(ecounit_group)
 
     if normalized_group in MOUNTAIN_PROVINCE_ECOUNITS:
         return "table_4_7_1_5"
@@ -137,7 +137,7 @@ class EcologicalUnitClassifier:
 
     def get_base_ecounit(self, species_code: str, table: str = "table_4_7_1_5") -> Optional[str]:
         """Get the base ecological unit for a species."""
-        normalized_species = species_code.upper().strip()
+        normalized_species = normalize_species_code(species_code)
 
         if table == "table_4_7_1_5":
             coefficients = self._coefficients_table_5
@@ -167,7 +167,7 @@ class EcologicalUnitClassifier:
 
     def get_all_coefficients_for_species(self, species_code: str) -> Dict[str, float]:
         """Get all ecological unit coefficients for a species across both tables."""
-        normalized_species = species_code.upper().strip()
+        normalized_species = normalize_species_code(species_code)
         all_coefficients = {}
 
         # Get coefficients from Table 4.7.1.5
@@ -188,12 +188,12 @@ class EcologicalUnitClassifier:
 
     def is_lowland_ecounit(self, ecounit_group: str) -> bool:
         """Check if an ecological unit group is classified as lowland."""
-        normalized_ecounit = ecounit_group.upper().strip()
+        normalized_ecounit = normalize_ecounit(ecounit_group)
         return normalized_ecounit in LOWLAND_ECOUNITS
 
     def is_mountain_province_ecounit(self, ecounit_group: str) -> bool:
         """Check if an ecological unit group is classified as mountain/province."""
-        normalized_ecounit = ecounit_group.upper().strip()
+        normalized_ecounit = normalize_ecounit(ecounit_group)
         return normalized_ecounit in MOUNTAIN_PROVINCE_ECOUNITS
 
     @classmethod
@@ -231,7 +231,7 @@ def create_classifier() -> EcologicalUnitClassifier:
 def get_ecounit_summary(species_code: str) -> Dict[str, Any]:
     """Get a summary of ecological unit effects for a species."""
     classifier = EcologicalUnitClassifier()
-    normalized_species = species_code.upper().strip()
+    normalized_species = normalize_species_code(species_code)
 
     # Get effects from both tables
     mountain_effects = {}
