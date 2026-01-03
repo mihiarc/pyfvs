@@ -39,11 +39,13 @@ import json
 import logging
 import random
 from collections import Counter
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+
 from .tree_utils import calculate_tree_basal_area
+from .utils import normalize_species_code
 
 if TYPE_CHECKING:
     import polars as pl
@@ -120,7 +122,7 @@ class FIASpeciesMapper:
                 except (ValueError, TypeError):
                     continue
 
-                fvs_code = species.get('fvs_code', '').upper()
+                fvs_code = normalize_species_code(species.get('fvs_code', ''))
                 common_name = species.get('common_name', '')
                 scientific_name = species.get('scientific_name', '')
 
@@ -192,7 +194,7 @@ class FIASpeciesMapper:
             >>> mapper.fvs_to_spcd('LP')
             131
         """
-        return self._fvs_to_spcd.get(fvs_code.upper())
+        return self._fvs_to_spcd.get(normalize_species_code(fvs_code))
 
     def get_common_name(self, spcd: int) -> Optional[str]:
         """Get common name for a species code."""
@@ -237,12 +239,11 @@ class FIASpeciesMapper:
         }
 
 
-@dataclass
-class FIATreeRecord:
+class FIATreeRecord(BaseModel):
     """
     Intermediate representation of an FIA tree record.
 
-    This dataclass holds FIA tree data in a format ready for conversion
+    This Pydantic model holds FIA tree data in a format ready for conversion
     to PyFVS Tree objects. It handles unit conversions and validation.
 
     Attributes:
@@ -255,25 +256,51 @@ class FIATreeRecord:
         condid: Condition ID for multi-condition plots
         statuscd: Tree status code (1=live, 2=dead, 3=removed)
     """
-    spcd: int
-    dia: float
-    ht: float
-    cr: float = 50.0  # Default crown ratio (50%)
-    tpa_unadj: float = 1.0
-    age: Optional[int] = None
-    condid: int = 1
-    statuscd: int = 1  # Default to live tree
 
-    def __post_init__(self):
-        """Validate and clean data after initialization."""
-        # Ensure non-negative values
-        self.dia = max(0.0, float(self.dia))
-        self.ht = max(0.0, float(self.ht))
-        self.cr = max(0.0, min(100.0, float(self.cr)))
-        self.tpa_unadj = max(0.0, float(self.tpa_unadj))
+    model_config = ConfigDict(
+        frozen=False,
+        validate_assignment=True,
+        extra='forbid',
+    )
 
-        if self.age is not None:
-            self.age = max(0, int(self.age))
+    spcd: int = Field(..., description="FIA species code (integer)")
+    dia: float = Field(..., ge=0.0, description="Diameter at breast height (inches)")
+    ht: float = Field(..., ge=0.0, description="Total height (feet)")
+    cr: float = Field(
+        default=50.0,
+        description="Crown ratio as percentage (0-100)"
+    )
+    tpa_unadj: float = Field(
+        default=1.0, ge=0.0, description="Unadjusted trees per acre"
+    )
+    age: Optional[int] = Field(default=None, ge=0, description="Tree age in years")
+    condid: int = Field(default=1, ge=1, description="Condition ID for multi-condition plots")
+    statuscd: int = Field(
+        default=1,
+        ge=1,
+        le=3,
+        description="Tree status code (1=live, 2=dead, 3=removed)"
+    )
+
+    @field_validator('dia', 'ht', 'tpa_unadj', mode='before')
+    @classmethod
+    def coerce_float(cls, value: Any) -> float:
+        """Coerce numeric values to float and ensure non-negative."""
+        return max(0.0, float(value))
+
+    @field_validator('cr', mode='before')
+    @classmethod
+    def clamp_crown_ratio(cls, value: Any) -> float:
+        """Clamp crown ratio to 0-100 range."""
+        return max(0.0, min(100.0, float(value)))
+
+    @field_validator('age', mode='before')
+    @classmethod
+    def coerce_age(cls, value: Any) -> Optional[int]:
+        """Coerce age to non-negative int or None."""
+        if value is None:
+            return None
+        return max(0, int(value))
 
     @property
     def crown_ratio_proportion(self) -> float:
@@ -317,8 +344,7 @@ class FIATreeRecord:
             return None
 
 
-@dataclass
-class FIAPlotData:
+class FIAPlotData(BaseModel):
     """
     Container for FIA plot data ready for FVS conversion.
 
@@ -334,13 +360,28 @@ class FIAPlotData:
         condid: Selected condition ID
         stand_age: Stand age from COND table
     """
-    trees: List[FIATreeRecord] = field(default_factory=list)
-    site_index: Optional[float] = None
-    forest_type: Optional[str] = None
-    ecounit: Optional[str] = None
-    plot_cn: Optional[str] = None
-    condid: int = 1
-    stand_age: Optional[int] = None
+
+    model_config = ConfigDict(
+        frozen=False,
+        validate_assignment=True,
+        extra='forbid',
+    )
+
+    trees: List[FIATreeRecord] = Field(
+        default_factory=list, description="List of FIATreeRecord objects"
+    )
+    site_index: Optional[float] = Field(
+        default=None, ge=0.0, description="Site index (base age 25)"
+    )
+    forest_type: Optional[str] = Field(
+        default=None, description="FVS forest type group"
+    )
+    ecounit: Optional[str] = Field(default=None, description="Ecological unit code")
+    plot_cn: Optional[str] = Field(default=None, description="FIA plot control number")
+    condid: int = Field(default=1, ge=1, description="Selected condition ID")
+    stand_age: Optional[int] = Field(
+        default=None, ge=0, description="Stand age from COND table"
+    )
 
     @property
     def tree_count(self) -> int:

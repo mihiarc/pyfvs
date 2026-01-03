@@ -11,8 +11,9 @@ Harvest operations include:
 - Clearcut (remove all trees)
 - Selection harvest (targeted basal area reduction)
 """
-from dataclasses import dataclass
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, TYPE_CHECKING, Literal
+
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area
 
@@ -20,8 +21,17 @@ if TYPE_CHECKING:
     from .tree import Tree
 
 
-@dataclass
-class HarvestRecord:
+# Valid harvest type values
+HARVEST_TYPES = Literal[
+    'thin_from_below',
+    'thin_from_above',
+    'thin_by_dbh',
+    'clearcut',
+    'selection'
+]
+
+
+class HarvestRecord(BaseModel):
     """Record of a single harvest event following FVS output format.
 
     Attributes:
@@ -42,25 +52,65 @@ class HarvestRecord:
         max_dbh: Maximum DBH cut (for thin_by_dbh)
         proportion: Proportion removed (for thin_by_dbh)
     """
-    year: int
-    harvest_type: str
-    trees_removed: int
-    basal_area_removed: float
-    volume_removed: float
-    merchantable_volume_removed: float
-    board_feet_removed: float
-    mean_dbh_removed: float
-    residual_tpa: int
-    residual_ba: float
-    target_ba: Optional[float] = None
-    target_tpa: Optional[int] = None
-    min_dbh: Optional[float] = None
-    max_dbh: Optional[float] = None
-    proportion: Optional[float] = None
+
+    model_config = ConfigDict(
+        frozen=False,
+        validate_assignment=True,
+        extra='forbid',
+    )
+
+    year: int = Field(..., ge=0, description="Stand age at time of harvest")
+    harvest_type: HARVEST_TYPES = Field(
+        ..., description="Type of harvest operation"
+    )
+    trees_removed: int = Field(..., ge=0, description="Number of trees removed per acre")
+    basal_area_removed: float = Field(
+        ..., ge=0.0, description="Basal area removed (sq ft/acre)"
+    )
+    volume_removed: float = Field(
+        ..., ge=0.0, description="Total cubic volume removed (cu ft/acre)"
+    )
+    merchantable_volume_removed: float = Field(
+        ..., ge=0.0, description="Merchantable cubic volume removed (cu ft/acre)"
+    )
+    board_feet_removed: float = Field(
+        ..., ge=0.0, description="Board foot volume removed (bf/acre, Doyle scale)"
+    )
+    mean_dbh_removed: float = Field(
+        ..., ge=0.0, description="Mean DBH of removed trees (inches)"
+    )
+    residual_tpa: int = Field(..., ge=0, description="Trees per acre after harvest")
+    residual_ba: float = Field(
+        ..., ge=0.0, description="Basal area after harvest (sq ft/acre)"
+    )
+    target_ba: Optional[float] = Field(
+        default=None, ge=0.0, description="Target basal area (if applicable)"
+    )
+    target_tpa: Optional[int] = Field(
+        default=None, ge=0, description="Target TPA (if applicable)"
+    )
+    min_dbh: Optional[float] = Field(
+        default=None, ge=0.0, description="Minimum DBH cut (for thin_by_dbh)"
+    )
+    max_dbh: Optional[float] = Field(
+        default=None, ge=0.0, description="Maximum DBH cut (for thin_by_dbh)"
+    )
+    proportion: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="Proportion removed (for thin_by_dbh)"
+    )
+
+    @model_validator(mode='after')
+    def validate_dbh_range(self) -> 'HarvestRecord':
+        """Validate that min_dbh < max_dbh when both are specified."""
+        if self.min_dbh is not None and self.max_dbh is not None:
+            if self.min_dbh >= self.max_dbh:
+                raise ValueError(
+                    f"min_dbh ({self.min_dbh}) must be less than max_dbh ({self.max_dbh})"
+                )
+        return self
 
 
-@dataclass
-class HarvestResult:
+class HarvestResult(BaseModel):
     """Result of a harvest operation.
 
     Attributes:
@@ -68,9 +118,20 @@ class HarvestResult:
         removed_trees: List of trees that were removed
         record: HarvestRecord with details
     """
-    remaining_trees: List['Tree']
-    removed_trees: List['Tree']
-    record: HarvestRecord
+
+    model_config = ConfigDict(
+        frozen=False,
+        arbitrary_types_allowed=True,  # Allow Tree objects
+        extra='forbid',
+    )
+
+    remaining_trees: List[Any] = Field(
+        default_factory=list, description="List of trees after harvest"
+    )
+    removed_trees: List[Any] = Field(
+        default_factory=list, description="List of trees that were removed"
+    )
+    record: HarvestRecord = Field(..., description="HarvestRecord with details")
 
 
 class HarvestManager:

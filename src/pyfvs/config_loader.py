@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, Any, Union
 import sys
 from .exceptions import ConfigurationError
+from .utils import normalize_species_code
 
 # Handle TOML imports for different Python versions
 if sys.version_info >= (3, 11):
@@ -178,24 +179,25 @@ class ConfigLoader:
     
     def load_species_config(self, species_code: str) -> Dict[str, Any]:
         """Load configuration for a specific species.
-        
+
         Args:
             species_code: Species code (e.g., 'LP', 'SP', 'SA', 'LL')
-            
+
         Returns:
             Dictionary containing species-specific parameters
-            
+
         Raises:
             SpeciesNotFoundError: If species code is not found
             ConfigurationError: If species file cannot be loaded
         """
         from .exceptions import SpeciesNotFoundError
-        
-        if species_code not in self.species_config['species']:
+
+        normalized_code = normalize_species_code(species_code)
+        if normalized_code not in self.species_config['species']:
             raise SpeciesNotFoundError(species_code)
-        
+
         try:
-            species_info = self.species_config['species'][species_code]
+            species_info = self.species_config['species'][normalized_code]
             species_file = self.cfg_dir / species_info['file']
             
             return self._load_config_file(species_file)
@@ -208,18 +210,19 @@ class ConfigLoader:
     
     def get_stand_params(self, species_code: str = 'LP') -> Dict[str, Any]:
         """Get parameters needed for Stand class in the legacy format.
-        
+
         Args:
             species_code: Species code (default: 'LP' for loblolly pine)
-            
+
         Returns:
             Dictionary with parameters in the format expected by Stand class
         """
-        species_params = self.load_species_config(species_code)
-        
+        normalized_code = normalize_species_code(species_code)
+        species_params = self.load_species_config(normalized_code)
+
         # Convert to legacy format expected by Stand class
         stand_params = {
-            'species': species_code.lower() + '_pine',
+            'species': normalized_code.lower() + '_pine',
             'crown': {
                 # Extract crown width parameters for loblolly pine
                 'a1': 0.7380,  # From README.md species data

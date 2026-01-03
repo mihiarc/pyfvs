@@ -23,6 +23,7 @@ from .tree import Tree
 from .config_loader import load_stand_config
 from .validation import ParameterValidator
 from .logging_config import get_logger
+from .utils import normalize_code
 
 # Import component classes
 from .stand_metrics import StandMetricsCalculator
@@ -149,13 +150,14 @@ class Stand:
     def set_forest_type(self, forest_type: str) -> None:
         """Manually set the forest type."""
         valid_types = {"FTYLPN", "FTLOHD", "FTUPHD", "FTUPOK", "FTOKPN", "FTNOHD", "FTSFHP"}
-        if forest_type.upper() not in valid_types:
+        normalized = normalize_code(forest_type)
+        if normalized not in valid_types:
             self.logger.warning(f"Unknown forest type: {forest_type}. Using as-is.")
-        self._forest_type = forest_type.upper()
+        self._forest_type = normalized
 
     def set_ecounit(self, ecounit: str) -> None:
         """Manually set the ecological unit."""
-        self.ecounit = ecounit.upper()
+        self.ecounit = normalize_code(ecounit)
 
     # =========================================================================
     # Stand Metrics - Delegated to StandMetricsCalculator

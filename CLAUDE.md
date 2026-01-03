@@ -63,13 +63,18 @@ The Stand class uses composition with these specialized components:
 
 ### Key Module Dependencies
 ```
+model_base.py (ParameterizedModel - abstract base class)
+  └── All growth models inherit from ParameterizedModel
+
 tree.py
+  ├── growth_parameters.py (GrowthParameters dataclass)
   ├── large_tree_height_growth.py (FVS Section 4.7.2 equations)
   ├── height_diameter.py (Curtis-Arney/Wykoff equations)
   ├── crown_ratio.py (Weibull-based crown ratio)
   ├── bark_ratio.py (Clark 1991 DIB/DOB)
   ├── crown_width.py (forest/open grown equations)
-  └── validation.py (parameter bounds checking)
+  ├── volume_library.py (Amateis & Burkhart equations)
+  └── species.py (SpeciesCode enum)
 
 stand.py (composition)
   ├── stand_metrics.py (StandMetricsCalculator)
@@ -81,6 +86,9 @@ stand.py (composition)
 
 config_loader.py
   └── All coefficient modules use load_coefficient_file() with caching
+
+utils/
+  └── string_utils.py (normalize_code, normalize_species_code, normalize_ecounit)
 ```
 
 ### Configuration System
@@ -92,7 +100,9 @@ config_loader.py
 ### Testing
 - Unit tests in `/tests/` for individual modules
 - Comprehensive integration tests in `test_tree_comprehensive.py`
+- **Shared fixtures** in `tests/conftest.py` - 30+ fixtures for trees, stands, and growth parameters
 - Test outputs and plots saved to `/test_output/` for manual verification
+- Run `uv run pytest` to execute all tests (validation tests are pending calibration)
 
 ## Known Issues
 
@@ -137,6 +147,79 @@ config_loader.py
     - Removed unused validation functions (`validate_positive`, `validate_proportion`, `validate_range`)
     - Refactored `StandOutputGenerator` to delegate CSV/Excel exports to `DataExporter` (eliminated duplication)
 21. **Config File Packaging** - Fixed critical packaging bug where cfg/ directory was outside the package, causing FileNotFoundError when installed via pip. Moved cfg/ into `src/pyfvs/cfg/` and updated `config_loader.py` to use `Path(__file__).parent / 'cfg'`. Updated pyproject.toml to include JSON files in package data.
+22. **ParameterizedModel Base Class** - Created abstract base class (`model_base.py`) to eliminate code duplication across growth model classes. All model classes now inherit from ParameterizedModel for consistent coefficient loading, caching, and fallback behavior.
+23. **GrowthParameters Dataclass** - Added `GrowthParameters` dataclass (`growth_parameters.py`) to encapsulate tree growth inputs. Reduces Tree.grow() from 11 individual parameters to a single object, with factory method `GrowthParameters.from_stand()`.
+24. **SpeciesCode Enum** - Added type-safe species handling with 63 species codes (`species.py`). SpeciesCode inherits from (str, Enum) for string compatibility. Includes validation, listing, and category methods (pines, oaks, etc.).
+25. **String Normalization Utilities** - Added `utils/string_utils.py` with `normalize_code()`, `normalize_species_code()`, and `normalize_ecounit()` functions for consistent string handling throughout the codebase.
+26. **Test Fixtures Consolidation** - Created `tests/conftest.py` with 30+ shared pytest fixtures for trees (seedling, small, transition, large, mature), tree lists (sample, mixed species, density levels), and stands (young, mature, high/low site, ecounits).
+27. **VolumeCalculator Caching** - Added module-level cache for VolumeCalculator instances in `volume_library.py`, keyed by species code. The `get_volume_library()` function returns cached instances for performance.
+
+## Recent Refactoring (2025)
+
+### ParameterizedModel Architecture
+All growth model classes now inherit from `ParameterizedModel` (`model_base.py`):
+- **BarkRatioModel** (`bark_ratio.py`)
+- **CrownWidthModel** (`crown_width.py`)
+- **CrownRatioModel** (`crown_ratio.py`)
+- **CrownCompetitionFactorModel** (`crown_competition_factor.py`)
+- **HeightDiameterModel** (`height_diameter.py`)
+- **LargeTreeHeightGrowthModel** (`large_tree_height_growth.py`)
+
+Benefits:
+- Standardized coefficient loading from JSON files via `ConfigLoader`
+- Consistent fallback to LP coefficients when species not found
+- Hardcoded fallback parameters for offline operation
+- Reduced code duplication (~50 lines per model class)
+
+### GrowthParameters Pattern
+```python
+from pyfvs import Tree, Stand, GrowthParameters
+
+# Create from Stand (preferred)
+stand = Stand.initialize_planted(500, site_index=70, species='LP')
+params = GrowthParameters.from_stand(stand, target_tree_index=0)
+tree = stand.trees[0]
+tree.grow(params)
+
+# Or create directly
+params = GrowthParameters(
+    site_index=70,
+    competition_factor=0.3,
+    ba=120,
+    pbal=40,
+    ecounit='M231'
+)
+tree.grow(params)
+```
+
+### SpeciesCode Enum Usage
+```python
+from pyfvs.species import SpeciesCode
+
+# Type-safe species handling
+species = SpeciesCode.LOBLOLLY_PINE  # "LP"
+species = SpeciesCode.from_string("lp")  # Case-insensitive
+
+# Validation
+if SpeciesCode.is_valid("XX"):  # Returns False
+    ...
+
+# Category methods
+pines = SpeciesCode.get_southern_yellow_pines()  # [LP, SP, LL, SA]
+oaks = SpeciesCode.get_oak_species()  # [WO, CW, SO, WK, LK, OV, SK]
+all_codes = SpeciesCode.list_all_codes()  # 63 species codes
+```
+
+### Test Fixtures
+Key fixtures available in `tests/conftest.py`:
+
+| Category | Fixtures |
+|----------|----------|
+| Trees | `small_tree`, `large_tree`, `transition_tree`, `seedling_tree`, `pole_tree`, `sawtimber_tree`, `mature_tree` |
+| Tree Lists | `sample_trees` (10), `sample_trees_50` (50), `uniform_stand_trees` (25), `mixed_species_trees` (5) |
+| Density | `sparse_stand_trees`, `dense_stand_trees`, `very_dense_stand_trees` |
+| Stands | `young_stand`, `mature_stand`, `low_density_stand`, `high_density_stand`, `high_site_stand`, `low_site_stand`, `mountain_ecounit_stand`, `empty_stand`, `small_stand` |
+| Parameters | `standard_growth_params`, `high_competition_params`, `low_competition_params` |
 
 ## Ecological Unit Effects on Growth
 
@@ -234,13 +317,17 @@ See `test_output/manuscript_validation/` for validation reports
 ### Code Quality
 1. **Consolidate Simulation Functions**: Three overlapping functions in `main.py` (run_simulation, simulate_stand_growth, generate_yield_table)
 2. ~~**YAGNI/SRP Cleanup**~~ **DONE** - Removed 346 lines of dead/duplicate code (see Recently Fixed #20)
+3. ~~**ParameterizedModel Refactoring**~~ **DONE** - All growth models inherit from base class (see Recent Refactoring 2025)
+4. ~~**GrowthParameters Dataclass**~~ **DONE** - Encapsulates tree growth inputs (see Recently Fixed #23)
+5. ~~**SpeciesCode Enum**~~ **DONE** - Type-safe species handling (see Recently Fixed #24)
 
 ### Testing & Validation
 1. ~~Re-run manuscript validation tests with appropriate ecounit settings~~ **DONE**
 2. ~~Investigate yield gap vs manuscript~~ **RESOLVED** - PyFVS exceeds historical yield tables by 2x; manuscript expectations appear unusually high
 3. ~~Validate thinned stands~~ **DONE** - Thinning produces larger individual trees but lower total volume
-4. Add regression tests with known good outputs
-5. Test with large stands (1000+ trees) for performance
+4. ~~Consolidate test fixtures~~ **DONE** - Created `tests/conftest.py` with 30+ shared fixtures
+5. Add regression tests with known good outputs
+6. Test with large stands (1000+ trees) for performance
 
 ### Growth Model Calibration
 1. ~~Investigate diameter growth rates~~ **RESOLVED** - Use appropriate ecounit for region

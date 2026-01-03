@@ -21,6 +21,7 @@ from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
 from .config_loader import load_coefficient_file
+from .utils import normalize_species_code
 
 
 class ForestTypeGroup(str, Enum):
@@ -152,9 +153,9 @@ class ForestTypeClassifier:
 
     def classify_from_species(self, species_code: str) -> str:
         """Classify forest type from a single species code."""
-        species_upper = species_code.upper()
-        if species_upper in SPECIES_TO_FOREST_TYPE:
-            return SPECIES_TO_FOREST_TYPE[species_upper]
+        species_normalized = normalize_species_code(species_code)
+        if species_normalized in SPECIES_TO_FOREST_TYPE:
+            return SPECIES_TO_FOREST_TYPE[species_normalized]
         return "FTUPHD"  # Default
 
     def classify_from_trees(self, trees: List[Any], basal_area_weighted: bool = True) -> ForestTypeResult:
@@ -171,7 +172,7 @@ class ForestTypeClassifier:
             species = getattr(tree, 'species', None)
             if species is None:
                 continue
-            species = species.upper()
+            species = normalize_species_code(species)
             if basal_area_weighted:
                 dbh = getattr(tree, 'dbh', 1.0)
                 weight = dbh * dbh
@@ -209,24 +210,24 @@ class ForestTypeClassifier:
         """Get the forest type coefficient for a species and forest type group."""
         coefficients = self._load_fortype_coefficients()
         species_data = coefficients.get("species_coefficients", {})
-        species_upper = species_code.upper()
+        species_normalized = normalize_species_code(species_code)
 
-        if species_upper not in species_data:
+        if species_normalized not in species_data:
             return 0.0
 
-        fortype_codes = species_data[species_upper].get("fortype_codes", {})
+        fortype_codes = species_data[species_normalized].get("fortype_codes", {})
         return fortype_codes.get(forest_type_group, 0.0)
 
     def get_base_forest_type(self, species_code: str) -> str:
         """Get the base (default) forest type for a species."""
         coefficients = self._load_fortype_coefficients()
         species_data = coefficients.get("species_coefficients", {})
-        species_upper = species_code.upper()
+        species_normalized = normalize_species_code(species_code)
 
-        if species_upper not in species_data:
+        if species_normalized not in species_data:
             return "FTUPHD"
 
-        return species_data[species_upper].get("base_fortype", "FTUPHD")
+        return species_data[species_normalized].get("base_fortype", "FTUPHD")
 
 
 def get_forest_type_effect(species_code: str, forest_type_group: str) -> float:

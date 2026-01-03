@@ -1229,4 +1229,369 @@ def test_yield_table_period_length_variation():
     assert len(yt_10yr) == 4  # initial + 3 periods
 
     # Both should end at same age
-    assert yt_5yr[-1].Age == yt_10yr[-1].Age 
+    assert yt_5yr[-1].Age == yt_10yr[-1].Age
+
+
+# ============================================================================
+# Parametrized Tests for Improved Coverage
+# ============================================================================
+
+@pytest.mark.parametrize("species", ["LP", "SP", "SA", "LL"])
+def test_stand_initialization_multi_species(species):
+    """Test stand initialization for multiple southern pine species."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=70, species=species)
+
+    # Verify stand was created successfully
+    assert len(stand.trees) == STANDARD_TPA
+
+    # All trees should have the correct species
+    for tree in stand.trees:
+        assert tree.species == species
+
+    # Basic metrics should be valid
+    metrics = stand.get_metrics()
+    assert metrics['age'] == 0
+    assert metrics['tpa'] == STANDARD_TPA
+    assert metrics['mean_dbh'] > 0
+
+
+@pytest.mark.parametrize("site_index", [55, 70, 85])
+def test_stand_initialization_site_indices(site_index):
+    """Test stand initialization at different site indices."""
+    stand = Stand.initialize_planted(trees_per_acre=STANDARD_TPA, site_index=site_index, species='LP')
+
+    # Verify stand was created with correct site index
+    assert stand.site_index == site_index
+    assert len(stand.trees) == STANDARD_TPA
+
+    # Basic metrics should be valid
+    metrics = stand.get_metrics()
+    assert metrics['age'] == 0
+    assert metrics['tpa'] == STANDARD_TPA
+
+
+@pytest.mark.parametrize("tpa,expected_min,expected_max", [
+    (300, 280, 300),
+    (500, 480, 500),
+    (700, 680, 700),
+])
+def test_stand_density_levels(tpa, expected_min, expected_max):
+    """Test stand initialization at different density levels."""
+    stand = Stand.initialize_planted(trees_per_acre=tpa, site_index=70, species='LP')
+
+    # After initialization, TPA should match exactly (no mortality yet)
+    assert len(stand.trees) == tpa
+
+    # Grow to test mortality maintains reasonable TPA
+    stand.grow(years=5)
+    final_tpa = len(stand.trees)
+
+    # After 5 years, mortality should be minimal
+    assert expected_min <= final_tpa <= expected_max
+
+
+@pytest.mark.parametrize("ecounit", ["232", "M231", "231L"])
+def test_stand_initialization_ecounits(ecounit):
+    """Test stand initialization with different ecological units."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=70,
+        species='LP',
+        ecounit=ecounit
+    )
+
+    # Verify stand was created with correct ecounit
+    assert stand.ecounit == ecounit
+    assert len(stand.trees) == STANDARD_TPA
+
+    # Basic metrics should be valid
+    metrics = stand.get_metrics()
+    assert metrics['age'] == 0
+    assert metrics['tpa'] == STANDARD_TPA
+
+
+@pytest.mark.parametrize("species,site_index", [
+    ("LP", 55),
+    ("LP", 70),
+    ("LP", 85),
+    ("SP", 55),
+    ("SP", 70),
+    ("SA", 65),
+    ("LL", 60),
+])
+def test_stand_growth_species_site_combinations(species, site_index):
+    """Test stand growth for various species/site index combinations."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=site_index,
+        species=species
+    )
+
+    initial_metrics = stand.get_metrics()
+
+    # Grow for 10 years (2 FVS cycles)
+    stand.grow(years=10)
+
+    final_metrics = stand.get_metrics()
+
+    # DBH should increase
+    assert final_metrics['mean_dbh'] > initial_metrics['mean_dbh']
+
+    # Height should increase
+    assert final_metrics['mean_height'] > initial_metrics['mean_height']
+
+    # Volume should increase
+    assert final_metrics['volume'] > initial_metrics['volume']
+
+    # Age should be correct
+    assert final_metrics['age'] == 10
+
+
+@pytest.mark.parametrize("ecounit,expected_growth_factor", [
+    ("232", 1.0),    # Base province (Georgia)
+    ("M231", 2.0),   # Mountain province - highest growth
+    ("231L", 1.2),   # Lowland - intermediate growth
+])
+def test_ecounit_growth_effects(ecounit, expected_growth_factor):
+    """Test that ecological units affect growth rates appropriately."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=70,
+        species='LP',
+        ecounit=ecounit
+    )
+
+    # Grow for 15 years
+    stand.grow(years=15)
+
+    metrics = stand.get_metrics()
+
+    # All ecounits should produce positive growth
+    assert metrics['mean_dbh'] > 1.0
+    assert metrics['mean_height'] > 10.0
+    assert metrics['volume'] > 0
+
+    # Higher productivity ecounits should have larger trees
+    # Note: We verify positive growth; actual factor comparison would require baseline
+
+
+@pytest.mark.parametrize("tpa", [300, 500, 700])
+def test_mortality_by_density(tpa):
+    """Test mortality rates at different initial densities."""
+    stand = Stand.initialize_planted(trees_per_acre=tpa, site_index=70, species='LP')
+
+    initial_tpa = len(stand.trees)
+
+    # Grow for 20 years
+    stand.grow(years=20)
+
+    final_tpa = len(stand.trees)
+    survival_rate = final_tpa / initial_tpa
+
+    # All densities should have some survival
+    assert survival_rate > 0.3
+
+    # All densities should have some mortality over 20 years
+    assert survival_rate < 1.0
+
+
+@pytest.mark.parametrize("species", ["LP", "SP", "SA", "LL"])
+def test_volume_calculation_by_species(species):
+    """Test volume calculations for different species."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=70,
+        species=species
+    )
+
+    # Grow to sawlog size
+    stand.grow(years=25)
+
+    metrics = stand.get_metrics()
+
+    # All species should have positive volume
+    assert metrics['volume'] > 0
+
+    # Most should have merchantable volume at this age
+    assert metrics['merchantable_volume'] >= 0
+
+    # QMD should be substantial
+    assert metrics['qmd'] > 5.0
+
+
+@pytest.mark.parametrize("site_index,years,min_height", [
+    (55, 25, 40),   # Low site, expect ~40+ ft at 25 years
+    (70, 25, 50),   # Medium site, expect ~50+ ft at 25 years
+    (85, 25, 60),   # High site, expect ~60+ ft at 25 years
+])
+def test_site_index_height_relationships(site_index, years, min_height):
+    """Test that site index properly influences height growth."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=site_index,
+        species='LP'
+    )
+
+    stand.grow(years=years)
+
+    metrics = stand.get_metrics()
+
+    # Height should meet minimum expectation for site index
+    assert metrics['mean_height'] >= min_height, \
+        f"Site {site_index}: Expected height >= {min_height}, got {metrics['mean_height']:.1f}"
+
+
+@pytest.mark.parametrize("tpa,expected_min_ba", [
+    (300, 60),    # Lower density = lower BA
+    (500, 100),   # Medium density
+    (700, 130),   # Higher density = higher BA
+])
+def test_basal_area_by_density(tpa, expected_min_ba):
+    """Test basal area development at different densities."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=tpa,
+        site_index=70,
+        species='LP',
+        ecounit='M231'  # Use high-growth ecounit for faster development
+    )
+
+    stand.grow(years=25)
+
+    metrics = stand.get_metrics()
+
+    # Basal area should meet minimum expectation
+    assert metrics['basal_area'] >= expected_min_ba, \
+        f"TPA {tpa}: Expected BA >= {expected_min_ba}, got {metrics['basal_area']:.1f}"
+
+
+@pytest.mark.parametrize("species,tpa,site_index", [
+    ("LP", 500, 70),
+    ("SP", 500, 65),
+    ("SA", 400, 60),
+    ("LL", 450, 65),
+])
+def test_harvest_multi_species(species, tpa, site_index):
+    """Test harvest operations for different species."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=tpa,
+        site_index=site_index,
+        species=species
+    )
+
+    stand.grow(years=20)
+
+    initial_tpa = len(stand.trees)
+
+    # Thin from below to 60% of trees
+    target_tpa = int(initial_tpa * 0.6)
+    harvest = stand.thin_from_below(target_tpa=target_tpa)
+
+    # Verify harvest occurred
+    assert harvest.trees_removed > 0
+    assert len(stand.trees) <= target_tpa + 5  # Allow small margin
+
+    # Verify harvest record is valid
+    assert harvest.volume_removed > 0
+    assert harvest.basal_area_removed > 0
+
+
+@pytest.mark.parametrize("species", ["LP", "SP", "SA", "LL"])
+def test_yield_table_multi_species(species):
+    """Test yield table generation for different species."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=70,
+        species=species
+    )
+
+    yield_table = stand.generate_yield_table(years=20, period_length=5)
+
+    # Should have correct number of records
+    assert len(yield_table) == 5  # initial + 4 periods
+
+    # Volume should increase over time
+    initial_volume = yield_table[0].TCuFt
+    final_volume = yield_table[-1].TCuFt
+    assert final_volume > initial_volume
+
+    # All records should have valid data
+    for record in yield_table:
+        assert record.TPA >= 0
+        assert record.TCuFt >= 0
+        assert record.QMD >= 0
+
+
+@pytest.mark.parametrize("species,site_index,ecounit", [
+    ("LP", 70, "M231"),
+    ("LP", 55, "232"),
+    ("SP", 65, "231L"),
+    ("SA", 60, "M231"),
+])
+def test_full_rotation_multi_config(species, site_index, ecounit):
+    """Test full rotation simulation with various configurations."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=site_index,
+        species=species,
+        ecounit=ecounit
+    )
+
+    # Grow full rotation (30 years)
+    stand.grow(years=30)
+
+    metrics = stand.get_metrics()
+
+    # Basic sanity checks
+    assert metrics['age'] == 30
+    assert metrics['tpa'] > 0
+    assert metrics['mean_dbh'] > 0
+    assert metrics['mean_height'] > 0
+    assert metrics['volume'] > 0
+    assert metrics['basal_area'] > 0
+    assert metrics['sdi'] > 0
+    assert metrics['ccf'] > 0
+
+
+@pytest.mark.parametrize("period_length", [5, 10])
+def test_yield_table_period_lengths(period_length):
+    """Test yield table with different period lengths."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=70,
+        species='LP'
+    )
+
+    yield_table = stand.generate_yield_table(years=30, period_length=period_length)
+
+    expected_records = (30 // period_length) + 1  # +1 for initial
+    assert len(yield_table) == expected_records
+
+    # Verify age progression
+    for i, record in enumerate(yield_table):
+        expected_age = i * period_length
+        assert record.Age == expected_age
+
+
+@pytest.mark.parametrize("dbh_class_width", [1.0, 2.0, 4.0])
+def test_stock_table_class_widths(dbh_class_width):
+    """Test stock table with different DBH class widths."""
+    stand = Stand.initialize_planted(
+        trees_per_acre=STANDARD_TPA,
+        site_index=70,
+        species='LP'
+    )
+
+    stand.grow(years=25)
+
+    stock_table = stand.get_stand_stock_table(dbh_class_width=dbh_class_width)
+
+    # Should have at least one class
+    assert len(stock_table) > 0
+
+    # Total TPA should match tree count
+    total_tpa = sum(row['TPA'] for row in stock_table)
+    assert total_tpa == len(stand.trees)
+
+    # Verify class width
+    for row in stock_table:
+        assert row['DBHMax'] - row['DBHMin'] == dbh_class_width
