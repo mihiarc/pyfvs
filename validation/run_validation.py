@@ -13,8 +13,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-# Add src to path
+# Add src to path for pyfvs imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add project root to path for validation package imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rich.console import Console
 from rich.table import Table
