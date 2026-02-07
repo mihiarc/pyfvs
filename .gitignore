@@ -80,3 +80,8 @@ fvs-source/
 
 # Build outputs
 site/
+
+# FVS output files
+FVSOut.db
+fort.*
+*.key.tmp

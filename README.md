@@ -97,6 +97,24 @@ stand.grow(years=50)
 # ~323 TPA, 18.5" QMD, 601 BA, 28,395 ft³/ac
 ```
 
+### Native FVS Integration (New!)
+
+For applications requiring exact parity with official USDA FVS output, use `NativeStand` which calls the compiled Fortran library directly:
+
+```python
+from pyfvs.native_stand import NativeStand
+
+# Same API, but uses official USDA Fortran code underneath
+stand = NativeStand.initialize_planted(500, site_index=70, species="LP", variant="sn")
+stand.grow(years=25)
+metrics = stand.get_metrics()
+# Results guaranteed to match official FVS output
+```
+
+Requires building the FVS shared library. See [docs/native_fvs_integration.md](docs/native_fvs_integration.md) for setup instructions.
+
+**Supported variants:** SN, CA, WS, NC, SO (more can be built from [official FVS source](https://github.com/USDAForestService/ForestVegetationSimulator))
+
 ### Thinning
 
 ```python
