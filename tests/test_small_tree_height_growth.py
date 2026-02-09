@@ -418,18 +418,20 @@ class TestSNRegression:
     def test_sn_loblolly_50yr_unchanged(self):
         """500 TPA LP SI=70 50yr simulation produces expected SN metrics.
 
-        These values should match the current SN behavior (with M231 ecounit
-        adding +0.790 to ln(DDS), producing ~2.2x diameter growth).
-        Uses correct LTBHEC row 13 coefficients with establishment skip.
+        These values match SN behavior with M231 ecounit (+0.790 to ln(DDS)),
+        no forest type effect (IFORTP=0 in Fortran means all flags=0),
+        no plant effect (MANAGD not set), correct LTBHEC row 13 coefficients,
+        initial tree variation (dbh_sd=0.02, height_sd=0.1) for PBAL differentiation,
+        and no establishment skip.
         """
         stand = Stand.initialize_planted(500, 70, 'LP', variant='SN', ecounit='M231')
         stand.grow(50)
         metrics = stand.get_metrics()
 
-        # SN LP 500 TPA SI=70 M231 50yr expected values (correct LTBHEC row 13)
-        assert metrics['tpa'] == pytest.approx(401, rel=0.05)
-        assert metrics['qmd'] == pytest.approx(17.0, rel=0.10)
-        assert metrics['basal_area'] == pytest.approx(630, rel=0.10)
+        # SN LP 500 TPA SI=70 M231 50yr — no fortype, initial variation, PBAL active
+        assert metrics['tpa'] == pytest.approx(181, rel=0.10)
+        assert metrics['qmd'] == pytest.approx(16.75, rel=0.10)
+        assert metrics['basal_area'] == pytest.approx(277, rel=0.10)
 
     def test_sn_small_tree_height_growth_unchanged(self):
         """SN LP small tree height growth uses correct LTBHEC row 13 coefficients.

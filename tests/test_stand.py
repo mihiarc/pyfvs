@@ -62,7 +62,7 @@ def test_stand_initialization():
     assert len(stand.trees) == STANDARD_TPA
     assert metrics['age'] == 0
     assert 0.05 <= metrics['mean_dbh'] <= 0.15  # Fortran: DIAM=0.1 at establishment
-    assert metrics['mean_height'] == 0.5  # Sub-breast-height seedling
+    assert abs(metrics['mean_height'] - 0.5) < 0.05  # Sub-breast-height seedling (with variation)
     assert metrics['volume'] >= 0
 
 def test_stand_growth(young_stand):
@@ -331,7 +331,8 @@ def test_top_height_calculation():
     assert abs(metrics['top_height'] - expected_top_height) < 0.01
 
     # Top height should be >= mean height (largest trees are tallest)
-    assert metrics['top_height'] >= metrics['mean_height']
+    # Use small tolerance for floating-point equality edge cases
+    assert metrics['top_height'] >= metrics['mean_height'] - 1e-10
 
     # Top height should be positive and reasonable
     assert 0 < metrics['top_height'] < 200  # feet

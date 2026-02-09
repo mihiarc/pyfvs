@@ -17,6 +17,7 @@ Implements stand-level calculations including:
 - Ecological unit classification for regional growth effects
 - Harvest tracking (thinning, clearcut) with volume accounting
 """
+import math
 import random
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
@@ -303,21 +304,30 @@ class Stand:
         initial_params = temp_stand.growth_params.get('initial_tree', {})
 
         dbh_params = initial_params.get('dbh', {})
-        # Fortran estab.f: DIAM(ISPC) = 0.1 for most species, no variation
+        # Fortran estab.f: DIAM(ISPC) = 0.1 for most species
         dbh_mean = dbh_params.get('mean', 0.1)
-        dbh_sd = dbh_params.get('std_dev', 0.0)
-        dbh_min = dbh_params.get('minimum', 0.1)
+        dbh_sd = dbh_params.get('std_dev', 0.02)
+        dbh_min = dbh_params.get('minimum', 0.05)
 
         # Fortran: small seedling at planting (sub-breast-height)
-        initial_height = initial_params.get('height', {}).get('planted', 0.5)
+        height_params = initial_params.get('height', {})
+        height_mean = height_params.get('planted', 0.5)
+        height_sd = height_params.get('planted_std_dev', 0.1)
 
-        # Create trees with random variation
-        # Get the actual variant from temp_stand to ensure consistency
+        # Create trees with random variation in initial size.
+        # Fortran FVS applies stochastic error (DGSCOR) to each tree's
+        # diameter growth prediction, creating DBH differentiation that
+        # drives PBAL (basal area in larger trees) competition effects.
+        # Without variation, all trees in a monoculture have PBAL=0,
+        # removing a critical growth dampening term. Initial variation
+        # in height and DBH creates the needed differentiation.
+        # Use deterministic seed for reproducibility.
+        rng = random.Random(42)
         actual_variant = temp_stand.variant
         trees = [
             Tree(
-                dbh=max(dbh_min, dbh_mean + random.gauss(0, dbh_sd)),
-                height=initial_height,
+                dbh=max(dbh_min, dbh_mean + rng.gauss(0, dbh_sd)),
+                height=max(0.3, height_mean + rng.gauss(0, height_sd)),
                 species=species,
                 age=0,
                 variant=actual_variant
@@ -581,6 +591,15 @@ class Stand:
         # Store initial tree count for logging
         initial_count = len(self.trees)
 
+        # Save pre-growth QMD and TPA for mortality model (Fortran DQ0)
+        # Only count staged trees (DBH >= 1.0") per Fortran morts.f DBHSTAGE
+        staged_d2 = [t.dbh ** 2 for t in self.trees if t.dbh >= 1.0]
+        pre_growth_tpa = len(staged_d2)
+        if pre_growth_tpa > 0:
+            pre_growth_qmd = math.sqrt(sum(staged_d2) / pre_growth_tpa)
+        else:
+            pre_growth_qmd = 0.0
+
         # Update stand age
         self.age += years
 
@@ -626,12 +645,16 @@ class Stand:
                 relsdi=metrics.get('relsdi', relsdi),
                 time_step=years,
                 ecounit=self.ecounit,
-                forest_type=self.forest_type,
+                forest_type=self._forest_type,  # Pass raw value; None → UPHD default in tree
                 qmd_ge5=qmd_ge5  # For LS variant RELDBH calculation
             )
 
-        # Apply mortality
-        mortality_count = self._apply_mortality(cycle_length=years)
+        # Apply mortality (pass pre-growth QMD for Fortran-style TPA targeting)
+        mortality_count = self._apply_mortality(
+            cycle_length=years,
+            pre_growth_qmd=pre_growth_qmd,
+            pre_growth_tpa=pre_growth_tpa
+        )
 
         # Log growth summary
         self.logger.debug(
@@ -639,11 +662,18 @@ class Stand:
             f"mortality={mortality_count}"
         )
 
-    def _apply_mortality(self, cycle_length: int = 5) -> int:
+    def _apply_mortality(
+        self,
+        cycle_length: int = 5,
+        pre_growth_qmd: float = 0.0,
+        pre_growth_tpa: int = 0
+    ) -> int:
         """Apply mortality using the MortalityModel.
 
         Args:
             cycle_length: Length of projection cycle in years
+            pre_growth_qmd: QMD before growth (DQ0 in Fortran)
+            pre_growth_tpa: TPA before growth
 
         Returns:
             Number of trees that died
@@ -655,7 +685,9 @@ class Stand:
         result = self._mortality.apply_mortality(
             self.trees,
             cycle_length=cycle_length,
-            max_sdi=max_sdi
+            max_sdi=max_sdi,
+            pre_growth_qmd=pre_growth_qmd,
+            pre_growth_tpa=pre_growth_tpa
         )
 
         self.trees = result.survivors

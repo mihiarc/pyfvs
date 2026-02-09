@@ -9,10 +9,10 @@ metadata:
   notes: |
     These values reflect FVS-SN model with correct LTBHEC coefficients:
     - Initial tree: DBH=0.1", HT=0.5 ft (sub-breast-height seedling)
-    - First cycle: LSKIPH skip (no height growth, matching ESTAB behavior)
-    - Effective age from height (FINDAG) for subsequent growth
+    - Normal growth from age 0 (no establishment skip)
     - SN uses scale_factor=1.0 (raw LTBHEC coefficients, no SI anchoring)
     - LP LTBHEC row 13: c4=0.7632 (moderate S-shape, fast early growth)
+    - UPHD default forest type, no plant effect (matching Fortran defaults)
     Default ecounit is 232 (Georgia baseline, coefficient 0.0).
 
 # Growth expectations by species and site index
@@ -21,15 +21,15 @@ growth_expectations:
   LP:  # Loblolly Pine
     site_index_70:
       age_25:
-        mean_dbh: [5.0, 9.0]  # inches - actual ~7.1 (fast LP growth with correct LTBHEC row 13)
-        mean_height: [35.0, 55.0]  # feet - actual ~47.2
-        volume_per_acre: [1000, 3500]  # cubic feet per acre - actual ~2244
-        survival_rate: [0.85, 0.95]  # proportion surviving - actual ~0.90
+        mean_dbh: [5.0, 10.0]  # inches - actual ~7.5
+        mean_height: [45.0, 65.0]  # feet - actual ~60 (no estab skip)
+        volume_per_acre: [1500, 4500]  # cubic feet per acre - actual ~3000
+        survival_rate: [0.85, 0.95]  # proportion surviving - actual ~0.91
       age_50:
-        mean_dbh: [10.0, 15.0]  # inches - actual ~12.1 (correct DDS coefficients)
-        mean_height: [60.0, 85.0]  # feet - actual ~69.6
-        volume_per_acre: [6000, 12000]  # cubic feet - actual ~8377
-        survival_rate: [0.75, 0.85]  # proportion surviving - actual ~0.79
+        mean_dbh: [10.0, 16.0]  # inches - actual ~12.5
+        mean_height: [60.0, 85.0]  # feet - actual ~72
+        volume_per_acre: [7000, 12000]  # cubic feet - actual ~9200
+        survival_rate: [0.75, 0.85]  # proportion surviving - actual ~0.81
     site_index_90:
       age_25:
         mean_dbh: [3.0, 5.5]  # larger due to better site

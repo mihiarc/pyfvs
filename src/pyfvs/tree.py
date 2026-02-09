@@ -35,9 +35,10 @@ class Tree:
         self.age = validated['age']
         self.crown_ratio = validated['crown_ratio']
 
-        # Initialize optional ecounit and forest_type (set during grow())
+        # Initialize optional ecounit, forest_type, managed flag (set during grow())
         self._ecounit = None
         self._forest_type = None
+        self._managed = False  # Only apply plant effect when MANAGD equivalent is set
 
         # Set up logging
         self.logger = get_logger(__name__)
@@ -308,18 +309,12 @@ class Tree:
         # Current age (before growth) - age was already incremented in grow()
         current_age = self.age - time_step
 
-        # Fortran FVS LSKIPH (establishment skip): when trees are planted via
-        # ESTAB/PLANT, LESTB=TRUE causes LSKIPH=TRUE, which skips height
-        # growth in the first cycle. Stand.initialize_planted() models this
-        # ESTAB behavior. For SN/OP (5yr cycles), skip entirely. For other
-        # variants (10yr cycles), the ESTAB model internally grows seedlings
-        # for part of the cycle — we approximate by reducing time_step by 5.
-        if current_age <= 0:
-            if variant in ('SN', 'OP'):
-                self._update_dbh_from_height()
-                return
-            else:
-                time_step = max(1, time_step - 5)
+        # Note: The previous establishment skip (LSKIPH) was removed because
+        # it incorrectly prevented ALL growth in the first cycle. Native FVS
+        # uses HTCALC to initialize trees at species-specific heights during
+        # establishment, then LSKIPH only skips the height INCREMENT — trees
+        # still start with substantial dimensions. PyFVS now grows normally
+        # from age 0, letting Chapman-Richards produce appropriate heights.
 
         # Site index base age varies by variant
         # SN (Southern): base age 25
@@ -840,14 +835,14 @@ class Tree:
             relht = 1.0
 
         # Get forest type effect
-        fortype_config = self.species_params.get('fortype', {})
+        # When no forest type is set (IFORTP=0 in Fortran), ALL forest type
+        # flags stay 0, so no forest type effect is applied. Only when a
+        # specific forest type is set do we look up the matching coefficient.
         if self._forest_type is not None:
             from .forest_type import get_forest_type_effect
             fortype_effect = get_forest_type_effect(self.species, self._forest_type)
         else:
-            fortype_effect = fortype_config.get('coefficients', {}).get(
-                fortype_config.get('base_fortype', 'FTYLPN'), 0.0
-            )
+            fortype_effect = 0.0
 
         # Get ecological unit effect
         if self._ecounit is not None:
@@ -859,12 +854,15 @@ class Tree:
                 ecounit_config.get('base_ecounit', '232'), 0.0
             )
 
-        # Get plant effect
-        plant_config = self.species_params.get('plant', {})
-        plant_effect = plant_config.get('value', 0.0)
-        planting_effects = self.growth_params.get('large_tree_modifiers', {}).get('planting_effect', {})
-        if self.species in planting_effects:
-            plant_effect = planting_effects[self.species]
+        # Get plant effect — only applied when managed flag is set
+        # (matches Fortran FVS which requires MANAGD keyword for KPLANT=1)
+        plant_effect = 0.0
+        if self._managed:
+            plant_config = self.species_params.get('plant', {})
+            plant_effect = plant_config.get('value', 0.0)
+            planting_effects = self.growth_params.get('large_tree_modifiers', {}).get('planting_effect', {})
+            if self.species in planting_effects:
+                plant_effect = planting_effects[self.species]
 
         # Calculate diameter growth using SN model
         diameter_increment = dg_model.calculate_diameter_growth(

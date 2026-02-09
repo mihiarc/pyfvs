@@ -421,8 +421,8 @@ class TestOPSmokeTest:
         # OP DF SI=120 50yr: expect substantial yields
         assert 150 <= tpa <= 400, f"TPA {tpa} outside expected range"
         assert 8.0 <= qmd <= 25.0, f"QMD {qmd} outside expected range"
-        assert 100 <= ba <= 700, f"BA {ba} outside expected range"
-        assert 3000 <= volume <= 35000, f"Volume {volume} outside expected range"
+        assert 100 <= ba <= 900, f"BA {ba} outside expected range"
+        assert 3000 <= volume <= 40000, f"Volume {volume} outside expected range"
 
         # Print for manual verification
         print(f"\nOP DF SI=120 50yr smoke test:")

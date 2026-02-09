@@ -38,24 +38,60 @@ class MortalityResult:
 
 
 class MortalityModel:
-    """FVS SDI-based mortality model.
+    """FVS SDI-based mortality model matching Fortran morts.f + varmrt.f.
 
-    Implements the full FVS mortality model from Section 5.0 and EFVS 7.3.2:
-    1. Below 55% of SDImax: Use individual tree background mortality rates
-    2. Above 55% of SDImax: Use stand-level density-related mortality
+    Implements the full FVS mortality model from morts.f:
+    1. Below 55% of max TPA: Use individual tree background mortality rates
+    2. Above 55%: Compute target TPA using Reineke density lines, distribute
+       mortality using VARMRT shade tolerance efficiency factors
 
-    Attributes:
-        default_species: Default species code for coefficient lookup
-        _mortality_coefficients: Cached mortality coefficients
+    The Fortran works in TPA-space using Reineke's equation:
+        TMD = CONST * QMD^(-1.605)  where CONST = SDImax / 0.02483133
+
+    Three pathways based on current TPA vs threshold TPA:
+    - T > T85: Kill down to 85% density line
+    - T55 < T <= T85: Linear interpolation between hold and 85% line
+    - T <= T55: Background mortality only
     """
 
     # Class-level cache for mortality coefficients
     _coefficients_cache: Optional[Dict[str, Any]] = None
     _coefficients_loaded: bool = False
 
-    # Default SDI threshold constants per EFVS 7.3.2
-    LOWER_THRESHOLD = 0.55  # 55% of SDImax - density-related mortality begins
-    UPPER_THRESHOLD = 0.85  # 85% of SDImax - asymptotic maximum density
+    # Reineke constant: SDI = TPA * (QMD/10)^1.605
+    # Rearranged: TMD = (SDImax / (QMD/10)^1.605) = SDImax / 0.02483133 * QMD^(-1.605)
+    REINEKE_CONST = 0.02483133  # (1/10)^1.605
+
+    # Default SDI threshold constants per morts.f
+    LOWER_THRESHOLD = 0.55  # 55% of max TPA - density-related mortality begins
+    UPPER_THRESHOLD = 0.85  # 85% of max TPA - asymptotic maximum density
+
+    # SN VARADJ shade tolerance from varmrt.f (90 species)
+    # Higher value = shade INTOLERANT = higher mortality efficiency
+    # Lower value = shade TOLERANT = survives better under competition
+    SN_VARADJ = {
+        'FR': 0.1, 'JU': 0.7, 'PI': 0.3, 'PU': 0.7, 'SP': 0.7,
+        'SA': 0.7, 'SR': 0.1, 'LL': 0.7, 'TM': 0.7, 'PP': 0.7,
+        'PD': 0.7, 'WP': 0.5, 'LP': 0.7, 'VP': 0.7, 'BY': 0.5,
+        'PC': 0.5, 'HM': 0.1, 'FM': 0.3, 'BE': 0.3, 'RM': 0.3,
+        'SV': 0.3, 'SM': 0.1, 'BU': 0.3, 'BB': 0.7, 'SB': 0.7,
+        'AH': 0.1, 'HI': 0.5, 'CA': 0.7, 'HB': 0.5, 'RD': 0.3,
+        'DW': 0.1, 'PS': 0.1, 'AB': 0.1, 'AS': 0.3, 'WA': 0.7,
+        'BA': 0.7, 'GA': 0.3, 'HL': 0.7, 'LB': 0.3, 'HA': 0.3,
+        'HY': 0.1, 'BN': 0.7, 'WN': 0.7, 'SU': 0.7, 'YP': 0.7,
+        'MG': 0.3, 'CT': 0.5, 'MS': 0.3, 'MV': 0.5, 'ML': 0.3,
+        'AP': 0.7, 'MB': 0.3, 'WT': 0.7, 'BG': 0.3, 'TS': 0.7,
+        'HH': 0.3, 'SD': 0.3, 'RA': 0.3, 'SY': 0.5, 'CW': 0.9,
+        'BT': 0.9, 'BC': 0.7, 'WO': 0.5, 'SO': 0.9, 'SK': 0.5,
+        'CB': 0.7, 'TO': 0.7, 'LK': 0.3, 'OV': 0.5, 'BJ': 0.7,
+        'SN': 0.7, 'CK': 0.7, 'WK': 0.7, 'CO': 0.5, 'RO': 0.5,
+        'QS': 0.7, 'PO': 0.7, 'BO': 0.5, 'LO': 0.5, 'BK': 0.9,
+        'WI': 0.9, 'SS': 0.7, 'BW': 0.3, 'EL': 0.5, 'WE': 0.3,
+        'AE': 0.5, 'RL': 0.3, 'OS': 0.5, 'OH': 0.5, 'OT': 0.5,
+    }
+
+    # Minimum DBH for density calculations (Fortran DBHSTAGE)
+    DBHSTAGE = 1.0
 
     def __init__(self, default_species: str = 'LP', max_sdi: Optional[float] = None):
         """Initialize the mortality model.
@@ -66,6 +102,12 @@ class MortalityModel:
         """
         self.default_species = default_species
         self.max_sdi = max_sdi
+
+        # Persistent state for log-log linear function (morts.f COMMON block)
+        # SLPMRT and CEPMRT persist across cycles, reset on trajectory change
+        self._slpmrt = 0.0
+        self._cepmrt = 0.0
+        self._prev_tpa = 0.0  # TPAMRT in Fortran: for trajectory change detection
 
         # Load coefficients if not already loaded
         if not MortalityModel._coefficients_loaded:
@@ -136,17 +178,29 @@ class MortalityModel:
         trees: List['Tree'],
         cycle_length: int = 5,
         max_sdi: Optional[float] = None,
-        random_seed: Optional[int] = None
+        random_seed: Optional[int] = None,
+        pre_growth_qmd: float = 0.0,
+        pre_growth_tpa: int = 0
     ) -> MortalityResult:
-        """Apply FVS SDI-based mortality model.
+        """Apply FVS mortality matching Fortran morts.f + varmrt.f.
 
-        Implements the full FVS mortality model from Section 5.0 and EFVS 7.3.2.
+        Uses Reineke's equation in log-log space to compute target TPA,
+        then distributes mortality using VARMRT shade tolerance factors.
+
+        The Fortran algorithm:
+        1. Compute DQ0 (pre-growth QMD) and D10 (post-growth QMD) for
+           trees >= DBHSTAGE (1.0")
+        2. Determine TN10 via three pathways based on density relative
+           to 55%/85% thresholds using a log-log linear function
+        3. Distribute mortality using VARMRT efficiency factors
 
         Args:
-            trees: List of trees in the stand
+            trees: List of trees in the stand (post-growth, pre-mortality)
             cycle_length: Length of projection cycle in years
             max_sdi: Maximum SDI (uses species default if None)
             random_seed: Optional seed for reproducibility
+            pre_growth_qmd: QMD of staged trees before growth (DQ0)
+            pre_growth_tpa: Count of staged trees before growth
 
         Returns:
             MortalityResult with survivors and mortality count
@@ -157,44 +211,231 @@ class MortalityModel:
         if random_seed is not None:
             random.seed(random_seed)
 
-        # Use provided max_sdi or instance default
         max_sdi = max_sdi or self.max_sdi or 450
 
-        # Calculate stand SDI using Reineke's equation
-        current_sdi = self._calculate_stand_sdi(trees)
-        relative_sdi = current_sdi / max_sdi
+        # Staging: only trees >= DBHSTAGE count toward density (morts.f)
+        staged_dbhs = [t.dbh for t in trees if t.dbh >= self.DBHSTAGE]
+        t = len(staged_dbhs)  # T in Fortran
 
-        # Calculate basal area percentile ranking for each tree
+        if t < 2:
+            # Not enough staged trees — background mortality only
+            coefficients = self.get_coefficients()
+            tree_data = self._calculate_tree_percentiles(trees)
+            return self._apply_background_mortality(
+                tree_data, coefficients, cycle_length
+            )
+
+        # DQ0: pre-growth QMD of staged trees (from stand.py)
+        dia0 = pre_growth_qmd if pre_growth_qmd > 0 else math.sqrt(
+            sum(d ** 2 for d in staged_dbhs) / t
+        )
+        # D10: post-growth QMD of staged trees (current values)
+        d10 = math.sqrt(sum(d ** 2 for d in staged_dbhs) / t)
+
+        # Trajectory change detection (morts.f line 245):
+        # If TPA changed from last cycle (thinning, ingrowth), reset coefficients
+        if self._prev_tpa > 0 and abs(t - self._prev_tpa) > 1:
+            self._cepmrt = 0.0
+            self._slpmrt = 0.0
+
+        # Safety: minimum diameter (morts.f line 277)
+        if dia0 < 0.3:
+            d10 = 0.3 + d10 - dia0
+            dia0 = 0.3
+
+        # Reineke constant: TMD = CONST * D^(-1.605)
+        const = max_sdi / self.REINEKE_CONST
+
+        # Thresholds at pre-growth diameter (DQ0)
+        tmd0 = min(35000.0, const * (dia0 ** (-1.605)))
+        t85d0 = tmd0 * self.UPPER_THRESHOLD
+        t55d0 = self.LOWER_THRESHOLD * tmd0
+
+        # Thresholds at post-growth diameter (D10)
+        tmd10 = min(35000.0, const * (d10 ** (-1.605)))
+        t85d10 = tmd10 * self.UPPER_THRESHOLD
+        t55d10 = self.LOWER_THRESHOLD * tmd10
+
+        # Compute target TPA (TN10) using Fortran pathway logic
+        tn10 = self._compute_target_tpa(
+            t, dia0, d10, const, t85d0, t55d0, t85d10, t55d10
+        )
+
+        # Bound TN10 (morts.f lines 467-468)
+        tn10 = min(tn10, float(t))
+        if tn10 < 0.1:
+            tn10 = 0.0
+
+        # Determine if density mortality is active
+        # Fortran: IF(T .LE. TEM .OR. RN .LE. 0.0) RIP=RI
+        density_active = (t > t55d10 and tn10 < t)
+        tokill = max(0.0, t - tn10)
+
+        coefficients = self.get_coefficients()
         tree_data = self._calculate_tree_percentiles(trees)
 
-        # Get mortality coefficients
-        coefficients = self.get_coefficients()
-
-        # Apply appropriate mortality model based on density
-        if relative_sdi <= self.LOWER_THRESHOLD:
+        if density_active and tokill >= 0.5:
+            # Density mortality: distribute TOKILL using VARMRT
+            result = self._apply_density_mortality_fortran(
+                tree_data, coefficients, cycle_length, round(tokill)
+            )
+        else:
+            # Background mortality only
             result = self._apply_background_mortality(
                 tree_data, coefficients, cycle_length
             )
-        else:
-            result = self._apply_density_mortality(
-                tree_data, coefficients, cycle_length,
-                current_sdi, max_sdi, relative_sdi
-            )
+
+        # Save staged TPA for next cycle's trajectory change detection
+        self._prev_tpa = len([t for t in result.survivors if t.dbh >= self.DBHSTAGE])
 
         return result
 
-    def _calculate_stand_sdi(self, trees: List['Tree']) -> float:
-        """Calculate stand SDI using Reineke's equation.
+    def _compute_target_tpa(
+        self,
+        t: float,
+        dia0: float,
+        d10: float,
+        const: float,
+        t85d0: float,
+        t55d0: float,
+        t85d10: float,
+        t55d10: float
+    ) -> float:
+        """Compute target TPA (TN10) using Fortran log-log linear function.
+
+        Implements morts.f lines 383-456 with three pathways:
+        1. T > T85D0: Kill to 85% line at D10
+        2. T55D0 < T <= T85D0: Iterative log-log linear function
+        3. T <= T55D0: Hold constant or straight computation
 
         Args:
-            trees: List of trees
+            t: Current staged TPA
+            dia0: Pre-growth QMD (DQ0)
+            d10: Post-growth QMD
+            const: Reineke constant (SDIMAX / 0.02483133)
+            t85d0, t55d0: Thresholds at DQ0
+            t85d10, t55d10: Thresholds at D10
 
         Returns:
-            Stand Density Index
+            Target TPA at end of cycle
         """
+        pmsdil = self.LOWER_THRESHOLD
+        pmsdiu = self.UPPER_THRESHOLD
+
+        # Pathway 1: Above 85% at start → kill to 85% at end
+        if t > t85d0:
+            return t85d10
+
+        # Pathway 2: Between 55% and 85% → iterative log-log linear function
+        if t > t55d0:
+            # Special case: close to 85% line (morts.f line 396)
+            if abs(t85d0 - t) <= 5.0:
+                return t85d10
+
+            # Iterative fitting (IPATH=1)
+            slp, cept = self._fit_loglog_linear(
+                t, const, pmsdil, pmsdiu, dia0, ipath=1
+            )
+
+            # Use persistent coefficients (morts.f lines 434-435)
+            if self._slpmrt == 0.0:
+                self._slpmrt = slp
+            if self._cepmrt == 0.0:
+                self._cepmrt = cept
+
+            tn10 = math.exp(self._cepmrt + self._slpmrt * math.log(d10))
+            return min(tn10, t85d10)
+
+        # Pathway 3: Below 55% at start
+        if t <= t55d10:
+            # Still below 55% at end → hold constant (no density mortality)
+            return float(t)
+
+        # Crossed 55% during growth → straight computation (IPATH=2)
+        slp, cept = self._fit_loglog_linear(
+            t, const, pmsdil, pmsdiu, dia0, ipath=2
+        )
+
+        if self._slpmrt == 0.0:
+            self._slpmrt = slp
+        if self._cepmrt == 0.0:
+            self._cepmrt = cept
+
+        tn10 = math.exp(self._cepmrt + self._slpmrt * math.log(d10))
+        return min(tn10, t85d10)
+
+    def _fit_loglog_linear(
+        self,
+        t: float,
+        const: float,
+        pmsdil: float,
+        pmsdiu: float,
+        dia0: float,
+        ipath: int = 1
+    ) -> Tuple[float, float]:
+        """Compute slope and intercept of log-log linear mortality function.
+
+        Implements the iterative algorithm from morts.f lines 400-432.
+        Finds a linear function in ln(TPA) vs ln(QMD) space that passes
+        through the current stand point and connects the 55% and 85%
+        density lines.
+
+        Args:
+            t: Current staged TPA
+            const: Reineke constant
+            pmsdil: Lower threshold fraction (0.55)
+            pmsdiu: Upper threshold fraction (0.85)
+            dia0: Pre-growth QMD
+            ipath: 1 = iterative (between 55-85%), 2 = straight (crossed 55%)
+
+        Returns:
+            (slope, intercept) in log-log space
+        """
+        treeit = t + 0.1 * t
+        slp = -1.605  # Default
+        cept = 0.0
+
+        for knt in range(100):
+            tem = treeit if ipath == 1 else t
+
+            # Point on 55% line where TPA = TEM
+            d55m = (math.log(tem) - math.log(pmsdil * const)) / (-1.605)
+            t55m = math.log(tem)
+            d85m = d55m * 1.25
+
+            # Adjust D85M to ensure slope <= -0.5 (morts.f line 411-420)
+            for _ in range(100):
+                d85m = max(0.125, min(5.0, d85m))
+                t85m = math.log(
+                    const * (math.exp(d85m) ** (-1.605)) * pmsdiu
+                )
+                slp = (t85m - t55m) / (d85m - d55m) if abs(d85m - d55m) > 1e-10 else -1.605
+                if slp > -0.5 and d85m < 5.0:
+                    d85m += 0.1
+                else:
+                    break
+
+            cept = t55m - slp * d55m
+
+            if ipath == 2:
+                # Straight computation — no iteration needed
+                break
+
+            # Check convergence: does the line pass through (dia0, T)?
+            tprime = cept + slp * math.log(dia0)
+            diff = t - math.exp(tprime)
+
+            if abs(diff) <= 5.0:
+                break
+
+            treeit = treeit + 0.5 * diff
+
+        return slp, cept
+
+    def _calculate_stand_sdi(self, trees: List['Tree']) -> float:
+        """Calculate stand SDI using Reineke's equation."""
         if not trees:
             return 0.0
-
         tpa = len(trees)
         qmd_squared = sum(tree.dbh ** 2 for tree in trees) / tpa
         qmd = math.sqrt(qmd_squared)
@@ -233,7 +474,7 @@ class MortalityModel:
     ) -> MortalityResult:
         """Apply background mortality only (below SDI threshold).
 
-        Uses equations 5.0.1 and 5.0.2.
+        Uses equations 5.0.1 and 5.0.2 from morts.f.
 
         Args:
             tree_data: List of (tree, percentile) tuples
@@ -270,76 +511,93 @@ class MortalityModel:
             trees_died=trees_died
         )
 
-    def _apply_density_mortality(
+    def _apply_density_mortality_fortran(
         self,
         tree_data: List[Tuple['Tree', float]],
         coefficients: Dict[str, Any],
         cycle_length: int,
-        current_sdi: float,
-        max_sdi: float,
-        relative_sdi: float
+        tokill: int
     ) -> MortalityResult:
-        """Apply density-related mortality (above SDI threshold).
+        """Apply Fortran-style density mortality (morts.f + varmrt.f).
 
-        Uses equations 5.0.1-5.0.4.
+        Distributes exactly TOKILL deaths among trees using VARMRT-style
+        efficiency factors: EFFTR = PEFF * VARADJ * 0.1
+
+        Small trees and shade-intolerant species have higher efficiency
+        (more likely to die), matching the self-thinning process.
 
         Args:
-            tree_data: List of (tree, percentile) tuples
+            tree_data: List of (tree, percentile) tuples sorted by DBH
             coefficients: Mortality coefficients
             cycle_length: Cycle length in years
-            current_sdi: Current stand SDI
-            max_sdi: Maximum SDI
-            relative_sdi: Current SDI / max SDI
+            tokill: Target number of trees to kill
 
         Returns:
             MortalityResult
         """
+        tpa = len(tree_data)
+        tokill = min(tokill, tpa - 1)  # Keep at least 1 tree
+
+        if tokill <= 0:
+            trees = [t for t, _ in tree_data]
+            return MortalityResult(survivors=trees, mortality_count=0, trees_died=[])
+
+        # Compute VARMRT efficiency for each tree
+        efftr = []
+        for tree, pct in tree_data:
+            # Percentile-based efficiency (varmrt.f line 120)
+            peff = 0.84525 - 0.01074 * pct + 0.0000002 * (pct ** 3)
+            peff = max(0.01, min(1.0, peff))
+
+            # Shade tolerance (VARADJ from varmrt.f)
+            varadj = self.SN_VARADJ.get(tree.species, 0.5)
+
+            # Combined efficiency (varmrt.f line 123)
+            eff = peff * varadj * 0.1
+            efftr.append(eff)
+
+        # Normalize efficiencies to get per-tree kill probability
+        total_eff = sum(efftr)
+        if total_eff <= 0:
+            total_eff = 1.0
+
+        # Each tree's expected kills = tokill * (its efficiency / total)
+        # Since each tree can only die once (TPA=1), probability = min(1, expected)
         survivors = []
         trees_died = []
 
-        # Calculate target SDI reduction
-        if relative_sdi > self.UPPER_THRESHOLD:
-            # Need to reduce density to asymptotic level
-            target_sdi = self.UPPER_THRESHOLD * max_sdi
-            excess_sdi = current_sdi - target_sdi
-            sdi_to_remove = excess_sdi * 0.5  # Remove up to half per cycle
-        else:
-            # Between lower and upper thresholds - gradual transition
-            target_sdi = current_sdi * (
-                1.0 - 0.05 * (relative_sdi - self.LOWER_THRESHOLD) /
-                (self.UPPER_THRESHOLD - self.LOWER_THRESHOLD)
-            )
-            sdi_to_remove = current_sdi - target_sdi
+        # Create (tree, pct, kill_prob) list
+        kill_probs = []
+        for i, (tree, pct) in enumerate(tree_data):
+            expected = tokill * efftr[i] / total_eff
+            prob = min(0.99, expected)  # Cap to avoid certain death
+            kill_probs.append((tree, prob))
 
-        # Calculate target removal fraction
-        target_removal_fraction = sdi_to_remove / current_sdi if current_sdi > 0 else 0
-
-        for tree, pct in tree_data:
-            # Mortality distribution by relative height/size (Equation 5.0.3)
-            mr = 0.84525 - (0.01074 * pct) + (0.0000002 * (pct ** 3))
-            mr = max(0.01, min(1.0, mr))
-
-            # Get species-specific mortality weight (MWT from Table 5.0.2)
-            mwt = coefficients['mwt'].get(tree.species, 0.7)
-
-            # Final mortality rate (Equation 5.0.4)
-            mort = mr * mwt * 0.1 * target_removal_fraction * (cycle_length / 5.0)
-
-            # Also add background mortality component
-            p0, p1 = coefficients['background'].get(
-                tree.species, (5.5876999, -0.0053480)
-            )
-            ri = 1.0 / (1.0 + math.exp(p0 + p1 * tree.dbh))
-            rip = 1.0 - ((1.0 - ri) ** cycle_length)
-
-            # Combined mortality probability (independent events)
-            total_mort_prob = 1.0 - (1.0 - mort) * (1.0 - rip)
-
-            # Apply mortality stochastically
-            if random.random() > total_mort_prob:
-                survivors.append(tree)
-            else:
+        # Apply stochastic mortality weighted by efficiency
+        for tree, prob in kill_probs:
+            if random.random() < prob:
                 trees_died.append(tree)
+            else:
+                survivors.append(tree)
+
+        # If we killed too many or too few, adjust deterministically
+        # This ensures we hit close to the target (Fortran VARMRT iterates)
+        actual_killed = len(trees_died)
+        if actual_killed > tokill + 2:
+            # Too many died — rescue some (largest first, they had lowest prob)
+            excess = actual_killed - tokill
+            trees_died.sort(key=lambda t: t.dbh, reverse=True)
+            rescued = trees_died[:excess]
+            trees_died = trees_died[excess:]
+            survivors.extend(rescued)
+        elif actual_killed < tokill - 2 and actual_killed < tpa - 1:
+            # Too few died — kill more (smallest first, they had highest prob)
+            deficit = tokill - actual_killed
+            survivors.sort(key=lambda t: t.dbh)
+            additional = survivors[:min(deficit, len(survivors) - 1)]
+            for t in additional:
+                survivors.remove(t)
+                trees_died.append(t)
 
         return MortalityResult(
             survivors=survivors,
@@ -526,7 +784,9 @@ class LSMortalityModel:
         trees: List['Tree'],
         cycle_length: int = 5,
         max_sdi: Optional[float] = None,
-        random_seed: Optional[int] = None
+        random_seed: Optional[int] = None,
+        pre_growth_qmd: float = 0.0,
+        pre_growth_tpa: int = 0
     ) -> MortalityResult:
         """Apply LS mortality model with 4-group background and SDI density.
 
