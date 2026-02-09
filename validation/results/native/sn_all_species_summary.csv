@@ -1,0 +1,47 @@
+species,name,group,tpa,si,tpa_mape,ba_mape,qmd_mape,ht_mape,vol_mape
+AB,American Beech,Hardwood,400,60,1.11,57.83,38.59,29.87,66.08
+AE,American Elm,Minor Hardwood,400,60,2.74,52.62,36.75,30.45,55.37
+BC,Black Cherry,Hardwood,400,60,2.37,69.41,48.32,37.21,73.62
+BD,Basswood,Hardwood,400,65,0.8,48.13,32.37,29.72,51.43
+BG,Blackgum,Minor Hardwood,400,55,6.13,60.31,38.98,39.66,76.54
+BK,Black Oak,Oak,400,65,4.06,43.84,30.83,19.85,34.36
+BT,Bigtooth Aspen,Minor Hardwood,400,55,3.3,99.86,96.42,37.97,97.13
+BY,Baldcypress,Other Softwood,300,70,1.99,66.07,45.33,25.61,66.44
+CB,Cherrybark Oak,Bottomland Oak,400,75,5.57,43.66,31.23,27.1,44.89
+CO,Chestnut Oak,Oak,400,65,3.28,69.77,48.68,31.83,70.74
+DW,Dogwood,Minor Hardwood,400,45,2.35,22.52,16.97,39.72,45.77
+FR,Fraser Fir,Other Softwood,400,55,4.19,75.78,53.99,40.08,75.43
+GA,Green Ash,Hardwood,400,65,3.14,57.06,35.92,31.21,41.41
+HI,Hickory,Hardwood,400,60,1.46,49.27,31.72,34.62,45.97
+HM,Hemlock,Other Softwood,400,60,3.81,65.97,44.2,34.0,67.16
+JU,Eastern Redcedar,Other Softwood,400,45,3.01,63.47,44.39,36.54,67.36
+LB,Black Locust,Minor Hardwood,400,55,2.32,110.5,50.06,49.87,125.39
+LK,Laurel Oak,Bottomland Oak,400,65,2.53,27.79,20.12,39.07,54.32
+LL,Longleaf Pine,Pine,500,70,12.55,44.08,30.11,31.63,44.38
+LP,Loblolly Pine,Pine,500,70,7.69,44.09,24.43,30.99,35.58
+MV,Sweetbay,Minor Hardwood,400,55,0.56,26.52,18.58,25.7,39.88
+OV,Overcup Oak,Bottomland Oak,400,60,2.97,51.74,35.36,29.63,44.89
+PD,Pitch Pine,Pine,400,50,18.74,57.01,45.05,44.9,67.87
+PO,Post Oak,Oak,400,55,1.63,55.42,37.8,25.79,63.27
+PP,Pond Pine,Pine,400,60,12.18,65.13,47.84,31.12,61.47
+RM,Red Maple,Hardwood,400,60,2.53,58.57,38.29,29.29,60.14
+RO,Northern Red Oak,Oak,400,70,7.55,69.38,50.18,32.87,76.43
+SA,Slash Pine,Pine,500,70,9.51,43.58,25.7,23.56,41.1
+SB,Sweet Birch,Minor Hardwood,400,55,3.59,73.09,51.48,31.37,77.9
+SK,Southern Red Oak,Oak,400,65,4.73,55.6,39.25,28.43,57.9
+SM,Sugar Maple,Hardwood,400,60,2.46,65.2,44.0,32.89,63.07
+SN,Swamp Chestnut Oak,Bottomland Oak,400,70,0.87,52.91,34.91,29.29,45.01
+SO,Scarlet Oak,Oak,400,60,8.05,71.87,52.58,42.73,79.4
+SP,Shortleaf Pine,Pine,500,60,1.1,48.5,32.1,31.0,40.64
+SR,Spruce Pine,Pine,400,70,3.4,39.78,22.05,23.83,45.45
+SS,Sassafras,Minor Hardwood,400,50,4.8,50.38,32.04,24.59,55.56
+SU,Sweetgum,Hardwood,400,70,1.63,63.75,43.49,27.48,68.43
+SY,American Sycamore,Hardwood,400,70,1.83,51.53,35.15,26.41,42.6
+TO,Turkey Oak,Bottomland Oak,400,55,3.36,53.32,34.33,29.2,34.7
+VP,Virginia Pine,Pine,500,60,6.13,62.22,43.92,39.77,67.72
+WA,White Ash,Hardwood,400,65,2.4,47.36,34.08,29.25,42.07
+WK,Water Oak,Bottomland Oak,400,70,4.75,57.68,39.89,28.41,58.65
+WN,Black Walnut,Hardwood,300,60,3.12,51.14,34.76,23.57,55.75
+WO,White Oak,Oak,400,70,3.4,56.07,37.57,26.86,58.08
+WP,White Pine,Pine,400,70,16.32,69.57,54.26,37.16,66.48
+YP,Yellow-Poplar,Hardwood,400,80,6.36,65.46,46.23,27.99,66.76

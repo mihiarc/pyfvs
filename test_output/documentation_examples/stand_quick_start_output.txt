@@ -1,2 +1,2 @@
-Volume: 6788 ft³/acre
-Basal area: 273.5 ft²/acre
+Volume: 1398 ft³/acre
+Basal area: 113.3 ft²/acre

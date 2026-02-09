@@ -8,7 +8,7 @@ when communicating tree species to the native FVS shared library.
 Usage:
     >>> from pyfvs.native.species_map import get_species_index, get_species_code
     >>> get_species_index('LP', 'SN')
-    7
+    13
     >>> get_species_code(7, 'SN')
     'LP'
 """
@@ -18,92 +18,98 @@ from typing import Dict, Optional
 
 # =============================================================================
 # SN (Southern) Variant - 90 species
-# Source: FVS SN blkdat.f, USDA Forest Service
+# Source: FVS SN blkdat.f JSP array, USDA Forest Service
+# Species indices match the JSP array order (1-based) in blkdat.f
 # =============================================================================
 SN_SPECIES_MAP: Dict[str, int] = {
     "FR": 1,   # Fraser fir
-    "JU": 2,   # Eastern juniper
-    "PI": 3,   # Pine species
-    "PU": 4,   # Pond pine (alternate)
+    "JU": 2,   # Eastern redcedar
+    "PI": 3,   # Spruce species
+    "PU": 4,   # Sand pine
     "SP": 5,   # Shortleaf pine
     "SA": 6,   # Slash pine
-    "LP": 7,   # Loblolly pine
-    "VP": 8,   # Virginia pine
-    "LL": 9,   # Longleaf pine
-    "SR": 10,  # Spruce pine
-    "PP": 11,  # Pitch pine / Pond pine
-    "PD": 12,  # Pitch pine
-    "WP": 13,  # White pine
-    "SD": 14,  # Shortleaf pine (alternate)
-    "TM": 15,  # Tamarack
-    "HM": 16,  # Hemlock
-    "BY": 17,  # Baldcypress
-    "PC": 18,  # Pondcypress
-    "CO": 19,  # Atlantic white cedar
-    "OS": 20,  # Other softwoods
-    "YP": 21,  # Yellow-poplar
-    "SU": 22,  # Sweetgum
-    "BC": 23,  # Black cherry
-    "BG": 24,  # Blackgum
+    "SR": 7,   # Spruce pine
+    "LL": 8,   # Longleaf pine
+    "TM": 9,   # Tamarack
+    "PP": 10,  # Pond pine
+    "PD": 11,  # Pitch pine
+    "WP": 12,  # Eastern white pine
+    "LP": 13,  # Loblolly pine
+    "VP": 14,  # Virginia pine
+    "BY": 15,  # Baldcypress
+    "PC": 16,  # Pondcypress
+    "HM": 17,  # Hemlock
+    "FM": 18,  # Florida maple
+    "BE": 19,  # Beech
+    "RM": 20,  # Red maple
+    "SV": 21,  # Silver maple
+    "SM": 22,  # Sugar maple
+    "BU": 23,  # Buckeye
+    "BB": 24,  # Birch species
     "SB": 25,  # Sweet birch
-    "WO": 26,  # White oak
-    "CW": 27,  # Chestnut white oak
+    "AH": 26,  # American hornbeam
+    "HI": 27,  # Hickory
     "CA": 28,  # Catalpa
-    "SO": 29,  # Scarlet oak
-    "SK": 30,  # Southern red oak
-    "WK": 31,  # Water oak
-    "LK": 32,  # Laurel oak
+    "HB": 29,  # Hackberry / Hornbeam
+    "RD": 30,  # Redbud
+    "DW": 31,  # Dogwood
+    "PS": 32,  # Persimmon
     "AB": 33,  # American beech
-    "RO": 34,  # Northern red oak
-    "OV": 35,  # Overcup oak
-    "CB": 36,  # Cherrybark oak
-    "WA": 37,  # White ash
-    "GA": 38,  # Green ash
-    "BA": 39,  # Black ash
-    "RA": 40,  # Red ash
+    "AS": 34,  # Ash species
+    "WA": 35,  # White ash
+    "BA": 36,  # Black ash
+    "GA": 37,  # Green ash
+    "HL": 38,  # Honeylocust
+    "LB": 39,  # Black locust
+    "HA": 40,  # Hawthorn
     "HY": 41,  # American holly
     "BN": 42,  # Butternut
     "WN": 43,  # Black walnut
-    "SM": 44,  # Sugar maple
-    "RM": 45,  # Red maple
-    "SV": 46,  # Silver maple
-    "HI": 47,  # Hickory (generic)
-    "BE": 48,  # Beech
+    "SU": 44,  # Sweetgum
+    "YP": 45,  # Yellow-poplar
+    "MG": 46,  # Magnolia
+    "CT": 47,  # Cucumbertree
+    "MS": 48,  # Maple species
     "MV": 49,  # Sweetbay
     "ML": 50,  # Bigleaf magnolia
     "AP": 51,  # Apple
     "MB": 52,  # Mulberry
-    "BB": 53,  # Birch species
-    "AE": 54,  # American elm
+    "WT": 53,  # Water tupelo
+    "BG": 54,  # Blackgum
     "TS": 55,  # Swamp tupelo
     "HH": 56,  # Hophornbeam
-    "AS": 57,  # Ash species
-    "WT": 58,  # Water tupelo
+    "SD": 57,  # Sourwood
+    "RA": 58,  # Red ash
     "SY": 59,  # American sycamore
-    "MS": 60,  # Maple species
+    "CW": 60,  # Cottonwood
     "BT": 61,  # Bigtooth aspen
-    "SS": 62,  # Sassafras
-    "SN": 63,  # Swamp chestnut oak
-    "CT": 64,  # Cucumbertree
-    "FM": 65,  # Fraser magnolia
-    "DW": 66,  # Dogwood
+    "BC": 62,  # Black cherry
+    "WO": 63,  # White oak
+    "SO": 64,  # Scarlet oak
+    "SK": 65,  # Southern red oak
+    "CB": 66,  # Cherrybark oak
     "TO": 67,  # Turkey oak
-    "HL": 68,  # Honeylocust
-    "PS": 69,  # Persimmon
-    "RD": 70,  # Redbud
-    "HA": 71,  # Hawthorn
-    "BU": 72,  # Buckeye
-    "WI": 73,  # Willow
-    "MG": 74,  # Magnolia
-    "BD": 75,  # Basswood
-    "LB": 76,  # Black locust
+    "LK": 68,  # Laurel oak
+    "OV": 69,  # Overcup oak
+    "BJ": 70,  # Blackjack oak
+    "SN": 71,  # Swamp chestnut oak
+    "CK": 72,  # Chinkapin oak
+    "WK": 73,  # Water oak
+    "CO": 74,  # Chestnut oak
+    "RO": 75,  # Northern red oak
+    "QS": 76,  # Generic oak
     "PO": 77,  # Post oak
-    "BK": 78,  # Black oak
-    "AH": 79,  # American hornbeam
-    "HB": 80,  # Hornbeam
-    "QS": 81,  # Generic oak
+    "BO": 78,  # Black oak (Quercus velutina)
+    "LO": 79,  # Live oak
+    "BK": 80,  # Black oak
+    "WI": 81,  # Willow
+    "SS": 82,  # Sassafras
+    "BD": 83,  # Basswood
     "EL": 84,  # Elm
     "WE": 85,  # Winged elm
+    "AE": 86,  # American elm
+    "RL": 87,  # Rock elm
+    "OS": 88,  # Other softwoods
     "OH": 89,  # Other hardwoods
     "OT": 90,  # Other tree
 }

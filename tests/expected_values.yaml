@@ -12,7 +12,7 @@ metadata:
     - First cycle: LSKIPH skip (no height growth, matching ESTAB behavior)
     - Effective age from height (FINDAG) for subsequent growth
     - SN uses scale_factor=1.0 (raw LTBHEC coefficients, no SI anchoring)
-    - LP LTBHEC row 7: c4=3.5829 (strong S-shape, slow early growth)
+    - LP LTBHEC row 13: c4=0.7632 (moderate S-shape, fast early growth)
     Default ecounit is 232 (Georgia baseline, coefficient 0.0).
 
 # Growth expectations by species and site index
@@ -21,15 +21,15 @@ growth_expectations:
   LP:  # Loblolly Pine
     site_index_70:
       age_25:
-        mean_dbh: [2.5, 4.5]  # inches - actual ~3.5
-        mean_height: [22.0, 35.0]  # feet - actual ~28.4
-        volume_per_acre: [150, 600]  # cubic feet per acre - actual ~321
-        survival_rate: [0.88, 0.95]  # proportion surviving - actual ~0.91
+        mean_dbh: [5.0, 9.0]  # inches - actual ~7.1 (fast LP growth with correct LTBHEC row 13)
+        mean_height: [35.0, 55.0]  # feet - actual ~47.2
+        volume_per_acre: [1000, 3500]  # cubic feet per acre - actual ~2244
+        survival_rate: [0.85, 0.95]  # proportion surviving - actual ~0.90
       age_50:
-        mean_dbh: [6.5, 9.5]  # inches - actual ~7.8
-        mean_height: [80.0, 105.0]  # feet - actual ~95.3
-        volume_per_acre: [3500, 6000]  # cubic feet - actual ~4722
-        survival_rate: [0.78, 0.88]  # proportion surviving - actual ~0.83
+        mean_dbh: [10.0, 15.0]  # inches - actual ~12.1 (correct DDS coefficients)
+        mean_height: [60.0, 85.0]  # feet - actual ~69.6
+        volume_per_acre: [6000, 12000]  # cubic feet - actual ~8377
+        survival_rate: [0.75, 0.85]  # proportion surviving - actual ~0.79
     site_index_90:
       age_25:
         mean_dbh: [3.0, 5.5]  # larger due to better site
@@ -76,7 +76,7 @@ periodic_growth:
     dbh_increment: [0.0, 2.5]  # inches per 5 years (starts very slow)
     height_increment: [2.0, 15.0]  # feet per 5 years
   mature_stand:  # Age 35-50 (last 3 periods)
-    dbh_increment: [0.3, 1.2]  # inches per 5 years (declining growth)
+    dbh_increment: [0.5, 2.0]  # inches per 5 years (correct DDS coefficients)
     height_increment: [2.5, 8.0]  # feet per 5 years
 
 # Model transition validation

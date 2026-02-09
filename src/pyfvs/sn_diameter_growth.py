@@ -49,64 +49,9 @@ class SNDiameterGrowthModel(ParameterizedModel):
     """
 
     COEFFICIENT_FILE = 'sn_diameter_growth_coefficients.json'
-    COEFFICIENT_KEY = 'species'
+    COEFFICIENT_KEY = 'core_coefficients'
     DEFAULT_SPECIES = 'LP'  # Loblolly pine is the default site species for SN
-
-    # Fallback parameters for key SN species (from dgf.f)
-    FALLBACK_PARAMETERS = {
-        'LP': {  # Loblolly Pine (species 1)
-            'INTERC': -2.040568,
-            'LDBH': 0.483528,
-            'DBH2': -0.001074,
-            'LCRWN': 0.467411,
-            'HREL': 0.281042,
-            'ISIO': 0.013632,
-            'PLTB': -0.001683,
-            'PNTBL': -0.002637,
-            'TANS': 0.0,
-            'FCOS': 0.0,
-            'FSIN': 0.0,
-        },
-        'SP': {  # Shortleaf Pine (species 2)
-            'INTERC': -2.116606,
-            'LDBH': 0.494139,
-            'DBH2': -0.001125,
-            'LCRWN': 0.402853,
-            'HREL': 0.186127,
-            'ISIO': 0.014233,
-            'PLTB': -0.001546,
-            'PNTBL': -0.002477,
-            'TANS': 0.0,
-            'FCOS': 0.0,
-            'FSIN': 0.0,
-        },
-        'SA': {  # Slash Pine (species 3)
-            'INTERC': -2.219693,
-            'LDBH': 0.524037,
-            'DBH2': -0.001205,
-            'LCRWN': 0.440231,
-            'HREL': 0.242135,
-            'ISIO': 0.014672,
-            'PLTB': -0.001724,
-            'PNTBL': -0.002831,
-            'TANS': 0.0,
-            'FCOS': 0.0,
-            'FSIN': 0.0,
-        },
-        'LL': {  # Longleaf Pine (species 4)
-            'INTERC': -1.961444,
-            'LDBH': 0.463921,
-            'DBH2': -0.001023,
-            'LCRWN': 0.493587,
-            'HREL': 0.319956,
-            'ISIO': 0.012989,
-            'PLTB': -0.001622,
-            'PNTBL': -0.002389,
-            'TANS': 0.0,
-            'FCOS': 0.0,
-            'FSIN': 0.0,
-        },
-    }
+    FALLBACK_PARAMETERS = {}
 
     def __init__(self, species_code: str = "LP"):
         """Initialize the SN diameter growth model.
