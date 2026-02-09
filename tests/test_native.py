@@ -116,20 +116,20 @@ class TestSpeciesMapLookup:
     """Test species code / index lookup functions."""
 
     def test_sn_loblolly_pine(self):
-        """LP (Loblolly Pine) should map to index 7 in SN variant."""
-        assert get_species_index("LP", "SN") == 7
+        """LP (Loblolly Pine) should map to index 13 in SN variant."""
+        assert get_species_index("LP", "SN") == 13
 
     def test_sn_reverse_lookup(self):
-        """Index 7 should map back to LP in SN variant."""
-        assert get_species_code(7, "SN") == "LP"
+        """Index 13 should map back to LP in SN variant."""
+        assert get_species_code(13, "SN") == "LP"
 
     def test_ls_red_pine(self):
         """RN (Red Pine) should map to index 3 in LS variant."""
         assert get_species_index("RN", "LS") == 3
 
     def test_pn_douglas_fir(self):
-        """DF (Douglas-fir) should map to index 12 in PN variant."""
-        assert get_species_index("DF", "PN") == 12
+        """DF (Douglas-fir) should map to index 16 in PN variant."""
+        assert get_species_index("DF", "PN") == 16
 
     def test_ne_red_maple(self):
         """RM (Red Maple) should map to index 26 in NE variant."""
@@ -140,8 +140,8 @@ class TestSpeciesMapLookup:
         assert get_species_index("WO", "CS") == 47
 
     def test_op_douglas_fir(self):
-        """DF (Douglas-fir) should map to index 1 in OP variant."""
-        assert get_species_index("DF", "OP") == 1
+        """DF (Douglas-fir) should map to index 16 in OP variant."""
+        assert get_species_index("DF", "OP") == 16
 
     def test_ca_douglas_fir(self):
         """DF (Douglas-fir) should map to index 7 in CA variant."""
@@ -198,13 +198,16 @@ class TestSpeciesMapCrossVariant:
     """Test species that appear in multiple variants have correct mappings."""
 
     def test_douglas_fir_varies_by_variant(self):
-        """DF should have different indices in different variants."""
-        sn_idx = SN_SPECIES_MAP.get("DF")
+        """DF should have different indices across variant families."""
         pn_idx = PN_SPECIES_MAP.get("DF")
         op_idx = OP_SPECIES_MAP.get("DF")
+        ca_idx = CA_SPECIES_MAP.get("DF")
+        ws_idx = WS_SPECIES_MAP.get("DF")
 
-        # PN DF=12, OP DF=1 — they should differ
-        assert pn_idx != op_idx
+        # PN/OP both use PNW JSP (DF=16), CA has DF=7, WS has DF=2
+        assert pn_idx == op_idx  # Both PNW variants share JSP
+        assert pn_idx != ca_idx  # CA has different species order
+        assert ca_idx != ws_idx  # WS has different species order
 
     def test_pn_wc_share_species_order(self):
         """PN and WC should share the same species ordering."""

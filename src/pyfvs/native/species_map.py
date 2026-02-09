@@ -9,7 +9,7 @@ Usage:
     >>> from pyfvs.native.species_map import get_species_index, get_species_code
     >>> get_species_index('LP', 'SN')
     13
-    >>> get_species_code(7, 'SN')
+    >>> get_species_code(13, 'SN')
     'LP'
 """
 
@@ -190,7 +190,9 @@ LS_SPECIES_MAP: Dict[str, int] = {
 
 # =============================================================================
 # PN (Pacific Northwest Coast) Variant - 39 species
-# Source: FVS PN blkdat.f, USDA Forest Service
+# Source: FVS PN blkdat.f JSP array, USDA Forest Service
+# Species indices match the JSP array order (1-based) in blkdat.f
+# Position 38 is blank in Fortran (no species assigned)
 # =============================================================================
 PN_SPECIES_MAP: Dict[str, int] = {
     "SF": 1,   # Pacific silver fir
@@ -198,45 +200,47 @@ PN_SPECIES_MAP: Dict[str, int] = {
     "GF": 3,   # Grand fir
     "AF": 4,   # Subalpine fir
     "RF": 5,   # Red fir (Shasta red fir)
-    "NF": 6,   # Noble fir
-    "YC": 7,   # Alaska yellow cedar
-    "IC": 8,   # Incense cedar
-    "ES": 9,   # Engelmann spruce
-    "SS": 10,  # Sitka spruce
-    "RC": 11,  # Western red cedar
-    "DF": 12,  # Douglas-fir
-    "RW": 13,  # Redwood
-    "WH": 14,  # Western hemlock
-    "MH": 15,  # Mountain hemlock
-    "WB": 16,  # Whitebark pine
-    "KP": 17,  # Knobcone pine
-    "LP": 18,  # Lodgepole pine
-    "JP": 19,  # Jeffrey pine
-    "SP": 20,  # Sugar pine
-    "WP": 21,  # Western white pine
-    "PP": 22,  # Ponderosa pine
-    "WJ": 23,  # Western juniper
-    "LL": 24,  # Subalpine larch
-    "PY": 25,  # Pacific yew
-    "OS": 26,  # Other softwood
-    "BM": 27,  # Bigleaf maple
-    "RA": 28,  # Red alder
-    "WA": 29,  # White alder
-    "PB": 30,  # Paper birch
-    "GC": 31,  # Giant chinkapin
-    "AS": 32,  # Quaking aspen
-    "CW": 33,  # Black cottonwood
-    "WO": 34,  # Oregon white oak
-    "DG": 35,  # Pacific dogwood
-    "HT": 36,  # Hawthorn species
-    "CH": 37,  # Cherry species
-    "WI": 38,  # Willow species
+    "SS": 6,   # Sitka spruce
+    "NF": 7,   # Noble fir
+    "YC": 8,   # Alaska yellow cedar
+    "IC": 9,   # Incense cedar
+    "ES": 10,  # Engelmann spruce
+    "LP": 11,  # Lodgepole pine
+    "JP": 12,  # Jeffrey pine
+    "SP": 13,  # Sugar pine
+    "WP": 14,  # Western white pine
+    "PP": 15,  # Ponderosa pine
+    "DF": 16,  # Douglas-fir
+    "RW": 17,  # Redwood
+    "RC": 18,  # Western red cedar
+    "WH": 19,  # Western hemlock
+    "MH": 20,  # Mountain hemlock
+    "BM": 21,  # Bigleaf maple
+    "RA": 22,  # Red alder
+    "WA": 23,  # White alder
+    "PB": 24,  # Paper birch
+    "GC": 25,  # Giant chinkapin
+    "AS": 26,  # Quaking aspen
+    "CW": 27,  # Black cottonwood
+    "WO": 28,  # Oregon white oak
+    "WJ": 29,  # Western juniper
+    "LL": 30,  # Subalpine larch
+    "WB": 31,  # Whitebark pine
+    "KP": 32,  # Knobcone pine
+    "PY": 33,  # Pacific yew
+    "DG": 34,  # Pacific dogwood
+    "HT": 35,  # Hawthorn species
+    "CH": 36,  # Cherry species
+    "WI": 37,  # Willow species
     "OT": 39,  # Other species
 }
 
 # =============================================================================
 # WC (West Cascades) Variant - 37 species
-# Source: FVS WC blkdat.f - same species order as PN (shared codebase)
+# Source: FVS WC blkdat.f JSP array, USDA Forest Service
+# Species indices match the JSP array order (1-based) in blkdat.f
+# Same as PN but position 6 (SS/Sitka spruce) is blank (not in WC range)
+# Positions 6 and 38 are blank in Fortran
 # =============================================================================
 WC_SPECIES_MAP: Dict[str, int] = {
     "SF": 1,   # Pacific silver fir
@@ -244,38 +248,38 @@ WC_SPECIES_MAP: Dict[str, int] = {
     "GF": 3,   # Grand fir
     "AF": 4,   # Subalpine fir
     "RF": 5,   # Red fir
-    "NF": 6,   # Noble fir
-    "YC": 7,   # Alaska yellow cedar
-    "IC": 8,   # Incense cedar
-    "ES": 9,   # Engelmann spruce
-    "SS": 10,  # Sitka spruce
-    "RC": 11,  # Western red cedar
-    "DF": 12,  # Douglas-fir
-    "RW": 13,  # Redwood
-    "WH": 14,  # Western hemlock
-    "MH": 15,  # Mountain hemlock
-    "WB": 16,  # Whitebark pine
-    "KP": 17,  # Knobcone pine
-    "LP": 18,  # Lodgepole pine
-    "JP": 19,  # Jeffrey pine
-    "SP": 20,  # Sugar pine
-    "WP": 21,  # Western white pine
-    "PP": 22,  # Ponderosa pine
-    "WJ": 23,  # Western juniper
-    "LL": 24,  # Subalpine larch
-    "PY": 25,  # Pacific yew
-    "OS": 26,  # Other softwood
-    "BM": 27,  # Bigleaf maple
-    "RA": 28,  # Red alder
-    "WA": 29,  # White alder
-    "PB": 30,  # Paper birch
-    "GC": 31,  # Giant chinkapin
-    "AS": 32,  # Quaking aspen
-    "CW": 33,  # Black cottonwood
-    "WO": 34,  # Oregon white oak
-    "DG": 35,  # Pacific dogwood
-    "HT": 36,  # Hawthorn species
-    "CH": 37,  # Cherry species
+    "NF": 7,   # Noble fir
+    "YC": 8,   # Alaska yellow cedar
+    "IC": 9,   # Incense cedar
+    "ES": 10,  # Engelmann spruce
+    "LP": 11,  # Lodgepole pine
+    "JP": 12,  # Jeffrey pine
+    "SP": 13,  # Sugar pine
+    "WP": 14,  # Western white pine
+    "PP": 15,  # Ponderosa pine
+    "DF": 16,  # Douglas-fir
+    "RW": 17,  # Redwood
+    "RC": 18,  # Western red cedar
+    "WH": 19,  # Western hemlock
+    "MH": 20,  # Mountain hemlock
+    "BM": 21,  # Bigleaf maple
+    "RA": 22,  # Red alder
+    "WA": 23,  # White alder
+    "PB": 24,  # Paper birch
+    "GC": 25,  # Giant chinkapin
+    "AS": 26,  # Quaking aspen
+    "CW": 27,  # Black cottonwood
+    "WO": 28,  # Oregon white oak
+    "WJ": 29,  # Western juniper
+    "LL": 30,  # Subalpine larch
+    "WB": 31,  # Whitebark pine
+    "KP": 32,  # Knobcone pine
+    "PY": 33,  # Pacific yew
+    "DG": 34,  # Pacific dogwood
+    "HT": 35,  # Hawthorn species
+    "CH": 36,  # Cherry species
+    "WI": 37,  # Willow species
+    "OT": 39,  # Other species
 }
 
 # =============================================================================
@@ -496,29 +500,51 @@ CS_SPECIES_MAP: Dict[str, int] = {
 }
 
 # =============================================================================
-# OP (ORGANON Pacific Northwest) Variant - 18 species
-# Source: FVS OP blkdat.f (ORGANON), Oregon State University
+# OP (ORGANON Pacific Northwest) Variant - 39 species
+# Source: FVS OP blkdat.f JSP array, USDA Forest Service
+# Species indices match the JSP array order (1-based) in blkdat.f
+# Same as PN except positions 23-24 are MA/TO instead of WA/PB
+# Position 38 is blank in Fortran
 # =============================================================================
 OP_SPECIES_MAP: Dict[str, int] = {
-    "DF": 1,   # Douglas-fir
-    "GF": 2,   # Grand fir
-    "WF": 2,   # White fir (maps to same as GF)
-    "PP": 3,   # Ponderosa pine
-    "SP": 4,   # Sugar pine
-    "IC": 5,   # Incense cedar
-    "WH": 6,   # Western hemlock
-    "RC": 7,   # Western red cedar
-    "PY": 8,   # Pacific yew
-    "MH": 9,   # Mountain hemlock
-    "GC": 10,  # Giant chinkapin
-    "TA": 11,  # Tanoak
-    "CL": 12,  # California laurel
-    "BL": 13,  # Black cottonwood
-    "WO": 14,  # Oregon white oak
-    "BO": 15,  # Bigleaf maple
-    "RA": 16,  # Red alder
-    "PD": 17,  # Pacific dogwood
-    "WI": 18,  # Willow
+    "SF": 1,   # Pacific silver fir
+    "WF": 2,   # White fir
+    "GF": 3,   # Grand fir
+    "AF": 4,   # Subalpine fir
+    "RF": 5,   # Red fir (Shasta red fir)
+    "SS": 6,   # Sitka spruce
+    "NF": 7,   # Noble fir
+    "YC": 8,   # Alaska yellow cedar
+    "IC": 9,   # Incense cedar
+    "ES": 10,  # Engelmann spruce
+    "LP": 11,  # Lodgepole pine
+    "JP": 12,  # Jeffrey pine
+    "SP": 13,  # Sugar pine
+    "WP": 14,  # Western white pine
+    "PP": 15,  # Ponderosa pine
+    "DF": 16,  # Douglas-fir
+    "RW": 17,  # Redwood
+    "RC": 18,  # Western red cedar
+    "WH": 19,  # Western hemlock
+    "MH": 20,  # Mountain hemlock
+    "BM": 21,  # Bigleaf maple
+    "RA": 22,  # Red alder
+    "MA": 23,  # Pacific madrone
+    "TO": 24,  # Tanoak
+    "GC": 25,  # Giant chinkapin
+    "AS": 26,  # Quaking aspen
+    "CW": 27,  # Black cottonwood
+    "WO": 28,  # Oregon white oak
+    "WJ": 29,  # Western juniper
+    "LL": 30,  # Subalpine larch
+    "WB": 31,  # Whitebark pine
+    "KP": 32,  # Knobcone pine
+    "PY": 33,  # Pacific yew
+    "DG": 34,  # Pacific dogwood
+    "HT": 35,  # Hawthorn species
+    "CH": 36,  # Cherry species
+    "WI": 37,  # Willow species
+    "OT": 39,  # Other species
 }
 
 # =============================================================================
