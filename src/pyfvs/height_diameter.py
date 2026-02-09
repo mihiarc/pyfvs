@@ -217,11 +217,12 @@ class HeightDiameterModel(ParameterizedModel):
         dbw = params['dbw']  # Diameter breakpoint for small trees
 
         if dbh <= dbw:
-            return 4.5
+            return 4.51
         elif dbh < 3.0:
-            # Linear interpolation for small trees
+            # Linear interpolation for small trees (Fortran htdbh.f)
+            # H = ((H3 - 4.51) * (D - DB) / (3 - DB)) + 4.51
             h3 = 4.5 + p2 * math.exp(-p3 * 3.0**p4)
-            return 4.5 + (h3 - 4.5) * (dbh - dbw) / (3.0 - dbw)
+            return ((h3 - 4.51) * (dbh - dbw) / (3.0 - dbw)) + 4.51
         else:
             # Standard Curtis-Arney equation for larger trees
             return 4.5 + p2 * math.exp(-p3 * dbh**p4)
@@ -250,49 +251,54 @@ class HeightDiameterModel(ParameterizedModel):
     def solve_dbh_from_height(self, target_height: float, model: str = None,
                              initial_dbh: float = 1.0, tolerance: float = 0.01,
                              max_iterations: int = 20) -> float:
-        """Solve for DBH given a target height using numerical methods.
+        """Solve for DBH given a target height using analytical inversion.
+
+        Uses the closed-form inverse of the Curtis-Arney H-D model,
+        matching the Fortran FVS HTDBH subroutine (MODE=1):
+        - For H >= HAT3: D = exp(log((log(H-4.5) - log(P2)) / (-P3)) / P4)
+        - For H < HAT3: Linear interpolation from budwidth to 3.0"
 
         Args:
             target_height: Target height (feet)
-            model: Model to use ('curtis_arney' or 'wykoff'). If None, uses default.
-            initial_dbh: Initial guess for DBH (inches)
-            tolerance: Convergence tolerance (feet)
-            max_iterations: Maximum number of iterations
+            model: Model to use (ignored, always uses curtis_arney inverse).
+            initial_dbh: Initial guess (unused, kept for API compatibility).
+            tolerance: Convergence tolerance (unused, analytical solution).
+            max_iterations: Max iterations (unused, analytical solution).
 
         Returns:
             Estimated DBH (inches)
         """
+        params = self.hd_params['curtis_arney']
+        p2 = params['p2']
+        p3 = params['p3']
+        p4 = params['p4']
+        db = params['dbw']  # Budwidth (SNDBAL in Fortran)
+
         if target_height <= 4.5:
-            return self.hd_params['curtis_arney']['dbw']
+            return db
 
-        if model is None:
-            model = self.hd_params.get('model', 'curtis_arney')
+        # Height at 3" DBH (transition point between linear and exponential)
+        hat3 = 4.5 + p2 * math.exp(-p3 * 3.0**p4)
 
-        dbh = initial_dbh
-
-        for _ in range(max_iterations):
-            predicted_height = self.predict_height(dbh, model)
-            error = predicted_height - target_height
-
-            if abs(error) < tolerance:
-                break
-
-            # Use Newton-Raphson method with numerical derivative
-            h = 0.01  # Small step for numerical derivative
-            predicted_height_plus = self.predict_height(dbh + h, model)
-            derivative = (predicted_height_plus - predicted_height) / h
-
-            if abs(derivative) < 1e-10:
-                # Derivative too small, use simple adjustment
-                dbh *= (target_height / predicted_height)**0.5
-            else:
-                # Newton-Raphson update
-                dbh -= error / derivative
-
-            # Ensure DBH stays positive
-            dbh = max(0.1, dbh)
-
-        return dbh
+        if target_height >= hat3:
+            # Analytical inversion of Curtis-Arney for D >= 3"
+            # H = 4.5 + P2 * exp(-P3 * D^P4)
+            # => D = exp(log((log(H-4.5) - log(P2)) / (-P3)) / P4)
+            h_above_bh = target_height - 4.5
+            if h_above_bh >= p2:
+                # Tree exceeds asymptotic height — return large DBH
+                return 30.0
+            ratio = (math.log(h_above_bh) - math.log(p2)) / (-p3)
+            if ratio <= 0:
+                return 30.0
+            return math.exp(math.log(ratio) / p4)
+        else:
+            # Linear interpolation for D < 3" (Fortran: regent.f small-tree region)
+            # D = ((H - 4.51) * (3 - DB)) / (HAT3 - 4.51) + DB
+            denom = hat3 - 4.51
+            if denom <= 0:
+                return db
+            return ((target_height - 4.51) * (3.0 - db)) / denom + db
 
     def get_model_parameters(self, model: str = None) -> Dict[str, Any]:
         """Get parameters for a specific model.

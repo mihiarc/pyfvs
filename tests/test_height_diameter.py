@@ -42,10 +42,10 @@ class TestHeightDiameterModel:
     def test_curtis_arney_basic(self):
         """Test Curtis-Arney model basic functionality."""
         model = create_height_diameter_model("LP")
-        
-        # Test small DBH (should return 4.5)
+
+        # Test small DBH at/below budwidth (should return 4.51, matching Fortran)
         height = model.curtis_arney_height(0.05)
-        assert height == 4.5
+        assert height == 4.51
         
         # Test normal DBH
         height = model.curtis_arney_height(10.0)
@@ -423,9 +423,9 @@ class TestMultiSpeciesHeightDiameter:
         """Test Curtis-Arney model returns valid heights for all species."""
         model = create_height_diameter_model(species)
 
-        # Test small DBH (should return 4.5)
+        # Test small DBH at/below budwidth (returns 4.51 matching Fortran)
         height_small = model.curtis_arney_height(0.05)
-        assert height_small == 4.5, f"{species}: small DBH should return 4.5"
+        assert height_small == 4.51, f"{species}: small DBH should return 4.51"
 
         # Test normal DBH
         height_normal = model.curtis_arney_height(10.0)
