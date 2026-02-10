@@ -309,12 +309,11 @@ class Tree:
         # Current age (before growth) - age was already incremented in grow()
         current_age = self.age - time_step
 
-        # Note: The previous establishment skip (LSKIPH) was removed because
-        # it incorrectly prevented ALL growth in the first cycle. Native FVS
-        # uses HTCALC to initialize trees at species-specific heights during
-        # establishment, then LSKIPH only skips the height INCREMENT — trees
-        # still start with substantial dimensions. PyFVS now grows normally
-        # from age 0, letting Chapman-Richards produce appropriate heights.
+        # Note: Stand.initialize_planted() places trees on the Chapman-Richards
+        # site curve at establishment_age = cycle_length + 1 (matching Fortran
+        # ESSUBH -> HTCALC). Trees start at age=cycle_length with ~20 ft height
+        # for SN LP SI=70. The effective-age logic below correctly continues
+        # growth from that anchor point on the site curve.
 
         # Site index base age varies by variant
         # SN (Southern): base age 25

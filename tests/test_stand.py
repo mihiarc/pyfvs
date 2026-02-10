@@ -60,9 +60,9 @@ def test_stand_initialization():
     
     # Run assertions
     assert len(stand.trees) == STANDARD_TPA
-    assert metrics['age'] == 0
-    assert 0.05 <= metrics['mean_dbh'] <= 0.15  # Fortran: DIAM=0.1 at establishment
-    assert abs(metrics['mean_height'] - 0.5) < 0.05  # Sub-breast-height seedling (with variation)
+    assert metrics['age'] == 5  # Trees initialized at cycle_length age (Fortran ESSUBH)
+    assert 1.5 <= metrics['mean_dbh'] <= 4.0  # Trees placed on H-D curve at ~20 ft height
+    assert 15.0 <= metrics['mean_height'] <= 25.0  # Chapman-Richards at establishment age 6
     assert metrics['volume'] >= 0
 
 def test_stand_growth(young_stand):
@@ -85,22 +85,22 @@ def test_stand_growth(young_stand):
         plot_base64
     )
     
-    # Run assertions - we should have 3 data points: age 0, 5, 10
+    # Run assertions - we should have 3 data points: age 5, 10, 15
     assert len(metrics) == 3
-    assert metrics[0]['age'] == 0
-    assert metrics[1]['age'] == 5
-    assert metrics[2]['age'] == 10
-    
-    # Growth should be positive by age 10 (first cycle is establishment skip)
+    assert metrics[0]['age'] == 5   # Initial (establishment age)
+    assert metrics[1]['age'] == 10
+    assert metrics[2]['age'] == 15
+
+    # Growth should be positive across all periods
     assert metrics[-1]['mean_dbh'] >= metrics[0]['mean_dbh']
     assert metrics[-1]['mean_height'] >= metrics[0]['mean_height']
 
-    # DBH and height should increase from age 5 to 10 (post-establishment)
+    # DBH and height should increase from age 10 to 15
     dbh_growth = [m['mean_dbh'] for m in metrics]
     height_growth = [m['mean_height'] for m in metrics]
 
-    assert dbh_growth[2] > dbh_growth[1]  # Age 5 to 10 (post-establishment)
-    assert height_growth[2] > height_growth[1]  # Age 5 to 10
+    assert dbh_growth[2] > dbh_growth[1]
+    assert height_growth[2] > height_growth[1]
 
 @pytest.mark.slow
 def test_mortality_effects():
@@ -208,23 +208,23 @@ def test_long_term_growth():
     
     # Run assertions for each site
     for site, metrics in metrics_by_site.items():
-        # Basic size and volume checks - more lenient
-        assert metrics[-1]['age'] == 40
-        assert metrics[-1]['mean_dbh'] > 6.0  # Reduced from 8.0
-        assert metrics[-1]['mean_height'] > 50.0  # Reduced from 60.0
-        assert metrics[-1]['volume'] > 1200  # Reduced from 1500 based on empirical testing (range: 1270-1520)
-        
+        # Basic size and volume checks - final age is 5 (initial) + 40 (grown) = 45
+        assert metrics[-1]['age'] == 45
+        assert metrics[-1]['mean_dbh'] > 6.0
+        assert metrics[-1]['mean_height'] > 50.0
+        assert metrics[-1]['volume'] > 1200
+
         # Growth pattern checks
-        dbh_growth = [metrics[i+1]['mean_dbh'] - metrics[i]['mean_dbh'] 
+        dbh_growth = [metrics[i+1]['mean_dbh'] - metrics[i]['mean_dbh']
                      for i in range(len(metrics)-1)]
-        height_growth = [metrics[i+1]['mean_height'] - metrics[i]['mean_height'] 
+        height_growth = [metrics[i+1]['mean_height'] - metrics[i]['mean_height']
                         for i in range(len(metrics)-1)]
-        volume_growth = [metrics[i+1]['volume'] - metrics[i]['volume'] 
+        volume_growth = [metrics[i+1]['volume'] - metrics[i]['volume']
                         for i in range(len(metrics)-1)]
-        mortality = [metrics[i]['tpa'] - metrics[i+1]['tpa'] 
+        mortality = [metrics[i]['tpa'] - metrics[i+1]['tpa']
                     for i in range(len(metrics)-1)]
-        
-        # For 40 years with 5-year increments: 9 data points (ages 0,5,10,15,20,25,30,35,40)
+
+        # For 40 years with 5-year increments: 9 data points (ages 5,10,15,...,45)
         # So growth arrays have 8 elements (indices 0-7)
         n_periods = len(metrics) - 1  # Number of growth periods
         early_periods = min(4, n_periods // 2)  # First half or 4 periods, whichever is smaller
@@ -1173,7 +1173,7 @@ def test_stand_initialization_multi_species(species):
 
     # Basic metrics should be valid
     metrics = stand.get_metrics()
-    assert metrics['age'] == 0
+    assert metrics['age'] == 5  # SN cycle length
     assert metrics['tpa'] == STANDARD_TPA
     assert metrics['mean_dbh'] > 0
 
@@ -1189,7 +1189,7 @@ def test_stand_initialization_site_indices(site_index):
 
     # Basic metrics should be valid
     metrics = stand.get_metrics()
-    assert metrics['age'] == 0
+    assert metrics['age'] == 5  # SN cycle length
     assert metrics['tpa'] == STANDARD_TPA
 
 
@@ -1229,7 +1229,7 @@ def test_stand_initialization_ecounits(ecounit):
 
     # Basic metrics should be valid
     metrics = stand.get_metrics()
-    assert metrics['age'] == 0
+    assert metrics['age'] == 5  # SN cycle length
     assert metrics['tpa'] == STANDARD_TPA
 
 
@@ -1265,8 +1265,8 @@ def test_stand_growth_species_site_combinations(species, site_index):
     # Volume should be positive
     assert final_metrics['volume'] > 0
 
-    # Age should be correct
-    assert final_metrics['age'] == 20
+    # Age should be correct (initial age 5 + 20 years grown)
+    assert final_metrics['age'] == 25
 
 
 @pytest.mark.slow
@@ -1472,8 +1472,8 @@ def test_full_rotation_multi_config(species, site_index, ecounit):
 
     metrics = stand.get_metrics()
 
-    # Basic sanity checks
-    assert metrics['age'] == 30
+    # Basic sanity checks (initial age 5 + 30 years grown)
+    assert metrics['age'] == 35
     assert metrics['tpa'] > 0
     assert metrics['mean_dbh'] > 0
     assert metrics['mean_height'] > 0

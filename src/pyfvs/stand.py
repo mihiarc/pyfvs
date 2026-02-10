@@ -39,6 +39,103 @@ from .stand_output import StandOutputGenerator, YieldRecord
 
 __all__ = ['Stand']
 
+# Variant cycle lengths (from variant source code)
+# SN and OP use 5-year cycles; all others use 10-year cycles
+_VARIANT_CYCLE_LENGTHS = {
+    'SN': 5, 'OP': 5, 'LS': 10, 'PN': 10, 'WC': 10,
+    'NE': 10, 'CS': 10, 'CA': 10, 'OC': 10, 'WS': 10,
+}
+
+
+def _load_small_tree_coefficients(species: str, variant: str) -> dict:
+    """Load variant-specific NC-128 small tree height growth coefficients.
+
+    Replicates Tree._load_variant_small_tree_coefficients() at module level
+    so it can be called before Tree objects exist.
+
+    Args:
+        species: Species code (e.g., 'LP', 'DF')
+        variant: FVS variant code (e.g., 'SN', 'LS')
+
+    Returns:
+        Coefficient dict with keys c1-c5 and bh, or empty dict if not found.
+    """
+    from .config_loader import load_coefficient_file
+    variant_lower = variant.lower()
+    filenames = [
+        f'{variant_lower}_small_tree_height_growth.json',
+        'sn_small_tree_height_growth.json',
+    ]
+    for filename in filenames:
+        try:
+            data = load_coefficient_file(filename, variant=variant)
+            coeffs = data.get('nc128_height_growth_coefficients', {})
+            if species in coeffs:
+                return coeffs[species]
+        except (FileNotFoundError, Exception):
+            continue
+    return {}
+
+
+def _compute_establishment_height(species: str, site_index: float,
+                                   age: float, variant: str) -> float:
+    """Compute tree height from Chapman-Richards at a given age.
+
+    Matches Fortran ESSUBH -> HTCALC(MODE1=1): place tree on the site curve
+    at the establishment age.
+
+    Args:
+        species: Species code (e.g., 'LP', 'DF')
+        site_index: Site index in feet
+        age: Establishment age in years
+        variant: FVS variant code
+
+    Returns:
+        Height in feet at the given age on the site curve.
+    """
+    p = _load_small_tree_coefficients(species, variant)
+    if not p:
+        # Fallback: use default SN LP coefficients
+        p = {'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374,
+             'c4': 0.7632, 'c5': 0.0358, 'bh': 0.0}
+
+    bh = p.get('bh', 0.0)
+    raw_height = bh + p['c1'] * (site_index ** p['c2']) * \
+        (1.0 - math.exp(p['c3'] * age)) ** (p['c4'] * (site_index ** p['c5']))
+
+    # Scale factor: anchor Height(base_age) = SI for non-SN variants
+    if variant == 'SN':
+        return max(0.5, raw_height)
+
+    base_age = 50 if variant in ('LS', 'PN', 'WC', 'NE', 'CS', 'CA', 'OP') else 25
+    raw_at_base = bh + p['c1'] * (site_index ** p['c2']) * \
+        (1.0 - math.exp(p['c3'] * base_age)) ** (p['c4'] * (site_index ** p['c5']))
+    scale = site_index / raw_at_base if raw_at_base > 0 else 1.0
+    return max(0.5, raw_height * scale)
+
+
+def _estimate_dbh_from_height(height: float, species: str, variant: str) -> float:
+    """Estimate DBH from height using Curtis-Arney H-D inverse.
+
+    For sub-breast-height trees, uses the Fortran rule: DBH = 0.1 + 0.001*HT.
+    For taller trees, uses the analytical inverse of the Curtis-Arney model.
+
+    Args:
+        height: Tree height in feet
+        species: Species code
+        variant: FVS variant code
+
+    Returns:
+        Estimated DBH in inches.
+    """
+    if height <= 4.5:
+        return 0.1 + 0.001 * height
+
+    from .height_diameter import create_height_diameter_model
+    hd_model = create_height_diameter_model(species, variant=variant)
+    dbh = hd_model.solve_dbh_from_height(target_height=height)
+    return max(0.1, dbh)
+
 
 class Stand:
     """Manages a collection of trees with stand-level dynamics.
@@ -299,43 +396,50 @@ class Stand:
         trees_per_acre = validated_params['trees_per_acre']
         site_index = validated_params['site_index']
 
-        # Create temporary stand to access config
+        # Create temporary stand to access config and resolve variant
         temp_stand = cls([], site_index, species, variant=variant)
-        initial_params = temp_stand.growth_params.get('initial_tree', {})
+        actual_variant = temp_stand.variant
 
-        dbh_params = initial_params.get('dbh', {})
-        # Fortran estab.f: DIAM(ISPC) = 0.1 for most species
-        dbh_mean = dbh_params.get('mean', 0.1)
-        dbh_sd = dbh_params.get('std_dev', 0.02)
-        dbh_min = dbh_params.get('minimum', 0.05)
+        # Match Fortran ESSUBH: AGE = TIME - DELAY - GENTIM + TRAGE
+        # Default PLANT keyword: DELAY=0, GENTIM=0, TRAGE=1 (seedling age)
+        # So establishment age = cycle_length + 1
+        cycle_length = _VARIANT_CYCLE_LENGTHS.get(actual_variant, 5)
+        establishment_age = cycle_length + 1
 
-        # Fortran: small seedling at planting (sub-breast-height)
-        height_params = initial_params.get('height', {})
-        height_mean = height_params.get('planted', 0.5)
-        height_sd = height_params.get('planted_std_dev', 0.1)
+        # Compute base height from Chapman-Richards (same as Fortran HTCALC)
+        base_height = _compute_establishment_height(
+            species, site_index, establishment_age, actual_variant
+        )
 
-        # Create trees with random variation in initial size.
+        # Create trees with lognormal height variation around the base.
         # Fortran FVS applies stochastic error (DGSCOR) to each tree's
         # diameter growth prediction, creating DBH differentiation that
         # drives PBAL (basal area in larger trees) competition effects.
         # Without variation, all trees in a monoculture have PBAL=0,
-        # removing a critical growth dampening term. Initial variation
-        # in height and DBH creates the needed differentiation.
+        # removing a critical growth dampening term.
         # Use deterministic seed for reproducibility.
         rng = random.Random(42)
-        actual_variant = temp_stand.variant
-        trees = [
-            Tree(
-                dbh=max(dbh_min, dbh_mean + rng.gauss(0, dbh_sd)),
-                height=max(0.3, height_mean + rng.gauss(0, height_sd)),
-                species=species,
-                age=0,
-                variant=actual_variant
-            )
-            for _ in range(trees_per_acre)
-        ]
+        trees = []
+        for _ in range(trees_per_acre):
+            # Lognormal height variation: sigma=0.1, bounded [0.7x, 1.3x]
+            height_multiplier = max(0.7, min(1.3, math.exp(rng.gauss(0, 0.1))))
+            tree_height = base_height * height_multiplier
 
-        return cls(trees, site_index, species, forest_type=forest_type, ecounit=ecounit, variant=variant)
+            # DBH from H-D relationship (natural variation through height)
+            tree_dbh = _estimate_dbh_from_height(tree_height, species, actual_variant)
+
+            trees.append(Tree(
+                dbh=tree_dbh,
+                height=tree_height,
+                species=species,
+                age=cycle_length,
+                variant=actual_variant
+            ))
+
+        stand = cls(trees, site_index, species, forest_type=forest_type,
+                    ecounit=ecounit, variant=variant)
+        stand.age = cycle_length
+        return stand
 
     @classmethod
     def from_fia_data(
