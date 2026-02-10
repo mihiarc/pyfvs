@@ -926,28 +926,23 @@ class Tree:
             # Predict crown ratio for current conditions (end of growth cycle)
             predicted_cr = cr_model.predict_individual_crown_ratio(rank, relsdi, ccf)
 
-            # FVS-style change calculation:
-            # The change is bounded to prevent dramatic swings
-            # Maximum change is typically 5% per 5-year cycle (1% per year)
-            # Scale by time_step to handle different cycle lengths
-            max_change_per_cycle = 0.05 * (time_step / 5.0)
+            # FVS-style change calculation (crown.f lines 310-314):
+            # PDIFPY = CHG / REAL(ICR(I)) / FINT
+            # IF(PDIFPY.GT.0.01) CHG = REAL(ICR(I)) * 0.01 * FINT
+            # IF(PDIFPY.LT.-0.01) CHG = REAL(ICR(I)) * (-0.01) * FINT
+            # Change is bounded as a PROPORTION of current CR (1% per year),
+            # not a flat absolute amount.
+            max_change_per_cycle = self.crown_ratio * 0.01 * time_step
 
             # Calculate change from current CR toward predicted CR
             change = predicted_cr - self.crown_ratio
 
-            # Bound the change
+            # Bound the change (proportional to current CR)
             bounded_change = max(-max_change_per_cycle,
                                min(max_change_per_cycle, change))
 
             # Apply change to current crown ratio
             new_cr = self.crown_ratio + bounded_change
-
-            # Apply age-related reduction (small gradual decrease with age)
-            # Scale by time_step to maintain consistent rate regardless of cycle length
-            cr_params = self.growth_params.get('crown_ratio', {})
-            age_reduction_rate = cr_params.get('age_reduction', {}).get('rate', 0.001)
-            age_reduction = age_reduction_rate * (time_step / 5.0)  # Scale per cycle
-            new_cr = new_cr * (1.0 - age_reduction)
 
             # Ensure reasonable bounds
             self.crown_ratio = max(0.15, min(0.95, new_cr))
