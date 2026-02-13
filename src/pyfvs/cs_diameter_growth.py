@@ -155,6 +155,19 @@ class CSDiameterGrowthModel(ParameterizedModel):
         except FileNotFoundError:
             return {}
 
+    def _get_sigma(self) -> float:
+        """Get SIGMAR for this species from variance_parameters in config.
+
+        Returns the standard deviation of ln(DDS) residuals, used for the
+        Baskerville (1972) log-normal bias correction.
+        """
+        if self.raw_data:
+            variance_params = self.raw_data.get('variance_parameters', {})
+            sigma = variance_params.get(self.species_code, 0.0)
+            if isinstance(sigma, (int, float)):
+                return float(sigma)
+        return 0.0
+
     def calculate_dds(
         self,
         dbh: float,
@@ -240,6 +253,11 @@ class CSDiameterGrowthModel(ParameterizedModel):
 
         # Convert from ln(DDS) to DDS
         dds = math.exp(ln_dds)
+
+        # Baskerville (1972) correction for log-normal prediction bias
+        sigma = self._get_sigma()
+        if sigma > 0:
+            dds *= math.exp(sigma * sigma / 2.0)
 
         # Scale for time step (CS is calibrated for 10-year periods)
         dds_scaled = dds * (time_step / 10.0)

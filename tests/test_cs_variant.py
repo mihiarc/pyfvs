@@ -396,8 +396,8 @@ class TestCSSmokeTest:
             qmd = math.sqrt(metrics['basal_area'] / (metrics['tpa'] * 0.005454))
         assert 3.0 <= qmd <= 18.0, f"QMD={qmd}"
 
-        # Expect: 50-250 sq ft BA
-        assert 30 <= metrics['basal_area'] <= 300, f"BA={metrics['basal_area']}"
+        # Expect: 50-400 sq ft BA (Baskerville correction increases growth)
+        assert 30 <= metrics['basal_area'] <= 400, f"BA={metrics['basal_area']}"
 
         # Expect: positive volume
         assert metrics['volume'] > 0, f"Volume={metrics['volume']}"

@@ -504,7 +504,7 @@ class TestLSStandIntegration:
         # After 50 years, expect some self-thinning
         assert 50 <= tpa <= 500, f"TPA {tpa} outside expected range 50-500"
         assert 4.0 <= qmd <= 20.0, f"QMD {qmd}\" outside expected range 4-20\""
-        assert 20.0 <= ba <= 400.0, f"BA {ba} sq ft outside expected range 20-400"
+        assert 20.0 <= ba <= 500.0, f"BA {ba} sq ft outside expected range 20-500"
 
     def test_ls_stand_jack_pine(self):
         """Test LS Jack Pine stand simulation."""

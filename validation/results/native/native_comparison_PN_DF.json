@@ -11,47 +11,47 @@
     {
       "cycle": 1,
       "age": 10,
-      "tpa": 389,
-      "basal_area": 39.26183343751672,
-      "qmd": 4.301766100554424,
-      "top_height": 32.790622830180546,
-      "volume": 511.5331306236715
+      "tpa": 400,
+      "basal_area": 12.016820290319579,
+      "qmd": 2.3469351687722186,
+      "top_height": 24.124568934075096,
+      "volume": 107.70981130988446
     },
     {
       "cycle": 2,
       "age": 20,
-      "tpa": 378,
-      "basal_area": 148.28444644219547,
-      "qmd": 8.480827027940977,
-      "top_height": 52.89726016922081,
-      "volume": 2959.2205694509876
+      "tpa": 389,
+      "basal_area": 126.2540734677208,
+      "qmd": 7.714081168607608,
+      "top_height": 50.76768586784034,
+      "volume": 2309.3909634698184
     },
     {
       "cycle": 3,
       "age": 30,
-      "tpa": 365,
-      "basal_area": 258.60844479123637,
-      "qmd": 11.397542607712307,
-      "top_height": 67.84768683302401,
-      "volume": 6439.632551139486
+      "tpa": 373,
+      "basal_area": 248.49022706799275,
+      "qmd": 11.05188980188337,
+      "top_height": 69.97701276700167,
+      "volume": 6031.3642971004
     },
     {
       "cycle": 4,
       "age": 40,
-      "tpa": 353,
-      "basal_area": 354.3735795873655,
-      "qmd": 13.566868652822551,
-      "top_height": 77.72623472868896,
-      "volume": 9965.72573376047
+      "tpa": 325,
+      "basal_area": 324.0350551322004,
+      "qmd": 13.520433702052026,
+      "top_height": 82.6045045068577,
+      "volume": 9091.127074528897
     },
     {
       "cycle": 5,
       "age": 50,
-      "tpa": 341,
-      "basal_area": 431.4034145766646,
-      "qmd": 15.230035126348165,
-      "top_height": 84.62714084149499,
-      "volume": 13051.239856134429
+      "tpa": 286,
+      "basal_area": 373.29808388422674,
+      "qmd": 15.469674265970719,
+      "top_height": 91.65981551625507,
+      "volume": 11406.164387833967
     }
   ],
   "native": [
@@ -59,125 +59,125 @@
       "cycle": 1,
       "age": 10,
       "tpa": 400.0,
-      "basal_area": 4.016237755474913,
-      "qmd": 1.3568197131157078,
-      "top_height": 14.777131080627441,
+      "basal_area": 5.986305518974369,
+      "qmd": 1.6565016639410648,
+      "top_height": 20.0,
       "volume": 0.0
     },
     {
       "cycle": 2,
       "age": 20,
-      "tpa": 373.9609622955322,
-      "basal_area": 37.41658458347852,
-      "qmd": 4.283131122639307,
-      "top_height": 28.295501708984375,
-      "volume": 379.23167248475926
+      "tpa": 374.50170516967773,
+      "basal_area": 57.08232720277864,
+      "qmd": 5.286477264702366,
+      "top_height": 42.82489013671875,
+      "volume": 995.4443832555934
     },
     {
       "cycle": 3,
       "age": 30,
-      "tpa": 358.8894715309143,
-      "basal_area": 184.92151063174296,
-      "qmd": 9.719765573292957,
-      "top_height": 48.912132263183594,
-      "volume": 4963.005235488737
+      "tpa": 361.8472480773926,
+      "basal_area": 213.92996708526192,
+      "qmd": 10.411555255760375,
+      "top_height": 63.330650329589844,
+      "volume": 5015.061560257561
     },
     {
       "cycle": 4,
       "age": 40,
-      "tpa": 344.4449071884155,
-      "basal_area": 309.4476059493479,
-      "qmd": 12.8344160272772,
-      "top_height": 66.98397827148438,
-      "volume": 10701.865028724194
+      "tpa": 349.44933128356934,
+      "basal_area": 375.01726876329394,
+      "qmd": 14.027360538745004,
+      "top_height": 80.3275375366211,
+      "volume": 10700.966539755871
     },
     {
       "cycle": 5,
       "age": 50,
-      "tpa": 323.3033285140991,
-      "basal_area": 384.8227707437788,
-      "qmd": 14.77296695532403,
-      "top_height": 82.58454895019531,
-      "volume": 15871.425637329989
+      "tpa": 325.1430153846741,
+      "basal_area": 488.9393446957693,
+      "qmd": 16.604764163607445,
+      "top_height": 94.72460174560547,
+      "volume": 16201.389307981462
     }
   ],
   "metrics": {
     "tpa": {
       "n": 5,
-      "bias": 5.0803,
-      "mae": 9.4803,
-      "rmse": 10.5926,
-      "mape": 2.7,
-      "r_squared": 0.8342,
-      "max_error": 17.6967,
-      "min_error": -11.0,
+      "bias": -7.5883,
+      "mae": 17.8487,
+      "rmse": 22.2015,
+      "mape": 5.2,
+      "r_squared": 0.2091,
+      "max_error": 14.4983,
+      "min_error": -39.143,
       "equivalence_test_passed": false
     },
     "basal_area": {
       "n": 5,
-      "bias": 62.2614,
-      "mae": 62.2614,
-      "rmse": 68.0467,
-      "mape": 248.07,
-      "r_squared": 0.7894,
-      "max_error": 110.8679,
-      "min_error": 35.2456,
+      "bias": -11.3722,
+      "mae": 55.2772,
+      "rmse": 66.3138,
+      "mape": 55.06,
+      "r_squared": 0.8694,
+      "max_error": 69.1717,
+      "min_error": -115.6413,
       "equivalence_test_passed": false
     },
     "qmd": {
       "n": 5,
-      "bias": 2.002,
-      "mae": 2.002,
-      "rmse": 2.4435,
-      "mape": 68.22,
-      "r_squared": 0.7675,
-      "max_error": 4.1977,
-      "min_error": 0.4571,
+      "bias": 0.4233,
+      "mae": 1.0801,
+      "rmse": 1.2904,
+      "mape": 20.84,
+      "r_squared": 0.9449,
+      "max_error": 2.4276,
+      "min_error": -1.1351,
       "equivalence_test_passed": false
     },
     "top_height": {
       "n": 5,
-      "bias": 14.8671,
-      "mae": 14.8671,
-      "rmse": 16.7801,
-      "mape": 53.21,
-      "r_squared": 0.5382,
-      "max_error": 24.6018,
-      "min_error": 2.0426,
+      "bias": 3.5852,
+      "mae": 4.8111,
+      "rmse": 5.2698,
+      "mape": 11.15,
+      "r_squared": 0.9606,
+      "max_error": 7.9428,
+      "min_error": -3.0648,
       "equivalence_test_passed": false
     },
     "volume": {
       "n": 5,
-      "bias": 202.3649,
-      "mae": 1624.8949,
-      "rmse": 1875.8351,
-      "mape": 183.68,
-      "r_squared": 0.9062,
-      "max_error": 2579.9889,
-      "min_error": -2820.1858,
+      "bias": -793.4211,
+      "mae": 1768.6047,
+      "rmse": 2381.4573,
+      "mape": 49.23,
+      "r_squared": 0.8479,
+      "max_error": 1313.9466,
+      "min_error": -4795.2249,
       "equivalence_test_passed": false
     }
   },
   "acceptance": {
     "tpa": {
       "passed": false,
-      "message": "tpa MAPE 2.7% exceeds threshold of 2.0%"
+      "message": "tpa MAPE 5.2% exceeds threshold of 2.0%"
     },
     "basal_area": {
       "passed": false,
-      "message": "basal_area MAPE 248.1% exceeds threshold of 3.0%"
+      "message": "basal_area MAPE 55.1% exceeds threshold of 3.0%"
     },
     "qmd": {
       "passed": false,
-      "message": "diameter MAPE 68.2% exceeds threshold of 5.0%"
+      "message": "diameter MAPE 20.8% exceeds threshold of 5.0%"
     },
     "top_height": {
       "passed": false,
-      "message": "height MAPE 53.2% exceeds threshold of 5.0%"
+      "message": "height MAPE 11.1% exceeds threshold of 5.0%"
     },
     "volume": {
       "passed": false,
-      "message": "volume MAPE 183.7% exceeds threshold of 10.0%"
+      "message": "volume MAPE 49.2% exceeds threshold of 10.0%"
     }
   }
 }

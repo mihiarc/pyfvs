@@ -429,9 +429,10 @@ class TestSNRegression:
         metrics = stand.get_metrics()
 
         # SN LP 500 TPA SI=70 M231 50yr — no fortype, initial variation, PBAL active
-        assert metrics['tpa'] == pytest.approx(181, rel=0.10)
-        assert metrics['qmd'] == pytest.approx(16.75, rel=0.10)
-        assert metrics['basal_area'] == pytest.approx(277, rel=0.10)
+        # Baskerville (1972) correction: exp(sigma^2/2) applied to DDS
+        assert metrics['tpa'] == pytest.approx(164, rel=0.10)
+        assert metrics['qmd'] == pytest.approx(17.85, rel=0.10)
+        assert metrics['basal_area'] == pytest.approx(285, rel=0.10)
 
     def test_sn_small_tree_height_growth_unchanged(self):
         """SN LP small tree height growth uses correct LTBHEC row 13 coefficients.

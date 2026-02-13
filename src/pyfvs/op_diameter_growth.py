@@ -243,6 +243,19 @@ class OPDiameterGrowthModel(ParameterizedModel):
         else:
             self._load_fallback_parameters()
 
+    def _get_sigma(self) -> float:
+        """Get SIGMAR for this species from variance_parameters in config.
+
+        Returns the standard deviation of ln(DG) residuals, used for the
+        Baskerville (1972) log-normal bias correction.
+        """
+        if self.raw_data:
+            variance_params = self.raw_data.get('variance_parameters', {})
+            sigma = variance_params.get(self.species_code, 0.0)
+            if isinstance(sigma, (int, float)):
+                return float(sigma)
+        return 0.0
+
     def calculate_diameter_growth(
         self,
         dbh: float,
@@ -329,6 +342,11 @@ class OPDiameterGrowthModel(ParameterizedModel):
 
         # Convert from ln(DG) to DG (5-year growth)
         dg_5yr = math.exp(ln_dg)
+
+        # Baskerville (1972) correction for log-normal prediction bias
+        sigma = self._get_sigma()
+        if sigma > 0:
+            dg_5yr *= math.exp(sigma * sigma / 2.0)
 
         # Apply crown ratio adjustment for very low CR
         # CRADJ = 1.0 if CR > 0.17, else 1.0 - exp(-(25*CR)^2)

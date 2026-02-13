@@ -226,5 +226,26 @@
     "dds_to_diameter_growth": "After calculating DDS, convert back: DG = sqrt(D^2 + exp(DDS)) - D",
     "bark_ratio": "All diameter growth is inside bark. Apply bark ratio to convert to outside bark.",
     "calibration": "DGCON includes site-specific calibration factor COR from DGDRIV"
+  },
+  "variance_parameters": {
+    "description": "SIGMAR from sn/blkdat.f: std dev of ln(DDS) residuals. Baskerville (1972) correction: E[DDS] = exp(ln_dds) * exp(sigma^2/2). Raw residuals multiplied by 0.75 for measurement error correction (5/10/91, WRW).",
+    "FR": 0.4511, "JU": 0.5297, "PI": 0.4511, "PU": 0.5428, "SP": 0.4987,
+    "SA": 0.5251, "SR": 0.4367, "LL": 0.4410, "TM": 0.4693, "PP": 0.5525,
+    "PD": 0.5921, "WP": 0.4937, "LP": 0.4687, "VP": 0.4693, "BY": 0.5511,
+    "PC": 0.6267, "HM": 0.4511, "FM": 0.5632, "BE": 0.5608, "RM": 0.5930,
+    "SV": 0.5930, "SM": 0.4755, "BU": 0.5373, "BB": 0.5696, "SB": 0.5696,
+    "AH": 0.6032, "HI": 0.4993, "CA": 0.4401, "HB": 0.5276, "RD": 0.5453,
+    "DW": 0.5382, "PS": 0.5160, "AB": 0.4805, "AS": 0.5958, "WA": 0.4228,
+    "BA": 0.4856, "GA": 0.4856, "HL": 0.4682, "LB": 0.5908, "HA": 0.5996,
+    "HY": 0.5469, "BN": 0.5710, "WN": 0.5710, "SU": 0.5779, "YP": 0.5181,
+    "MG": 0.5727, "CT": 0.5126, "MS": 0.5703, "MV": 0.5727, "ML": 0.5703,
+    "AP": 0.5056, "MB": 0.5056, "WT": 0.5698, "BG": 0.5356, "TS": 0.5888,
+    "HH": 0.5773, "SD": 0.5047, "RA": 0.5687, "SY": 0.5570, "CW": 0.4401,
+    "BT": 0.4401, "BC": 0.5781, "WO": 0.4407, "SO": 0.3827, "SK": 0.4305,
+    "CB": 0.4000, "TO": 0.4957, "LK": 0.5586, "OV": 0.4659, "BJ": 0.4649,
+    "SN": 0.4913, "CK": 0.5056, "WK": 0.4664, "CO": 0.4293, "RO": 0.4048,
+    "QS": 0.4074, "PO": 0.4853, "BO": 0.4219, "LO": 0.6635, "BK": 0.5187,
+    "WI": 0.4508, "SS": 0.4504, "BD": 0.5496, "EL": 0.6447, "WE": 0.5286,
+    "AE": 0.5364, "RL": 0.5350, "OS": 0.5297, "OH": 0.5773, "OT": 0.5576
   }
 }

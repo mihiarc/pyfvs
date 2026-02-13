@@ -351,5 +351,16 @@
       "ADJ": 0.85,
       "source": "ORGANON NWO variant"
     }
+  },
+  "variance_parameters": {
+    "description": "SIGMAR from op/blkdat.f: std dev of ln(DG) residuals. Same species framework as PN. Baskerville (1972) correction: E[DG] = exp(ln_dg) * exp(sigma^2/2). SF,SS,DF,RC,WH,RA values multiplied by 0.75 for fitting bias correction.",
+    "SF": 0.3428, "WF": 0.4390, "GF": 0.4390, "AF": 0.3960, "RF": 0.3102,
+    "SS": 0.3769, "NF": 0.4275, "YC": 0.3931, "IC": 0.4842, "ES": 0.4842,
+    "LP": 0.3690, "JP": 0.3222, "SP": 0.5494, "WP": 0.5494, "PP": 0.3222,
+    "DF": 0.2679, "RW": 0.6178, "RC": 0.3625, "WH": 0.3402, "MH": 0.3751,
+    "BM": 0.5107, "RA": 0.3328, "MA": 0.5357, "TO": 0.5357, "GC": 0.5357,
+    "AS": 0.5357, "CW": 0.5357, "WO": 0.2360, "WJ": 0.5357, "LL": 0.4842,
+    "WB": 0.4842, "KP": 0.4842, "PY": 0.4842, "DG": 0.5357, "HT": 0.5357,
+    "CH": 0.5357, "WI": 0.5357, "OT": 0.5357
   }
 }
