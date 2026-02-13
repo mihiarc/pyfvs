@@ -53,6 +53,42 @@ class NEDiameterGrowthModel(ParameterizedModel):
     COEFFICIENT_KEY = 'coefficients'
     DEFAULT_SPECIES = 'RM'  # Red Maple is the default site species for NE
 
+    # B3 coefficients from ne/balmod.f DATA statement, indexed by species idx.
+    # Used in BAGMOD: GMOD = max(0.5, exp(-B3 * BAL))
+    _B3_BY_IDX = {
+        1: 0.012785, 2: 0.018831, 3: 0.013427,
+        4: 0.011942, 5: 0.011942, 6: 0.011942, 7: 0.011942,
+        8: 0.017300, 9: 0.015496, 10: 0.017300, 11: 0.016835,
+        12: 0.012329, 13: 0.012329, 14: 0.012329, 15: 0.012329,
+        16: 0.009149, 17: 0.009149,
+        18: 0.016835, 19: 0.016835, 20: 0.016835, 21: 0.016835,
+        22: 0.016835, 23: 0.016835, 24: 0.016835, 25: 0.016835,
+        26: 0.016191,
+        27: 0.016240, 28: 0.016240, 29: 0.016240,
+        30: 0.019046, 31: 0.019046, 32: 0.019046,
+        33: 0.023978, 34: 0.023978,
+        35: 0.015963, 36: 0.015963, 37: 0.015963, 38: 0.015963, 39: 0.015963,
+        40: 0.013029,
+        41: 0.015004, 42: 0.015004, 43: 0.015004, 44: 0.015004, 45: 0.015004,
+        46: 0.019904, 47: 0.019904, 48: 0.019904,
+        49: 0.016877, 50: 0.016877, 51: 0.016877, 52: 0.016877, 53: 0.016877,
+        54: 0.016537,
+        55: 0.014235, 56: 0.014235, 57: 0.014235, 58: 0.014235, 59: 0.014235,
+        60: 0.018560, 61: 0.018560, 62: 0.018560, 63: 0.018560,
+        64: 0.013762, 65: 0.013762, 66: 0.013762,
+        67: 0.018024, 68: 0.018024,
+        69: 0.020843, 70: 0.020843,
+        71: 0.020653, 72: 0.020653, 73: 0.020653, 74: 0.020653, 75: 0.020653,
+        76: 0.020653, 77: 0.020653, 78: 0.020653, 79: 0.020653, 80: 0.020653,
+        81: 0.020653, 82: 0.020653, 83: 0.020653, 84: 0.020653, 85: 0.020653,
+        86: 0.020653, 87: 0.020653, 88: 0.020653, 89: 0.020653, 90: 0.020653,
+        91: 0.020653, 92: 0.020653, 93: 0.020653, 94: 0.020653, 95: 0.020653,
+        96: 0.020653, 97: 0.020653,
+        98: 0.011620, 99: 0.011620, 100: 0.011620, 101: 0.011620,
+        102: 0.011620, 103: 0.011620, 104: 0.011620, 105: 0.011620,
+        106: 0.011620, 107: 0.011620, 108: 0.011620,
+    }
+
     # Fallback parameters for key NE species (from dgf.f)
     FALLBACK_PARAMETERS = {
         'RM': {  # Red Maple
@@ -119,33 +155,37 @@ class NEDiameterGrowthModel(ParameterizedModel):
         except FileNotFoundError:
             return {}
 
-    def _calculate_bagmod(self, bal: float, ba: float) -> float:
+    def _calculate_bagmod(self, bal: float) -> float:
         """Calculate basal area growth modifier based on competition.
 
-        The BAGMOD reduces growth based on basal area in larger trees (BAL).
-        This is a simplified version of the BALMOD subroutine in dgf.f.
+        Implements the BALMOD subroutine from ne/balmod.f:
+            GMOD = max(0.5, exp(-B3 * BAL))
+
+        where B3 is a species-specific coefficient.
 
         Args:
             bal: Basal area in larger trees (sq ft/acre)
-            ba: Total stand basal area (sq ft/acre)
 
         Returns:
-            BAGMOD: Growth modifier (0-1)
+            BAGMOD: Growth modifier (0.5-1.0)
         """
-        # Simple competition modifier based on relative position
-        # Trees with more BAL (more overtopped) grow slower
-        if ba <= 0:
+        if bal <= 0:
             return 1.0
 
-        # Competition ratio: 0 = dominant, 1 = fully suppressed
-        competition_ratio = min(1.0, bal / max(1.0, ba))
+        # Get B3 for this species from the idx-keyed lookup
+        b3 = self._get_b3()
 
-        # Modifier decreases as competition increases
-        # This follows the general FVS approach of reducing growth
-        # for suppressed trees
-        bagmod = 1.0 - (0.5 * competition_ratio)
+        gmod = math.exp(-b3 * bal)
+        return max(0.5, gmod)
 
-        return max(0.1, min(1.0, bagmod))
+    def _get_b3(self) -> float:
+        """Get B3 coefficient for this species from balmod.f DATA array."""
+        # Look up by species idx from coefficient data
+        idx = self.coefficients.get('idx', 0)
+        if idx > 0 and idx in self._B3_BY_IDX:
+            return self._B3_BY_IDX[idx]
+        # Default: use RM value (species 26) as fallback
+        return 0.016191
 
     def calculate_dds(
         self,
@@ -175,7 +215,7 @@ class NEDiameterGrowthModel(ParameterizedModel):
             time_step: Growth period in years (default 10 for NE)
 
         Returns:
-            DDS: Change in diameter squared (sq inches inside bark)
+            DDS: Change in diameter squared (sq inches outside bark)
         """
         p = self.coefficients
 
@@ -186,13 +226,6 @@ class NEDiameterGrowthModel(ParameterizedModel):
         # Ensure valid inputs
         current_dbh = max(0.1, dbh)
         si_safe = max(20.0, site_index)
-        cr_safe = max(0.1, min(1.0, crown_ratio))
-
-        # Calculate competition modifier (constant for the period)
-        bagmod = self._calculate_bagmod(bal, ba)
-
-        # Crown ratio effect (trees with lower CR grow slower)
-        cr_modifier = 0.5 + (0.5 * cr_safe)  # Range 0.55 to 1.0
 
         # Number of annual iterations
         num_years = int(time_step)
@@ -204,22 +237,22 @@ class NEDiameterGrowthModel(ParameterizedModel):
             # POTBAG = B1 * SI * (1 - exp(-B2 * DBH))
             potbag = b1 * si_safe * (1.0 - math.exp(-b2 * current_dbh))
 
-            # Apply 0.7 modifier (as in dgf.f)
+            # Apply 0.7 modifier (as in dgf.f line 132)
             potbag = potbag * 0.7
 
-            # Calculate adjusted annual basal area growth
-            annual_ba_growth = potbag * bagmod * cr_modifier
+            # Get BAL modifier: GMOD = max(0.5, exp(-B3*BAL))
+            # Fortran calls BALMOD each iteration (BAL from diameter class)
+            # PyFVS uses stand-level BAL (close approximation)
+            bagmod = self._calculate_bagmod(bal)
 
-            # Current tree basal area (sq ft)
-            # BA = pi/4 * D^2 / 144
-            current_ba = (math.pi / 4.0) * (current_dbh ** 2) / 144.0
+            # Fortran dgf.f line 145: DELD = POTBAG * BAGMOD (no CR term)
+            deld = potbag * bagmod
 
-            # New basal area
-            new_ba = current_ba + annual_ba_growth
-
-            # Convert back to diameter
-            # D = sqrt(BA * 144 * 4 / pi)
-            current_dbh = math.sqrt(new_ba * 144.0 * 4.0 / math.pi)
+            # Fortran dgf.f line 148-150:
+            # QTRBA = DELD + (D*D*.0054542)
+            # QDBH = (QTRBA/.0054542)**.5
+            qtrba = deld + (current_dbh * current_dbh * 0.0054542)
+            current_dbh = math.sqrt(qtrba / 0.0054542)
 
         # DDS is the change in diameter squared over the whole period
         dds = max(0.0, current_dbh ** 2 - dbh ** 2)
@@ -267,17 +300,11 @@ class NEDiameterGrowthModel(ParameterizedModel):
             time_step=time_step
         )
 
-        # Convert to inside-bark diameter
-        dib_old = dbh * bark_ratio
-        dib_old_sq = dib_old * dib_old
+        # NE iterates in OB space (Fortran dgf.f lines 127-151),
+        # so DDS is already an OB quantity. Apply directly to OB diameter.
+        dbh_new = math.sqrt(dbh * dbh + dds)
 
-        # Apply DDS to inside-bark diameter
-        dib_new = math.sqrt(dib_old_sq + dds)
-
-        # Convert back to outside-bark diameter
-        dbh_new = dib_new / bark_ratio
-
-        # Return the increment
+        # Return the OB increment
         return max(0.0, dbh_new - dbh)
 
 

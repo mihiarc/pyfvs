@@ -176,10 +176,9 @@ class NativeStand:
         lines.append("STDIDENT")
         lines.append(f"PYFVS_NATIVE_{self.variant}_{self._species}")
 
-        # Site index - field 1 (cols 1-10) is species index,
-        # field 2 (cols 11-20) is site index value.
-        lines.append("SITECODE")
-        lines.append(f"{species_index:10d}{site_index:10.1f}")
+        # Site index - cols 11-20 species index, cols 21-30 site index
+        # (must be on keyword line, NOT a supplemental record)
+        lines.append(f"SITECODE  {species_index:10d}{site_index:10.1f}")
 
         # No initial tree data — bare ground planting
         lines.append("NOTREES")

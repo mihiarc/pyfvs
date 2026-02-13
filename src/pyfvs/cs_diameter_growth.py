@@ -201,13 +201,16 @@ class CSDiameterGrowthModel(ParameterizedModel):
         # Convert crown ratio to percentage (CS uses 0-100)
         cr_pct = min(99.0, max(1.0, crown_ratio * 100.0))
 
-        # Calculate RELDBH (relative diameter)
-        # RELDBH = D / QMDGE5 (tree diameter relative to QMD of trees >= 5")
+        # Calculate RELDBH and RELDBHSQ (relative diameter terms)
+        # Fortran dgf.f (same form as LS):
+        #   RELDBH = D / QMDGE5
+        #   RELDBHSQ = D*D / QMDGE5  (NOT (D/QMDGE5)^2)
         if qmd_ge5 is not None and qmd_ge5 > 0:
             reldbh = dbh / qmd_ge5
+            reldbh_sq = (dbh * dbh) / qmd_ge5
         else:
-            # If no QMD provided, assume average tree (reldbh = 1.0)
             reldbh = 1.0
+            reldbh_sq = dbh  # D^2/D = D when assuming qmd_ge5 = D
 
         # Apply FVS bounds
         ba_bounded = max(0.0, ba)
@@ -225,7 +228,7 @@ class CSDiameterGrowthModel(ParameterizedModel):
             dbhc * dbh +
             dbh2c * dbh * dbh +
             rdbhc * reldbh +
-            rdbhsqc * reldbh * reldbh +
+            rdbhsqc * reldbh_sq +
             crwnc * cr_pct +
             crsqc * cr_pct * cr_pct +
             sbac * ba_bounded +
@@ -286,17 +289,11 @@ class CSDiameterGrowthModel(ParameterizedModel):
             time_step=time_step
         )
 
-        # Convert to inside-bark diameter
-        dib_old = dbh * bark_ratio
-        dib_old_sq = dib_old * dib_old
+        # CS DDS equation is calibrated for outside-bark application
+        # (same as LS — Fortran dgf.f applies DDS to OB diameter).
+        dbh_new = math.sqrt(dbh * dbh + dds)
 
-        # Apply DDS to inside-bark diameter
-        dib_new = math.sqrt(dib_old_sq + dds)
-
-        # Convert back to outside-bark diameter
-        dbh_new = dib_new / bark_ratio
-
-        # Return the increment
+        # Return the OB increment
         return max(0.0, dbh_new - dbh)
 
 
