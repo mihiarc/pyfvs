@@ -234,6 +234,11 @@ class Stand:
         self.species = species
         self._forest_type = forest_type
         self.ecounit = ecounit
+        # Native FVS with state=0 defaults to ecounit '231DD' which maps to
+        # S231T=1 (habtyp.f:135), applying S231T coefficients. Match this
+        # behavior: when no ecounit is specified for SN, default to '231T'.
+        if self.ecounit is None and self.variant == 'SN':
+            self.ecounit = '231T'
 
         # Set up logging
         self.logger = get_logger(__name__)

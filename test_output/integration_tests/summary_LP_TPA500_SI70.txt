@@ -1,7 +1,7 @@
 FVS-Python Simulation Summary Report
 ==================================================
 
-Generated: 2026-02-12 19:27:05
+Generated: 2026-02-13 14:25:24
 Software: FVS-Python v1.0.0
 
 Simulation Parameters:
@@ -15,18 +15,18 @@ time_step: 5
 Final Stand Metrics:
 -------------------------
 Age: 35.0 years
-Trees per Acre: 383
-Mean DBH: 9.5 inches
-Mean Height: 61.0 feet
-Basal Area: 188.5 sq ft/acre
-Volume: 4450 cubic feet/acre
+Trees per Acre: 408
+Mean DBH: 8.6 inches
+Mean Height: 60.8 feet
+Basal Area: 167.2 sq ft/acre
+Volume: 3935 cubic feet/acre
 
 Growth Summary:
 -------------------------
-Total DBH Growth: 6.9 inches
-Total Height Growth: 40.8 feet
-Total Volume Growth: 4325 cu ft/acre
-Survival Rate: 76.6%
+Total DBH Growth: 6.1 inches
+Total Height Growth: 40.7 feet
+Total Volume Growth: 3810 cu ft/acre
+Survival Rate: 81.6%
 
 Associated Files:
 -------------------------

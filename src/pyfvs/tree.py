@@ -412,13 +412,13 @@ class Tree:
 
         # Get ecological unit effect for DIAMETER growth (not height)
         # This matches how FVS applies ecounit to the DDS equation for large trees
-        ecounit_multiplier = 1.0
-        if self._ecounit is not None:
-            from .ecological_unit import get_ecounit_effect
-            ecounit_effect = get_ecounit_effect(self.species, self._ecounit)
-            # Convert additive ln(DDS) effect to multiplicative diameter increment effect
-            # For M231 with LP: ecounit_effect = 0.790, exp(0.790) ≈ 2.2x growth
-            ecounit_multiplier = math.exp(ecounit_effect)
+        # Default to '231T' when no ecounit set (matching native FVS state=0 default)
+        from .ecological_unit import get_ecounit_effect
+        effective_ecounit = self._ecounit if self._ecounit is not None else '231T'
+        ecounit_effect = get_ecounit_effect(self.species, effective_ecounit)
+        # Convert additive ln(DDS) effect to multiplicative diameter increment effect
+        # For M231 with LP: ecounit_effect = 0.790, exp(0.790) ≈ 2.2x growth
+        ecounit_multiplier = math.exp(ecounit_effect)
 
         # Save original DBH before height-diameter update
         original_dbh = self.dbh
@@ -844,14 +844,11 @@ class Tree:
             fortype_effect = 0.0
 
         # Get ecological unit effect
-        if self._ecounit is not None:
-            from .ecological_unit import get_ecounit_effect
-            ecounit_effect = get_ecounit_effect(self.species, self._ecounit)
-        else:
-            ecounit_config = self.species_params.get('ecounit', {}).get('table_4_7_1_5', {})
-            ecounit_effect = ecounit_config.get('coefficients', {}).get(
-                ecounit_config.get('base_ecounit', '232'), 0.0
-            )
+        # When ecounit is not set (tree created outside Stand context),
+        # default to '231T' matching native FVS behavior (state=0 → S231T=1).
+        from .ecological_unit import get_ecounit_effect
+        effective_ecounit = self._ecounit if self._ecounit is not None else '231T'
+        ecounit_effect = get_ecounit_effect(self.species, effective_ecounit)
 
         # Get plant effect — only applied when managed flag is set
         # (matches Fortran FVS which requires MANAGD keyword for KPLANT=1)

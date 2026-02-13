@@ -419,6 +419,7 @@ class TestSNRegression:
         """500 TPA LP SI=70 50yr simulation produces expected SN metrics.
 
         These values match SN behavior with M231 ecounit (+0.790 to ln(DDS)),
+        Baskerville (1972) stochastic bias correction (α=0.88, ~10% DDS boost),
         no forest type effect (IFORTP=0 in Fortran means all flags=0),
         no plant effect (MANAGD not set), correct LTBHEC row 13 coefficients,
         initial tree variation (dbh_sd=0.02, height_sd=0.1) for PBAL differentiation,
@@ -428,10 +429,11 @@ class TestSNRegression:
         stand.grow(50)
         metrics = stand.get_metrics()
 
-        # SN LP 500 TPA SI=70 M231 50yr — no fortype, initial variation, PBAL active
-        assert metrics['tpa'] == pytest.approx(181, rel=0.10)
-        assert metrics['qmd'] == pytest.approx(16.75, rel=0.10)
-        assert metrics['basal_area'] == pytest.approx(277, rel=0.10)
+        # SN LP 500 TPA SI=70 M231 50yr — Baskerville correction active
+        # Faster DDS → earlier density threshold → more mortality → fewer/bigger trees
+        assert metrics['tpa'] == pytest.approx(161, rel=0.10)
+        assert metrics['qmd'] == pytest.approx(18.07, rel=0.10)
+        assert metrics['basal_area'] == pytest.approx(287, rel=0.10)
 
     def test_sn_small_tree_height_growth_unchanged(self):
         """SN LP small tree height growth uses correct LTBHEC row 13 coefficients.
