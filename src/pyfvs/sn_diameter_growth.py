@@ -61,19 +61,6 @@ class SNDiameterGrowthModel(ParameterizedModel):
         """
         super().__init__(species_code)
 
-    def _get_sigma(self) -> float:
-        """Get SIGMAR for this species from variance_parameters in config.
-
-        Returns the standard deviation of ln(DDS) residuals, used for the
-        Baskerville (1972) log-normal bias correction.
-        """
-        if self.raw_data:
-            variance_params = self.raw_data.get('variance_parameters', {})
-            sigma = variance_params.get(self.species_code, 0.0)
-            if isinstance(sigma, (int, float)):
-                return float(sigma)
-        return 0.0
-
     def calculate_dds(
         self,
         dbh: float,
@@ -166,14 +153,6 @@ class SNDiameterGrowthModel(ParameterizedModel):
 
         # Convert to DDS and scale by time step (model calibrated for 5-year growth)
         dds = math.exp(ln_dds) * (time_step / 5.0)
-
-        # Baskerville (1972) correction for log-normal prediction bias.
-        # Native FVS applies per-tree stochastic error DDS*exp(N(0,sigma^2))
-        # via DGSCOR. For deterministic prediction, E[DDS] = exp(ln_dds) *
-        # exp(sigma^2/2) by Jensen's inequality.
-        sigma = self._get_sigma()
-        if sigma > 0:
-            dds *= math.exp(sigma * sigma / 2.0)
 
         return max(0.0, dds)
 
