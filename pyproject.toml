@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fvs-python"
-version = "0.3.0"
+version = "0.3.1"
 description = "Python implementation of the USDA Forest Vegetation Simulator (FVS) with 10 regional variants, taper-based volume, and 500+ species configurations"
 readme = "README.md"
 license = {text = "MIT"}
