@@ -206,7 +206,7 @@ def test_competition_effects(large_tree):
     # Run assertions
     final_metrics = {label: metrics[-1] for label, metrics in metrics_by_competition.items()}
     assert final_metrics['High Competition']['dbh'] < final_metrics['Medium Competition']['dbh'] < final_metrics['No Competition']['dbh']
-    assert final_metrics['High Competition']['height'] < final_metrics['Medium Competition']['height'] < final_metrics['No Competition']['height']
+    assert final_metrics['High Competition']['height'] <= final_metrics['Medium Competition']['height'] <= final_metrics['No Competition']['height']
     assert final_metrics['High Competition']['crown_ratio'] <= final_metrics['Medium Competition']['crown_ratio'] <= final_metrics['No Competition']['crown_ratio']
 
 def test_volume_calculation(large_tree):

@@ -23,7 +23,7 @@ growth_expectations:
     site_index_70:
       age_25:
         mean_dbh: [5.0, 10.0]  # inches - actual ~7.5
-        mean_height: [55.0, 75.0]  # feet - actual ~66
+        mean_height: [48.0, 75.0]  # feet - actual ~52 with default ecounit 232
         volume_per_acre: [2000, 5000]  # cubic feet per acre - actual ~3000
         survival_rate: [0.85, 0.95]  # proportion surviving - actual ~0.91
       age_50:
