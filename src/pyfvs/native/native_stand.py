@@ -25,7 +25,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pyfvs.exceptions import FVSNativeError
 from pyfvs.native.fvs_bindings import FVSBindings
@@ -176,9 +176,10 @@ class NativeStand:
         lines.append("STDIDENT")
         lines.append(f"PYFVS_NATIVE_{self.variant}_{self._species}")
 
-        # Site index - field 1 is species index, field 2 is site index
+        # Site index - field 1 (cols 1-10) is species index,
+        # field 2 (cols 11-20) is site index value.
         lines.append("SITECODE")
-        lines.append(f"         {species_index:3d}  {site_index:6.1f}")
+        lines.append(f"{species_index:10d}{site_index:10.1f}")
 
         # No initial tree data — bare ground planting
         lines.append("NOTREES")
@@ -397,7 +398,9 @@ class NativeStand:
         Returns:
             Path to the .key file, or None if not yet initialized.
         """
-        return self._keyword_file
+        if self._keyword_file and self._keyword_file.exists():
+            return self._keyword_file
+        return None
 
     def export_keyword_file(self, dest: str) -> Path:
         """Copy the keyword file to a destination path.
@@ -470,7 +473,7 @@ class NativeStand:
         shutil.copy2(out_path, dest_path)
         return dest_path
 
-    def list_output_files(self) -> List[Dict[str, any]]:
+    def list_output_files(self) -> List[Dict[str, Any]]:
         """List all files in the FVS working directory.
 
         Returns:

@@ -265,87 +265,55 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         """
         # Validate and bound site index
         site_index = self._validate_site_index(site_index)
-        
+
         # Load small tree height growth coefficients
         small_tree_coeffs = self._get_small_tree_coefficients()
-        
+
         # Estimate tree height if not provided
         if tree_height is None:
             tree_height = self._estimate_height_from_dbh(dbh)
-        
+
         # Estimate tree age if not provided
         if tree_age is None:
             tree_age = self._estimate_age_from_height(tree_height, site_index, small_tree_coeffs)
-        
+
         # Bound tree age to reasonable range
-        # Allow ages as young as 5 for trees in the transition zone (DBH 1-3")
-        # Very young trees won't use the large tree model anyway
         tree_age = max(5.0, min(150.0, tree_age))
-        
+
         # Calculate potential height using Chapman-Richards equation
-        # POTHT = BH + c1 * SI^c2 * (1 - exp(-c3 * AGET))^(c4 * SI^c5)
+        # Matches Fortran htgf.f: CALL HTCALC(MODE9=9,...) which computes
+        # a 5-year height increment from the NC-128 site curve.
         c1, c2, c3, c4, c5 = (small_tree_coeffs['c1'], small_tree_coeffs['c2'],
                               small_tree_coeffs['c3'], small_tree_coeffs['c4'],
                               small_tree_coeffs['c5'])
         bh = small_tree_coeffs.get('bh', 0.0)
 
-        # Site index base age for southern pines
-        base_age = 25
-
         def _raw_chapman_richards(age: float) -> float:
             """Calculate unscaled Chapman-Richards height."""
             if age <= 0:
-                return 1.0
+                return bh + 0.1
             return bh + c1 * (site_index ** c2) * (1.0 - math.exp(c3 * age)) ** (c4 * (site_index ** c5))
 
         try:
-            # Calculate scaling factor to ensure Height(base_age=25) = SI
-            # This is critical for consistency with the small tree model
-            raw_height_at_base = _raw_chapman_richards(base_age)
-            if raw_height_at_base > 0:
-                scale_factor = site_index / raw_height_at_base
-            else:
-                scale_factor = 1.0
+            # NC-128 curves are parameterized so H(base_age_50) = SI.
+            # Fortran HTCALC uses raw coefficients with NO scaling for SN.
+            # Non-SN variants may need scaling to anchor H(base_age) = SI.
+            # This must match tree.py _grow_small_tree() which also uses
+            # scale_factor=1.0 for SN.
+            scale_factor = 1.0
 
-            # Note: tree_age is the age AFTER the growth period (consistent with
-            # how grow() increments age before calling growth functions).
-            # So we calculate growth TO current age FROM previous age (5 years ago).
-            # This matches the small tree model's approach.
+            # Compute 5-year height increment via effective age (FINDAG).
+            # tree_age is the age AFTER growth (grow() increments age first).
             previous_age = max(0, tree_age - 5)
 
-            # Height at previous age (start of growth period)
             previous_potht = _raw_chapman_richards(previous_age) * scale_factor
-
-            # Height at current age (end of growth period, scaled)
             current_potht = _raw_chapman_richards(tree_age) * scale_factor
 
-            # Potential height growth = current - previous (growth TO this age)
             potential_height_growth = current_potht - previous_potht
-            
-            # Apply constraints based on tree size and site quality
-            # Large trees should have slower height growth
-            if dbh > 15.0:
-                # Reduce growth for very large trees
-                size_factor = max(0.3, 1.0 - (dbh - 15.0) * 0.02)
-                potential_height_growth *= size_factor
-            
-            # Apply site index constraint - higher sites shouldn't have excessive growth
-            if site_index > 80.0:
-                # Moderate growth on very high sites
-                site_factor = max(0.7, 1.0 - (site_index - 80.0) * 0.005)
-                potential_height_growth *= site_factor
-            
-            # Bound potential height growth to reasonable range
-            # Young trees on good sites can grow 10-15 ft per 5-year period
-            # Mature trees typically grow 2-5 ft per 5-year period
-            # Maximum based on SI (higher SI = higher max growth)
-            max_growth = max(5.0, site_index * 0.20)  # e.g., SI=55 -> max 11 ft/5yr
-            potential_height_growth = max(0.1, min(max_growth, potential_height_growth))
-            
+
         except (ValueError, OverflowError, ZeroDivisionError):
-            # Fallback calculation if Chapman-Richards fails
             potential_height_growth = self._fallback_potential_height_growth(dbh, site_index, tree_age)
-        
+
         return max(0.0, potential_height_growth)
     
     def _fallback_potential_height_growth(self, dbh: float, site_index: float, tree_age: float) -> float:
@@ -549,9 +517,11 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             
             # Equation 4.7.2.7: HGMDRH = RHK * (1 + FCTRKX * exp(FCTRRB*FCTRXB))^FCTRM
             hgmdrh = rhk * ((1 + fctrkx * math.exp(fctrrb * fctrxb)) ** fctrm)
-            
-            # Bound between 0.0 and 1.0
-            hgmdrh = max(0.0, min(1.0, hgmdrh))
+
+            # Fortran does NOT bound individual HGMDRH — only the combined
+            # HTGMOD = 0.25*HGMDCR + 0.75*HGMDRH is bounded to [0.1, 2.0].
+            # Dominant trees can have HGMDRH > 1.0.
+            hgmdrh = max(0.0, hgmdrh)
             
         except (ZeroDivisionError, OverflowError, ValueError):
             # Handle edge cases with fallback value
@@ -602,9 +572,13 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         hgmdrh = self.calculate_relative_height_modifier(relative_height, species_code)
         
         # Apply main equation 4.7.2.1
-        htg = pothtg * (0.25 * hgmdcr + 0.75 * hgmdrh)
-        
-        return max(0.0, htg)
+        # Fortran htgf.f: HTGMOD bounded to [0.1, 2.0]
+        htgmod = 0.25 * hgmdcr + 0.75 * hgmdrh
+        htgmod = max(0.1, min(2.0, htgmod))
+
+        htg = pothtg * htgmod
+
+        return max(0.1, htg)
     
     def get_species_shade_tolerance(self, species_code: Optional[str] = None) -> str:
         """Get shade tolerance classification for a species.

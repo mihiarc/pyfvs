@@ -886,7 +886,7 @@ class Tree:
         # Update height using FVS large-tree height growth model (Section 4.7.2)
         self._update_height_large_tree(
             site_index=site_index,
-            ba=max(25.0, ba),
+            ba=ba,
             pbal=pbal,
             slope=slope,
             aspect=aspect,
@@ -1042,12 +1042,10 @@ class Tree:
         # Scale for time step (module returns 5-year growth)
         htg = htg * (time_step / 5.0)
 
-        # Apply competition modifier (consistent with previous implementation)
-        competition_effects = self.growth_params.get('competition_effects') or {}
-        large_tree_comp = competition_effects.get('large_tree_competition') or {}
-        max_reduction = large_tree_comp.get('max_reduction', 0.15)
-        competition_modifier = 1.0 - (max_reduction * competition_factor)
-        htg = htg * competition_modifier
+        # Note: No additional competition modifier is applied here.
+        # Fortran htgf.f uses HTGMOD = 0.25*HGMDCR + 0.75*HGMDRH as the
+        # sole competition/position modifier. This is already computed in
+        # calculate_large_tree_height_growth().
 
         # Update height with bounds checking
         self.height = max(4.5, self.height + htg)

@@ -82,7 +82,7 @@ def _compute_establishment_height(species: str, site_index: float,
     """Compute tree height from Chapman-Richards at a given age.
 
     Matches Fortran ESSUBH -> HTCALC(MODE1=1): place tree on the site curve
-    at the establishment age.
+    at the establishment age, then apply HHTMAX cap from estab.f.
 
     Args:
         species: Species code (e.g., 'LP', 'DF')
@@ -105,13 +105,49 @@ def _compute_establishment_height(species: str, site_index: float,
 
     # Scale factor: anchor Height(base_age) = SI for non-SN variants
     if variant == 'SN':
-        return max(0.5, raw_height)
+        height = max(0.5, raw_height)
+    else:
+        base_age = 50 if variant in ('LS', 'PN', 'WC', 'NE', 'CS', 'CA', 'OP') else 25
+        raw_at_base = bh + p['c1'] * (site_index ** p['c2']) * \
+            (1.0 - math.exp(p['c3'] * base_age)) ** (p['c4'] * (site_index ** p['c5']))
+        scale = site_index / raw_at_base if raw_at_base > 0 else 1.0
+        height = max(0.5, raw_height * scale)
 
-    base_age = 50 if variant in ('LS', 'PN', 'WC', 'NE', 'CS', 'CA', 'OP') else 25
-    raw_at_base = bh + p['c1'] * (site_index ** p['c2']) * \
-        (1.0 - math.exp(p['c3'] * base_age)) ** (p['c4'] * (site_index ** p['c5']))
-    scale = site_index / raw_at_base if raw_at_base > 0 else 1.0
-    return max(0.5, raw_height * scale)
+    # Apply HHTMAX cap (estab.f line 1040: IF(HHT.GT.HHTMAX(IPNSPE)) HHT=HHTMAX(IPNSPE))
+    hhtmax = _get_hhtmax(species, variant)
+    if hhtmax > 0 and height > hhtmax:
+        height = hhtmax
+
+    return height
+
+
+# SN HHTMAX values from blkdat.f — maximum establishment height per species.
+# Species 1-11 have variant-specific values; species 12-90 all use 20.0.
+_SN_HHTMAX = {
+    'LB': 23.0, 'SA': 27.0, 'SP': 21.0, 'LL': 21.0, 'SB': 22.0,
+    'VP': 20.0, 'SR': 24.0, 'LO': 18.0, 'TB': 18.0, 'PP': 17.0,
+    'RC': 22.0,
+}
+_SN_HHTMAX_DEFAULT = 20.0
+
+
+def _get_hhtmax(species: str, variant: str) -> float:
+    """Get the maximum establishment height for a species.
+
+    From Fortran blkdat.f HHTMAX array. Applied in estab.f after HTCALC
+    to prevent unrealistically tall establishment heights.
+
+    Args:
+        species: Species code
+        variant: FVS variant code
+
+    Returns:
+        Maximum establishment height in feet, or 0 if no cap applies.
+    """
+    if variant == 'SN':
+        return _SN_HHTMAX.get(species, _SN_HHTMAX_DEFAULT)
+    # Other variants: use 20.0 as default cap (conservative)
+    return 20.0
 
 
 def _estimate_dbh_from_height(height: float, species: str, variant: str) -> float:
@@ -401,10 +437,11 @@ class Stand:
         actual_variant = temp_stand.variant
 
         # Match Fortran ESSUBH: AGE = TIME - DELAY - GENTIM + TRAGE
-        # Default PLANT keyword: DELAY=0, GENTIM=0, TRAGE=1 (seedling age)
-        # So establishment age = cycle_length + 1
+        # Default PLANT keyword: DELAY=0, GENTIM=0, TRAGE=2.0
+        # (estab.f line 987-989: IF(TRAGE.LT.0.5) TRAGE=2.0)
+        # So establishment age = cycle_length + 2
         cycle_length = _VARIANT_CYCLE_LENGTHS.get(actual_variant, 5)
-        establishment_age = cycle_length + 1
+        establishment_age = cycle_length + 2
 
         # Compute base height from Chapman-Richards (same as Fortran HTCALC)
         base_height = _compute_establishment_height(
@@ -422,6 +459,9 @@ class Stand:
         trees = []
         for _ in range(trees_per_acre):
             # Lognormal height variation: sigma=0.1, bounded [0.7x, 1.3x]
+            # Substitutes for Fortran DGSCOR (diameter growth stochastic error)
+            # which creates DBH differentiation driving PBAL competition effects.
+            # HHTMAX already applied to base_height in _compute_establishment_height.
             height_multiplier = max(0.7, min(1.3, math.exp(rng.gauss(0, 0.1))))
             tree_height = base_height * height_multiplier
 

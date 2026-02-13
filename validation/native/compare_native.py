@@ -86,7 +86,21 @@ def compare_stand_growth(
     cycle_length = 5 if variant in ("SN", "OP") else 10
     num_cycles = years // cycle_length
 
-    for cycle in range(num_cycles):
+    # PyFVS now initializes trees at HTCALC establishment dimensions
+    # (age=cycle_length), matching native FVS cycle 1 (LSKIPH, no growth).
+    # Record initial state as cycle 1, then grow for remaining cycles.
+    metrics = stand.get_metrics()
+    pyfvs_cycles.append({
+        "cycle": 1,
+        "age": cycle_length,
+        "tpa": metrics["tpa"],
+        "basal_area": metrics["basal_area"],
+        "qmd": metrics["qmd"],
+        "top_height": metrics.get("top_height", 0.0),
+        "volume": metrics.get("volume", 0.0),
+    })
+
+    for cycle in range(1, num_cycles):
         stand.grow(years=cycle_length)
         metrics = stand.get_metrics()
         pyfvs_cycles.append({

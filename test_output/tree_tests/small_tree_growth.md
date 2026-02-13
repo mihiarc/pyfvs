@@ -1,5 +1,5 @@
 # Small Tree Growth Test
-Generated on 2026-02-09 14:14:42
+Generated on 2026-02-12 19:33:04
 
 ## Purpose
 This test validates the growth model's behavior for small tree growth test.
@@ -17,7 +17,7 @@ Based on established forestry principles:
 |   age |     dbh |   height |   crown_ratio |
 |------:|--------:|---------:|--------------:|
 |     2 | 1       |   6      |        0.85   |
-|     7 | 2.63815 |  20.7371 |        0.7976 |
+|     7 | 2.63796 |  20.7371 |        0.8075 |
 
 ## Visualization
 
