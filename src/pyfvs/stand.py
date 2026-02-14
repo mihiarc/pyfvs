@@ -46,6 +46,14 @@ _VARIANT_CYCLE_LENGTHS = {
     'NE': 10, 'CS': 10, 'CA': 10, 'OC': 10, 'WS': 10,
 }
 
+# =============================================================================
+# Carmean Reference Age (CARAGE) for ESSUBH establishment
+# =============================================================================
+# Fortran ESSUBH (estab.f) computes establishment height by interpolating the
+# NC-128 Chapman-Richards curve at a reference age (CARAGE), then linearly
+# scaling to 5 years. Default CARAGE = 20 for most species.
+_ESSUBH_DEFAULT_CARAGE = 20
+
 
 def _load_small_tree_coefficients(species: str, variant: str) -> dict:
     """Load variant-specific NC-128 small tree height growth coefficients.
@@ -148,6 +156,169 @@ def _get_hhtmax(species: str, variant: str) -> float:
         return _SN_HHTMAX.get(species, _SN_HHTMAX_DEFAULT)
     # Other variants: use 20.0 as default cap (conservative)
     return 20.0
+
+
+def _compute_essubh_height(species: str, site_index: float,
+                            variant: str, cycle_length: int) -> float:
+    """Compute establishment height for 10-year eastern variants (LS/CS/NE).
+
+    Replicates Fortran ESSUBH + regent establishment sequence:
+    1. Compute Chapman-Richards height at CARAGE (default 20 years)
+       with HHTMAX cap (estab.f clips HTCALC output to HHTMAX)
+    2. Linear interpolation to get 5 years of establishment growth
+    3. Add half-cycle regent growth (5yr increment scaled by 0.5)
+
+    The HHTMAX cap applied to h_at_carage normalizes the intermediate
+    height for species whose CR curves overshoot at CARAGE. For most
+    eastern species, CR(20) > HHTMAX=20, so essubh = (20/20)*5 = 5 ft.
+
+    Args:
+        species: Species code (e.g., 'RN', 'WO', 'RM')
+        site_index: Site index in feet (base age 50)
+        variant: FVS variant code ('LS', 'CS', or 'NE')
+        cycle_length: Variant cycle length in years (10)
+
+    Returns:
+        Establishment height in feet.
+    """
+    carmean_age = _ESSUBH_DEFAULT_CARAGE  # 20 years
+
+    # Step 1: Height at CARAGE from Chapman-Richards (includes HHTMAX cap,
+    # matching estab.f which clips HTCALC output before linear interp)
+    h_at_carage = _compute_establishment_height(
+        species, site_index, carmean_age, variant
+    )
+
+    # Step 2: ESSUBH linear interpolation to 5 years
+    # Fortran: HHT = (HTHT / CARAGE) * 5.0
+    essubh_height = (h_at_carage / carmean_age) * 5.0
+
+    # Step 3: Regent growth for remaining half-cycle
+    # Load CR coefficients for regent growth computation
+    p = _load_small_tree_coefficients(species, variant)
+    if not p:
+        p = {'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374,
+             'c4': 0.7632, 'c5': 0.0358, 'bh': 0.0}
+
+    bh = p.get('bh', 0.0)
+
+    # Scale factor: anchor Height(base_age=50) = SI
+    base_age = 50
+    raw_at_base = bh + p['c1'] * (site_index ** p['c2']) * \
+        (1.0 - math.exp(p['c3'] * base_age)) ** (p['c4'] * (site_index ** p['c5']))
+    scale = site_index / raw_at_base if raw_at_base > 0 else 1.0
+
+    def _scaled_cr(age):
+        if age <= 0:
+            return (bh + 0.1) * scale
+        raw = bh + p['c1'] * (site_index ** p['c2']) * \
+            (1.0 - math.exp(p['c3'] * age)) ** (p['c4'] * (site_index ** p['c5']))
+        return raw * scale
+
+    # Inverse CR: find effective age from essubh_height
+    max_height = bh + p['c1'] * (site_index ** p['c2'])
+    exponent = p['c4'] * (site_index ** p['c5'])
+    raw_essubh = essubh_height / scale if scale > 0 else essubh_height
+
+    if raw_essubh >= max_height - 0.1:
+        effective_age = 200.0
+    elif raw_essubh <= bh + 0.1:
+        effective_age = 0.1
+    else:
+        ratio = (raw_essubh - bh) / (p['c1'] * (site_index ** p['c2']))
+        if ratio <= 0 or ratio >= 1.0 or exponent <= 0:
+            effective_age = 0.1
+        else:
+            inner = ratio ** (1.0 / exponent)
+            if inner >= 1.0:
+                effective_age = 0.1
+            else:
+                effective_age = max(0.1, math.log(1.0 - inner) / p['c3'])
+
+    # Regent: 5yr growth increment scaled by 0.5 (half-cycle)
+    # Matches Fortran regent.f SCALE = FNT/REGYR for establishment
+    regent_5yr = _scaled_cr(effective_age + 5.0) - _scaled_cr(effective_age)
+    regent_growth = regent_5yr * 0.5
+
+    total_height = essubh_height + regent_growth
+
+    # Apply HHTMAX cap to final height
+    hhtmax = _get_hhtmax(species, variant)
+    if hhtmax > 0 and total_height > hhtmax:
+        total_height = hhtmax
+
+    return max(0.5, total_height)
+
+
+def _compute_western_establishment_height(species: str, site_index: float,
+                                           variant: str) -> float:
+    """Compute establishment height for 10-year western variants (PN/WC).
+
+    For PN/WC: start at 1.0 ft (seedling) + 10yr of Chapman-Richards growth.
+    Approximates 5yr SMHGDG (small tree height growth) + 5yr regent.
+
+    Args:
+        species: Species code (e.g., 'DF', 'WH', 'RC')
+        site_index: Site index in feet (base age 50)
+        variant: FVS variant code ('PN' or 'WC')
+
+    Returns:
+        Establishment height in feet.
+    """
+    p = _load_small_tree_coefficients(species, variant)
+    if not p:
+        p = {'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374,
+             'c4': 0.7632, 'c5': 0.0358, 'bh': 0.0}
+
+    bh = p.get('bh', 0.0)
+
+    # Compute scale factor for base age 50
+    base_age = 50
+    raw_at_base = bh + p['c1'] * (site_index ** p['c2']) * \
+        (1.0 - math.exp(p['c3'] * base_age)) ** (p['c4'] * (site_index ** p['c5']))
+    scale = site_index / raw_at_base if raw_at_base > 0 else 1.0
+
+    def _raw_cr(age):
+        if age <= 0:
+            return bh + 0.1
+        return bh + p['c1'] * (site_index ** p['c2']) * \
+            (1.0 - math.exp(p['c3'] * age)) ** (p['c4'] * (site_index ** p['c5']))
+
+    def _scaled_cr(age):
+        return _raw_cr(age) * scale
+
+    # Start at 1.0 ft seedling height
+    start_height = 1.0
+
+    # Find effective age of 1.0 ft on the CR curve
+    max_height = bh + p['c1'] * (site_index ** p['c2'])
+    exponent = p['c4'] * (site_index ** p['c5'])
+    raw_start = start_height / scale if scale > 0 else start_height
+
+    if raw_start >= max_height - 0.1:
+        effective_age = 200.0
+    elif raw_start <= bh + 0.1:
+        effective_age = 0.1
+    else:
+        ratio = (raw_start - bh) / (p['c1'] * (site_index ** p['c2']))
+        if ratio <= 0 or ratio >= 1.0 or exponent <= 0:
+            effective_age = 0.1
+        else:
+            inner = ratio ** (1.0 / exponent)
+            if inner >= 1.0:
+                effective_age = 0.1
+            else:
+                effective_age = max(0.1, math.log(1.0 - inner) / p['c3'])
+
+    # Total height = CR(effective_age + 10)
+    total_height = _scaled_cr(effective_age + 10.0)
+
+    # Apply HHTMAX cap
+    hhtmax = _get_hhtmax(species, variant)
+    if hhtmax > 0 and total_height > hhtmax:
+        total_height = hhtmax
+
+    return max(0.5, total_height)
 
 
 def _estimate_dbh_from_height(height: float, species: str, variant: str) -> float:
@@ -441,17 +612,42 @@ class Stand:
         temp_stand = cls([], site_index, species, variant=variant)
         actual_variant = temp_stand.variant
 
-        # Match Fortran ESSUBH: AGE = TIME - DELAY - GENTIM + TRAGE
-        # Default PLANT keyword: DELAY=0, GENTIM=0, TRAGE=2.0
-        # (estab.f line 987-989: IF(TRAGE.LT.0.5) TRAGE=2.0)
-        # So establishment age = cycle_length + 2
         cycle_length = _VARIANT_CYCLE_LENGTHS.get(actual_variant, 5)
-        establishment_age = cycle_length + 2
 
-        # Compute base height from Chapman-Richards (same as Fortran HTCALC)
-        base_height = _compute_establishment_height(
-            species, site_index, establishment_age, actual_variant
-        )
+        # Variant-dispatched establishment height computation.
+        # Fortran ESSUBH + regent behavior differs by cycle length:
+        # - SN/OP (5yr cycle): establishment_age = cycle_length + 2 = 7, direct CR
+        # - CS/NE (10yr cycle): ESSUBH linear interp at 5yr + 5yr regent growth
+        # - LS (10yr cycle): direct CR at establishment_age (NC-128 curves
+        #   underestimate LS growth at young ages; Fortran HTCALC uses
+        #   species-specific height-age functions not available here)
+        # - PN/WC (10yr cycle): 1.0 ft seedling + 10yr CR growth
+        # - CA/OC/WS: fallback to SN approach (use SN models)
+        if actual_variant in ('SN', 'OP', 'CA', 'OC', 'WS', 'LS'):
+            # SN/OP/LS: direct CR at establishment_age
+            establishment_age = cycle_length + 2
+            base_height = _compute_establishment_height(
+                species, site_index, establishment_age, actual_variant
+            )
+        elif actual_variant in ('CS', 'NE'):
+            # Eastern 10yr variants: ESSUBH linear interp + regent
+            base_height = _compute_essubh_height(
+                species, site_index, actual_variant, cycle_length
+            )
+        elif actual_variant in ('PN', 'WC'):
+            # Western 10yr variants: 1.0 ft seedling + 10yr CR growth
+            base_height = _compute_western_establishment_height(
+                species, site_index, actual_variant
+            )
+        else:
+            # Unknown variant: fallback to direct CR
+            establishment_age = cycle_length + 2
+            base_height = _compute_establishment_height(
+                species, site_index, establishment_age, actual_variant
+            )
+
+        # Get HHTMAX cap for post-variation application
+        hhtmax = _get_hhtmax(species, actual_variant)
 
         # Create trees with lognormal height variation around the base.
         # Fortran FVS applies stochastic error (DGSCOR) to each tree's
@@ -466,9 +662,13 @@ class Stand:
             # Lognormal height variation: sigma=0.1, bounded [0.7x, 1.3x]
             # Substitutes for Fortran DGSCOR (diameter growth stochastic error)
             # which creates DBH differentiation driving PBAL competition effects.
-            # HHTMAX already applied to base_height in _compute_establishment_height.
             height_multiplier = max(0.7, min(1.3, math.exp(rng.gauss(0, 0.1))))
             tree_height = base_height * height_multiplier
+
+            # Apply HHTMAX cap AFTER variation (fixes bug where lognormal
+            # multiplier could push trees above HHTMAX)
+            if hhtmax > 0 and tree_height > hhtmax:
+                tree_height = hhtmax
 
             # DBH from H-D relationship (natural variation through height)
             tree_dbh = _estimate_dbh_from_height(tree_height, species, actual_variant)
