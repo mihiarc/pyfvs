@@ -650,6 +650,17 @@ class Stand:
             base_height = _compute_essubh_height(
                 species, site_index, actual_variant, cycle_length
             )
+            # Compute pre-regent ESSUBH height for non-equilibrium DBH
+            # estimation. Same decoupling as PN/WC: Fortran LSKIPH suppresses
+            # diameter growth during establishment while height grows via
+            # site curve + regent. Using H-D inverse at full establishment
+            # height overestimates DBH. The midpoint approximates the
+            # average growth state during the establishment period.
+            carmean_age = _ESSUBH_DEFAULT_CARAGE  # 20 years
+            h_at_carage = _compute_establishment_height(
+                species, site_index, carmean_age, actual_variant
+            )
+            csne_essubh_height = (h_at_carage / carmean_age) * 5.0
         elif actual_variant in ('PN', 'WC'):
             # Western 10yr variants: 1.0 ft seedling + 10yr CR growth
             base_height = _compute_western_establishment_height(
@@ -699,12 +710,17 @@ class Stand:
                 tree_height = hhtmax
 
             # DBH from H-D relationship (natural variation through height)
+            # For 10yr cycle variants, height and diameter decouple during
+            # establishment (Fortran LSKIPH suppresses DDS equations).
+            # Use H-D inverse at midpoint between ESSUBH and final height
+            # to approximate the non-equilibrium DBH.
             if actual_variant in ('PN', 'WC'):
-                # Height and diameter decouple during establishment (Fortran
-                # LSKIPH). Use H-D inverse at midpoint height to approximate
-                # non-equilibrium DBH. For WC DF: midpoint ~12.5ft → DBH ~1.5"
-                # (matches native FVS QMD=1.50").
                 midpoint_height = (pnwc_essubh_height + tree_height) / 2
+                tree_dbh = _estimate_dbh_from_height(
+                    midpoint_height, species, actual_variant
+                )
+            elif actual_variant in ('CS', 'NE'):
+                midpoint_height = (csne_essubh_height + tree_height) / 2
                 tree_dbh = _estimate_dbh_from_height(
                     midpoint_height, species, actual_variant
                 )
