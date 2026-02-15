@@ -603,8 +603,24 @@ class Tree:
         # Apply increment to DBH (ensure non-negative)
         self.dbh = max(self.dbh, self.dbh + diameter_increment)
 
-        # Update height using height-diameter relationship
-        self._update_height_large_tree_variant(variant, site_index)
+        # Update height using potential height growth model (Section 4.7.2)
+        # All LS/CS/NE variants use the full POTHTG model with crown ratio
+        # and relative height modifiers, not the simple H-D snapshot blend.
+        # This ensures site-index-driven height growth dynamics.
+        # Calculate RELHT (relative height)
+        if hasattr(self, '_top_height') and self._top_height is not None and self._top_height > 0:
+            relht = min(1.5, self.height / self._top_height)
+        else:
+            relht = 1.0
+
+        self._update_height_large_tree(
+            site_index=site_index,
+            ba=ba,
+            pbal=pbal,
+            relht=relht,
+            time_step=time_step,
+            variant=variant
+        )
 
     def _update_height_large_tree_variant(self, variant: str, site_index: float) -> None:
         """Update height for variant large trees using height-diameter relationship.
@@ -889,7 +905,8 @@ class Tree:
             aspect=aspect,
             relht=relht,
             time_step=time_step,
-            competition_factor=competition_factor
+            competition_factor=competition_factor,
+            variant='SN'
         )
     
     def _update_crown_ratio_weibull(self, rank, relsdi, competition_factor, time_step=5):
@@ -996,12 +1013,13 @@ class Tree:
         aspect: float = 0.0,
         relht: float = 1.0,
         time_step: int = 5,
-        competition_factor: float = 0.0
+        competition_factor: float = 0.0,
+        variant: str = 'SN'
     ):
         """Update height using FVS large-tree height growth model (Section 4.7.2).
 
         Delegates to the large_tree_height_growth module which implements the
-        FVS Southern variant equations:
+        FVS potential height growth equations:
         HTG = POTHTG * (0.25 * HGMDCR + 0.75 * HGMDRH)
 
         Where:
@@ -1010,7 +1028,7 @@ class Tree:
         - HGMDRH = relative height modifier (shade tolerance dependent)
 
         Args:
-            site_index: Site index (base age 25) in feet
+            site_index: Site index in feet (base age varies by variant)
             ba: Stand basal area (sq ft/acre)
             pbal: Plot basal area in larger trees (sq ft/acre)
             slope: Ground slope as tangent (rise/run)
@@ -1018,10 +1036,11 @@ class Tree:
             relht: Relative height (tree height / top height)
             time_step: Number of years to grow (default: 5)
             competition_factor: Competition factor (0-1), higher = more competition
+            variant: FVS variant code (e.g., 'SN', 'LS', 'CS', 'NE')
         """
         from .large_tree_height_growth import calculate_large_tree_height_growth
 
-        # Calculate height growth using the module
+        # Calculate height growth using the module (variant-aware)
         htg = calculate_large_tree_height_growth(
             species_code=self.species,
             dbh=self.dbh,
@@ -1033,7 +1052,8 @@ class Tree:
             slope=slope,
             aspect=aspect,
             tree_age=self.age,
-            tree_height=self.height
+            tree_height=self.height,
+            variant=variant
         )
 
         # Scale for time step (module returns 5-year growth)

@@ -430,10 +430,11 @@ class TestSNRegression:
         metrics = stand.get_metrics()
 
         # SN LP 500 TPA SI=70 M231 50yr — Baskerville correction active
-        # Faster DDS → earlier density threshold → more mortality → fewer/bigger trees
-        assert metrics['tpa'] == pytest.approx(161, rel=0.10)
-        assert metrics['qmd'] == pytest.approx(18.07, rel=0.10)
-        assert metrics['basal_area'] == pytest.approx(287, rel=0.10)
+        # M231 ecounit gives +0.790 to ln(DDS) → very fast growth
+        # Higher density triggers more mortality → fewer, bigger trees
+        assert metrics['tpa'] == pytest.approx(123, rel=0.10)
+        assert metrics['qmd'] == pytest.approx(21.12, rel=0.10)
+        assert metrics['basal_area'] == pytest.approx(299, rel=0.10)
 
     def test_sn_small_tree_height_growth_unchanged(self):
         """SN LP small tree height growth uses correct LTBHEC row 13 coefficients.

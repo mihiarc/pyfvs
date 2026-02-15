@@ -639,6 +639,18 @@ class Stand:
             base_height = _compute_western_establishment_height(
                 species, site_index, actual_variant
             )
+            # Compute ESSUBH-equivalent intermediate height for non-equilibrium
+            # DBH estimation. In Fortran, height and diameter decouple during
+            # establishment: ESSUBH grows height via site curve, regent adds
+            # more height growth, but diameter only grows through actual DDS
+            # equations (not equilibrium H-D). Using H-D inverse at the full
+            # establishment height overestimates DBH (e.g., WC DF: 3.13" vs
+            # native 1.50"). The midpoint between ESSUBH height and final
+            # height approximates the average growth state.
+            h_at_carage = _compute_establishment_height(
+                species, site_index, _ESSUBH_DEFAULT_CARAGE, actual_variant
+            )
+            pnwc_essubh_height = (h_at_carage / _ESSUBH_DEFAULT_CARAGE) * 5.0
         else:
             # Unknown variant: fallback to direct CR
             establishment_age = cycle_length + 2
@@ -671,7 +683,19 @@ class Stand:
                 tree_height = hhtmax
 
             # DBH from H-D relationship (natural variation through height)
-            tree_dbh = _estimate_dbh_from_height(tree_height, species, actual_variant)
+            if actual_variant in ('PN', 'WC'):
+                # Height and diameter decouple during establishment (Fortran
+                # LSKIPH). Use H-D inverse at midpoint height to approximate
+                # non-equilibrium DBH. For WC DF: midpoint ~12.5ft → DBH ~1.5"
+                # (matches native FVS QMD=1.50").
+                midpoint_height = (pnwc_essubh_height + tree_height) / 2
+                tree_dbh = _estimate_dbh_from_height(
+                    midpoint_height, species, actual_variant
+                )
+            else:
+                tree_dbh = _estimate_dbh_from_height(
+                    tree_height, species, actual_variant
+                )
 
             trees.append(Tree(
                 dbh=tree_dbh,

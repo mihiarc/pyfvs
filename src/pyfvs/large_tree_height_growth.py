@@ -237,37 +237,39 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         
         return max(si_min, min(si_max, site_index))
     
-    def calculate_potential_height_growth(self, dbh: float, crown_ratio: float, 
+    def calculate_potential_height_growth(self, dbh: float, crown_ratio: float,
                                         relative_height: float, site_index: float,
-                                        basal_area: float, pbal: float, 
+                                        basal_area: float, pbal: float,
                                         slope: float = 0.0, aspect: float = 0.0,
                                         tree_age: Optional[float] = None,
-                                        tree_height: Optional[float] = None) -> float:
+                                        tree_height: Optional[float] = None,
+                                        variant: str = 'SN') -> float:
         """Calculate potential height growth using the small-tree height increment model.
-        
+
         This implements the methodology described in section 4.6.1 using the Chapman-Richards
         functional form as referenced in the large tree height growth methodology.
-        
+
         Args:
             dbh: Diameter at breast height (inches)
             crown_ratio: Crown ratio as proportion (0-1)
             relative_height: Tree height relative to top 40 trees
-            site_index: Site index (base age 25) in feet
+            site_index: Site index in feet (base age varies by variant)
             basal_area: Stand basal area (sq ft/acre)
             pbal: Plot basal area larger (sq ft/acre)
             slope: Ground slope (proportion)
             aspect: Aspect in radians
             tree_age: Tree age (years) - if not provided, estimated from height
             tree_height: Current tree height (feet) - if not provided, estimated from DBH
-            
+            variant: FVS variant code (e.g., 'SN', 'LS', 'CS', 'NE')
+
         Returns:
             Potential height growth (feet)
         """
         # Validate and bound site index
         site_index = self._validate_site_index(site_index)
 
-        # Load small tree height growth coefficients
-        small_tree_coeffs = self._get_small_tree_coefficients()
+        # Load small tree height growth coefficients (variant-specific)
+        small_tree_coeffs = self._get_small_tree_coefficients(variant=variant)
 
         # Estimate tree height if not provided
         if tree_height is None:
@@ -295,12 +297,18 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             return bh + c1 * (site_index ** c2) * (1.0 - math.exp(c3 * age)) ** (c4 * (site_index ** c5))
 
         try:
-            # NC-128 curves are parameterized so H(base_age_50) = SI.
-            # Fortran HTCALC uses raw coefficients with NO scaling for SN.
-            # Non-SN variants may need scaling to anchor H(base_age) = SI.
-            # This must match tree.py _grow_small_tree() which also uses
-            # scale_factor=1.0 for SN.
-            scale_factor = 1.0
+            # Scale factor anchors H(base_age) = SI.
+            # SN: Fortran HTCALC uses raw LTBHEC coefficients with NO scaling
+            # (base age 25, coefficients match SI directly).
+            # LS/CS/NE/PN/WC: base age 50, coefficients from LTBHEC need scaling
+            # to ensure the site curve passes through SI at base age.
+            # This must match tree.py _grow_small_tree().
+            if variant in ('LS', 'CS', 'NE', 'PN', 'WC', 'CA', 'OP'):
+                base_age = 50
+                raw_at_base = _raw_chapman_richards(base_age)
+                scale_factor = site_index / raw_at_base if raw_at_base > 0 else 1.0
+            else:
+                scale_factor = 1.0
 
             # Compute 5-year height increment via effective age (FINDAG).
             # tree_age is the age AFTER growth (grow() increments age first).
@@ -529,22 +537,23 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         
         return hgmdrh
     
-    def calculate_height_growth(self, dbh: float, crown_ratio: float, 
+    def calculate_height_growth(self, dbh: float, crown_ratio: float,
                               relative_height: float, site_index: float,
-                              basal_area: float, pbal: float, 
+                              basal_area: float, pbal: float,
                               slope: float = 0.0, aspect: float = 0.0,
                               species_code: Optional[str] = None,
                               tree_age: Optional[float] = None,
-                              tree_height: Optional[float] = None) -> float:
+                              tree_height: Optional[float] = None,
+                              variant: str = 'SN') -> float:
         """Calculate periodic height growth for large trees.
-        
+
         Main equation 4.7.2.1: HTG = POTHTG * (0.25 * HGMDCR + 0.75 * HGMDRH)
-        
+
         Args:
             dbh: Diameter at breast height (inches)
             crown_ratio: Crown ratio as proportion (0-1)
             relative_height: Tree height relative to top 40 trees
-            site_index: Site index (base age 25) in feet
+            site_index: Site index in feet (base age varies by variant)
             basal_area: Stand basal area (sq ft/acre)
             pbal: Plot basal area larger (sq ft/acre)
             slope: Ground slope (proportion)
@@ -552,17 +561,19 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             species_code: Species code for shade tolerance
             tree_age: Tree age (years) - if not provided, estimated from height
             tree_height: Current tree height (feet) - if not provided, estimated from DBH
-            
+            variant: FVS variant code (e.g., 'SN', 'LS', 'CS', 'NE')
+
         Returns:
             Periodic height growth (feet)
         """
         if species_code is None:
             species_code = self.species_code
-        
+
         # Calculate potential height growth
         pothtg = self.calculate_potential_height_growth(
             dbh, crown_ratio, relative_height, site_index,
-            basal_area, pbal, slope, aspect, tree_age, tree_height
+            basal_area, pbal, slope, aspect, tree_age, tree_height,
+            variant=variant
         )
         
         # Calculate crown ratio modifier
@@ -641,29 +652,32 @@ def calculate_large_tree_height_growth(species_code: str, dbh: float, crown_rati
                                      basal_area: float, pbal: float,
                                      slope: float = 0.0, aspect: float = 0.0,
                                      tree_age: Optional[float] = None,
-                                     tree_height: Optional[float] = None) -> float:
+                                     tree_height: Optional[float] = None,
+                                     variant: str = 'SN') -> float:
     """Standalone function to calculate large tree height growth.
-    
+
     Args:
         species_code: Species code
         dbh: Diameter at breast height (inches)
         crown_ratio: Crown ratio as proportion (0-1)
         relative_height: Tree height relative to top 40 trees
-        site_index: Site index (base age 25) in feet
+        site_index: Site index in feet (base age varies by variant)
         basal_area: Stand basal area (sq ft/acre)
         pbal: Plot basal area larger (sq ft/acre)
         slope: Ground slope (proportion)
         aspect: Aspect in radians
         tree_age: Tree age (years) - if not provided, estimated from height
         tree_height: Current tree height (feet) - if not provided, estimated from DBH
-        
+        variant: FVS variant code (e.g., 'SN', 'LS', 'CS', 'NE')
+
     Returns:
         Periodic height growth (feet)
     """
     model = create_large_tree_height_growth_model(species_code)
     return model.calculate_height_growth(
         dbh, crown_ratio, relative_height, site_index,
-        basal_area, pbal, slope, aspect, species_code, tree_age, tree_height
+        basal_area, pbal, slope, aspect, species_code, tree_age, tree_height,
+        variant=variant
     )
 
 
