@@ -119,15 +119,22 @@ class HeightDiameterModel(ParameterizedModel):
 
         Overrides base class to handle the flat coefficient structure in the JSON
         file and restructure into nested format for calculation methods.
+
+        Supports two JSON layouts:
+        - Top-level species keys: {"LP": {...}, "SP": {...}} (SN, WC, OP)
+        - Nested under "coefficients": {"coefficients": {"LP": {...}}} (NE, CS, LS, PN)
         """
         self.raw_data = self._get_coefficient_data()
 
-        # The height-diameter JSON has species at the top level (no nested key)
         if self.raw_data:
-            if self.species_code in self.raw_data:
-                flat_coeffs = self.raw_data[self.species_code]
-            elif self.DEFAULT_SPECIES in self.raw_data:
-                flat_coeffs = self.raw_data[self.DEFAULT_SPECIES]
+            # Extract species dict: check for "coefficients" wrapper first,
+            # then fall back to top-level species keys
+            species_dict = self.raw_data.get('coefficients', self.raw_data)
+
+            if self.species_code in species_dict:
+                flat_coeffs = species_dict[self.species_code]
+            elif self.DEFAULT_SPECIES in species_dict:
+                flat_coeffs = species_dict[self.DEFAULT_SPECIES]
             else:
                 self._load_fallback_parameters()
                 return
@@ -156,19 +163,26 @@ class HeightDiameterModel(ParameterizedModel):
     def _restructure_coefficients(self, flat_coeffs: Dict[str, Any]) -> Dict[str, Any]:
         """Restructure flat coefficients into nested format for calculation methods.
 
+        Handles both uppercase keys (P2, P3, P4, Dbw) from NE/SN files and
+        lowercase keys (p2, p3, p4, dbw) from CS/LS/PN files.
+
         Args:
-            flat_coeffs: Flat dictionary with P2, P3, P4, Dbw, Wykoff_B1, Wykoff_B2
+            flat_coeffs: Flat dictionary with P2/p2, P3/p3, P4/p4, Dbw/dbw keys
 
         Returns:
             Nested dictionary with 'curtis_arney' and 'wykoff' sub-dicts
         """
+        # Support both uppercase (NE/SN) and lowercase (CS/LS/PN) key conventions
+        def _get(key_upper, key_lower, default):
+            return flat_coeffs.get(key_upper, flat_coeffs.get(key_lower, default))
+
         return {
             'model': 'curtis_arney',  # Default model
             'curtis_arney': {
-                'p2': flat_coeffs.get('P2', 243.860648),
-                'p3': flat_coeffs.get('P3', 4.28460566),
-                'p4': flat_coeffs.get('P4', -0.47130185),
-                'dbw': flat_coeffs.get('Dbw', 0.5),
+                'p2': _get('P2', 'p2', 243.860648),
+                'p3': _get('P3', 'p3', 4.28460566),
+                'p4': _get('P4', 'p4', -0.47130185),
+                'dbw': _get('Dbw', 'dbw', 0.5),
             },
             'wykoff': {
                 'b1': flat_coeffs.get('Wykoff_B1', 4.6897),
