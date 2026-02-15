@@ -79,7 +79,7 @@ class Tree:
         except Exception:
             # Fallback to defaults if file not found
             self.growth_params = {
-                'growth_transitions': {'small_to_large_tree': {'xmin': 1.0, 'xmax': 3.0}},
+                'growth_transitions': {'small_to_large_tree': {'xmin': 3.0, 'xmax': 3.0}},
                 'small_tree_growth': {'default': {
                     'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374, 'c4': 0.7632, 'c5': 0.0358
                 }}
@@ -197,10 +197,14 @@ class Tree:
         xmax = transition_params['xmax']  # maximum DBH for transition (inches)
         
         # Calculate weight for blending growth models based on initial DBH
-        # Use smoothstep function for smoother transition (reduces discontinuities)
+        # When xmin == xmax (hard cutover matching Fortran regent.f/dgdriv.f),
+        # weight jumps from 0 to 1 at the threshold.
         if initial_dbh < xmin:
             weight = 0.0
-        elif initial_dbh > xmax:
+        elif initial_dbh >= xmax:
+            weight = 1.0
+        elif xmin >= xmax:
+            # Hard cutover: should not reach here, but safety fallback
             weight = 1.0
         else:
             # Smoothstep function: 3t² - 2t³ where t = (dbh - xmin) / (xmax - xmin)
@@ -771,8 +775,20 @@ class Tree:
         # Apply increment to DBH
         self.dbh = self.dbh + max(0.0, diameter_increment)
 
-        # Update height using height-diameter relationship
-        self._update_height_large_tree_variant(variant, site_index)
+        # Update height using POTHTG model (matching Fortran htgf.f)
+        if hasattr(self, '_top_height') and self._top_height is not None and self._top_height > 0:
+            relht = min(1.5, self.height / self._top_height)
+        else:
+            relht = 1.0
+
+        self._update_height_large_tree(
+            site_index=site_index,
+            ba=ba,
+            pbal=pbal,
+            relht=relht,
+            time_step=time_step,
+            variant=variant
+        )
 
     def _grow_large_tree_op(self, site_index, ba, pbal, time_step=5):
         """Implement large tree diameter growth model for OP (ORGANON Pacific Northwest) variant.
@@ -984,7 +1000,8 @@ class Tree:
         else:
             # Above breast height: use H-D relationship
             from .height_diameter import create_height_diameter_model
-            hd_model = create_height_diameter_model(self.species)
+            variant = getattr(self, '_variant', 'SN')
+            hd_model = create_height_diameter_model(self.species, variant=variant)
 
             dbh = hd_model.solve_dbh_from_height(
                 target_height=self.height,

@@ -15,8 +15,8 @@ max_age: 600  # years
 
 # Growth transition thresholds (small tree to large tree model)
 growth_model:
-  xmin: 1.0  # inches - minimum DBH for transition zone
-  xmax: 3.0  # inches - maximum DBH for transition zone
+  xmin: 3.0  # Hard cutover at 3.0" matching Fortran regent.f/dgdriv.f
+  xmax: 3.0  # Hard cutover at 3.0" matching Fortran regent.f/dgdriv.f
   coefficient_index: 9
 
 # Site index

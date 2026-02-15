@@ -15,8 +15,8 @@ max_age: 500  # years
 
 # Growth transition thresholds
 growth_model:
-  xmin: 1.0
-  xmax: 3.0
+  xmin: 3.0  # Hard cutover at 3.0" matching Fortran regent.f/dgdriv.f
+  xmax: 3.0  # Hard cutover at 3.0" matching Fortran regent.f/dgdriv.f
   coefficient_index: 9
 
 # Site index

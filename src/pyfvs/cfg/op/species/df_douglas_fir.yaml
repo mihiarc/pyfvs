@@ -15,8 +15,8 @@ max_age: 1000
 
 # Growth model parameters
 growth_model:
-  xmin: 1.0
-  xmax: 3.0
+  xmin: 3.0  # Hard cutover at 3.0" matching Fortran regent.f/dgdriv.f
+  xmax: 3.0  # Hard cutover at 3.0" matching Fortran regent.f/dgdriv.f
   coefficient_index: 1
 
 # Site index configuration (King 1966)

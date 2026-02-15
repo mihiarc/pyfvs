@@ -237,7 +237,7 @@ class TestGrowthModelParameters:
             transitions = growth_params['growth_transitions']['small_to_large_tree']
             assert 'xmin' in transitions
             assert 'xmax' in transitions
-            assert transitions['xmin'] < transitions['xmax']
+            assert transitions['xmin'] <= transitions['xmax']
             
             # Verify small tree parameters
             assert 'default' in growth_params['small_tree_growth']
@@ -283,7 +283,7 @@ class TestGrowthModelParameters:
             tree = Tree(dbh=2.0, height=15.0, species='LP')
             
             # Check fallback values are present
-            assert tree.growth_params['growth_transitions']['small_to_large_tree']['xmin'] == 1.0
+            assert tree.growth_params['growth_transitions']['small_to_large_tree']['xmin'] == 3.0
             assert tree.growth_params['growth_transitions']['small_to_large_tree']['xmax'] == 3.0
             
         finally:

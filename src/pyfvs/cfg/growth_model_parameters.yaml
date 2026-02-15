@@ -10,8 +10,8 @@ metadata:
 growth_transitions:
   small_to_large_tree:
     description: "DBH thresholds for transitioning between small and large tree models"
-    xmin: 1.0  # Minimum DBH for transition start (inches)
-    xmax: 3.0  # Maximum DBH for transition complete (inches)
+    xmin: 3.0  # Hard cutover at 3.0" matching Fortran regent.f/dgdriv.f
+    xmax: 3.0  # Hard cutover at 3.0" matching Fortran regent.f/dgdriv.f
     
 # Small tree growth parameters (Chapman-Richards)
 small_tree_growth:
