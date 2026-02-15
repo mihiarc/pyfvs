@@ -316,8 +316,24 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             else:
                 scale_factor = 1.0
 
-            # Compute 5-year height increment via effective age (FINDAG).
-            # tree_age is the age AFTER growth (grow() increments age first).
+            # FINDAG: effective age from current height (Fortran htgf.f approach).
+            # When a tree is behind the site curve (shorter than H(calendar_age)),
+            # calendar age gives SMALLER POTHTG because the site curve flattens
+            # with age. Using effective age places the tree on the steeper part
+            # of the curve where it actually is, yielding larger increments.
+            # SN uses scale_factor=1.0 and doesn't need this correction.
+            if tree_height is not None and variant in ('LS', 'CS', 'NE', 'CA', 'OP'):
+                exponent = c4 * (site_index ** c5)
+                raw_ht = tree_height / scale_factor if scale_factor > 0 else tree_height
+                ratio = (raw_ht - bh) / (c1 * (site_index ** c2)) if c1 * (site_index ** c2) > 0 else 1.0
+                if 0 < ratio < 1.0 and exponent > 0 and c3 != 0:
+                    inner = ratio ** (1.0 / exponent)
+                    if 0 < inner < 1.0:
+                        tree_age = max(0.1, math.log(1.0 - inner) / c3)
+
+            # Compute 5-year height increment.
+            # tree_age is now effective age (FINDAG) for non-SN variants,
+            # or calendar age for SN.
             previous_age = max(0, tree_age - 5)
 
             previous_potht = _raw_chapman_richards(previous_age) * scale_factor

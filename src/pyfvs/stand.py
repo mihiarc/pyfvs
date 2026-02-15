@@ -138,6 +138,56 @@ _SN_HHTMAX = {
 }
 _SN_HHTMAX_DEFAULT = 20.0
 
+# NE HHTMAX values from blkdat.f DATA (HHTMAX(I),I=1,108) — 108 species
+_NE_HHTMAX = {
+    'BF': 20, 'TA': 24, 'WS': 18, 'RS': 16, 'NS': 18, 'BS': 16, 'PI': 16, 'RN': 18,
+    'WP': 20, 'LP': 14, 'VP': 14, 'WC': 16, 'AW': 16, 'RC': 16, 'JU': 16, 'EH': 16,
+    'HM': 16, 'OP': 16, 'JP': 14, 'SP': 14, 'TM': 16, 'PP': 18, 'PD': 12, 'SC': 20,
+    'OS': 16, 'RM': 20, 'SM': 16, 'BM': 16, 'SV': 18, 'YB': 22, 'SB': 20, 'RB': 18,
+    'PB': 18, 'GB': 18, 'HI': 14, 'PH': 14, 'SL': 14, 'SH': 14, 'MH': 18, 'AB': 14,
+    'AS': 24, 'WA': 24, 'BA': 18, 'GA': 24, 'PA': 28, 'YP': 24, 'SU': 18, 'CT': 20,
+    'QA': 20, 'BP': 24, 'EC': 24, 'BT': 20, 'PY': 20, 'BC': 26, 'WO': 16, 'BR': 14,
+    'CK': 12, 'PO': 12, 'OK': 16, 'SO': 16, 'QI': 14, 'WK': 16, 'PN': 14, 'CO': 16,
+    'SW': 16, 'SN': 12, 'RO': 20, 'SK': 16, 'BO': 16, 'CB': 14, 'BU': 12, 'YY': 12,
+    'WR': 12, 'HK': 12, 'PS': 12, 'HY': 12, 'BN': 18, 'WN': 20, 'OO': 12, 'MG': 20,
+    'MV': 20, 'AP': 20, 'WT': 20, 'BG': 16, 'SD': 16, 'PW': 16, 'SY': 24, 'WL': 14,
+    'BK': 24, 'BL': 32, 'SS': 18, 'BW': 16, 'WB': 16, 'EL': 16, 'AE': 16, 'RL': 12,
+    'OH': 10, 'BE': 16, 'ST': 18, 'AI': 30, 'SE': 20, 'AH': 20, 'DW': 18, 'HT': 16,
+    'HH': 20, 'PL': 20, 'PR': 30,
+}
+_NE_HHTMAX_DEFAULT = 16.0
+
+# CS HHTMAX values from blkdat.f DATA (HHTMAX(I),I=1,96) — 96 species
+_CS_HHTMAX = {
+    'RC': 16, 'JU': 27, 'SP': 14, 'VP': 14, 'LP': 14, 'OS': 16, 'WP': 20, 'WN': 20,
+    'BN': 18, 'TL': 16, 'TS': 20, 'WT': 20, 'BG': 16, 'HS': 14, 'SH': 14, 'SL': 14,
+    'MH': 18, 'PH': 14, 'HI': 14, 'WH': 14, 'BH': 14, 'PE': 14, 'BI': 14, 'AB': 14,
+    'BA': 18, 'PA': 28, 'UA': 20, 'EC': 24, 'RM': 20, 'BE': 16, 'SV': 18, 'BC': 26,
+    'AE': 16, 'SG': 14, 'HK': 12, 'WE': 20, 'EL': 16, 'SI': 20, 'RL': 12, 'RE': 20,
+    'YP': 24, 'BW': 16, 'SM': 16, 'AS': 24, 'WA': 24, 'GA': 24, 'WO': 16, 'RO': 20,
+    'SK': 16, 'BO': 16, 'SO': 16, 'BJ': 20, 'CK': 12, 'SW': 16, 'BR': 14, 'SN': 12,
+    'PO': 12, 'DO': 20, 'CO': 16, 'PN': 20, 'CB': 14, 'QI': 14, 'OV': 20, 'WK': 16,
+    'NK': 20, 'WL': 14, 'QS': 20, 'UH': 20, 'SS': 18, 'OB': 20, 'CA': 20, 'PS': 12,
+    'HL': 20, 'BP': 24, 'BT': 20, 'QA': 20, 'BK': 24, 'OL': 20, 'SY': 24, 'BY': 20,
+    'RB': 18, 'SU': 18, 'WI': 20, 'BL': 32, 'NC': 10, 'AH': 20, 'RD': 20, 'DW': 18,
+    'HT': 16, 'KC': 20, 'OO': 12, 'CT': 20, 'MV': 20, 'MB': 20, 'HH': 20, 'SD': 16,
+}
+_CS_HHTMAX_DEFAULT = 16.0
+
+# LS HHTMAX values from blkdat.f DATA (HHTMAX(I),I=1,68) — 68 species
+_LS_HHTMAX = {
+    'JP': 14, 'SC': 20, 'RN': 18, 'RP': 18, 'WP': 20, 'WS': 18, 'NS': 18, 'BF': 20,
+    'BS': 16, 'TA': 24, 'WC': 16, 'EH': 16, 'OS': 16, 'RC': 16, 'BA': 18, 'GA': 24,
+    'EC': 24, 'SV': 18, 'RM': 20, 'BC': 26, 'AE': 16, 'RL': 12, 'RE': 20, 'YB': 22,
+    'BW': 16, 'SM': 16, 'BM': 16, 'AB': 14, 'WA': 24, 'WO': 16, 'SW': 16, 'BR': 14,
+    'CK': 12, 'RO': 20, 'BO': 16, 'NP': 20, 'BH': 20, 'PH': 14, 'SH': 14, 'BT': 20,
+    'QA': 20, 'BP': 24, 'PB': 18, 'BN': 18, 'WN': 20, 'HH': 20, 'BK': 24, 'OH': 10,
+    'BE': 16, 'ST': 18, 'MM': 20, 'AH': 20, 'AC': 20, 'HK': 12, 'DW': 18, 'HT': 16,
+    'AP': 20, 'BG': 16, 'SY': 24, 'PR': 30, 'CC': 20, 'PL': 20, 'WI': 20, 'BL': 32,
+    'DM': 20, 'SS': 18, 'MA': 20,
+}
+_LS_HHTMAX_DEFAULT = 20.0
+
 
 def _get_hhtmax(species: str, variant: str) -> float:
     """Get the maximum establishment height for a species.
@@ -154,6 +204,12 @@ def _get_hhtmax(species: str, variant: str) -> float:
     """
     if variant == 'SN':
         return _SN_HHTMAX.get(species, _SN_HHTMAX_DEFAULT)
+    elif variant == 'NE':
+        return _NE_HHTMAX.get(species, _NE_HHTMAX_DEFAULT)
+    elif variant == 'CS':
+        return _CS_HHTMAX.get(species, _CS_HHTMAX_DEFAULT)
+    elif variant == 'LS':
+        return _LS_HHTMAX.get(species, _LS_HHTMAX_DEFAULT)
     # Other variants: use 20.0 as default cap (conservative)
     return 20.0
 
@@ -235,10 +291,13 @@ def _compute_essubh_height(species: str, site_index: float,
             else:
                 effective_age = max(0.1, math.log(1.0 - inner) / p['c3'])
 
-    # Regent: 5yr growth increment scaled by 0.5 (half-cycle)
-    # Matches Fortran regent.f SCALE = FNT/REGYR for establishment
+    # Regent: 5yr growth increment from site curve.
+    # Fortran regent.f computes a FULL cycle (REGYR=10yr) of growth, then
+    # scales by SCALE=FNT/REGYR=5/10=0.5 to get 5yr of regent growth.
+    # Since we compute the 5yr increment directly from the site curve,
+    # no additional scaling is needed (equivalent to 10yr*0.5 = 5yr*1.0).
     regent_5yr = _scaled_cr(effective_age + 5.0) - _scaled_cr(effective_age)
-    regent_growth = regent_5yr * 0.5
+    regent_growth = regent_5yr
 
     total_height = essubh_height + regent_growth
 
