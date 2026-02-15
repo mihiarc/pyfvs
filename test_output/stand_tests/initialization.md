@@ -1,5 +1,5 @@
 # Stand Initialization Test (1 acre)
-Generated on 2026-02-13 14:30:10
+Generated on 2026-02-15 09:43:56
 
 ## Purpose
 This test validates the growth model's behavior for stand initialization test (1 acre).
@@ -13,4 +13,4 @@ Based on established forestry principles:
 
 |   tpa |   basal_area |     qmd |   mean_dbh |   top_height |   mean_height |     ccf |     sdi |   max_sdi |   relsdi |   age |   volume |   merchantable_volume |   board_feet |
 |------:|-------------:|--------:|-----------:|-------------:|--------------:|--------:|--------:|----------:|---------:|------:|---------:|----------------------:|-------------:|
-|   500 |      18.1196 | 2.57766 |    2.56412 |      24.2168 |       20.1762 | 1.43837 | 56.7528 |       480 |  1.18235 |     5 |  124.863 |                     0 |            0 |
+|   500 |      16.3954 | 2.45196 |    2.44806 |           20 |       19.2957 | 1.30663 | 52.3766 |       480 |  1.09118 |     5 |  103.578 |                     0 |            0 |

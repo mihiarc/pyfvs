@@ -254,64 +254,21 @@ def _compute_western_establishment_height(species: str, site_index: float,
                                            variant: str) -> float:
     """Compute establishment height for 10-year western variants (PN/WC).
 
-    For PN/WC: start at 1.0 ft (seedling) + 10yr of Chapman-Richards growth.
-    Approximates 5yr SMHGDG (small tree height growth) + 5yr regent.
+    Uses species-specific height-age curves from htcalc.f (King, Wiley, Farr,
+    etc.) to compute height at age = cycle_length (10 years).
 
     Args:
         species: Species code (e.g., 'DF', 'WH', 'RC')
-        site_index: Site index in feet (base age 50)
+        site_index: Site index in feet (base age varies by species)
         variant: FVS variant code ('PN' or 'WC')
 
     Returns:
         Establishment height in feet.
     """
-    p = _load_small_tree_coefficients(species, variant)
-    if not p:
-        p = {'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374,
-             'c4': 0.7632, 'c5': 0.0358, 'bh': 0.0}
+    from .pn_height_age import height_at_age
 
-    bh = p.get('bh', 0.0)
-
-    # Compute scale factor for base age 50
-    base_age = 50
-    raw_at_base = bh + p['c1'] * (site_index ** p['c2']) * \
-        (1.0 - math.exp(p['c3'] * base_age)) ** (p['c4'] * (site_index ** p['c5']))
-    scale = site_index / raw_at_base if raw_at_base > 0 else 1.0
-
-    def _raw_cr(age):
-        if age <= 0:
-            return bh + 0.1
-        return bh + p['c1'] * (site_index ** p['c2']) * \
-            (1.0 - math.exp(p['c3'] * age)) ** (p['c4'] * (site_index ** p['c5']))
-
-    def _scaled_cr(age):
-        return _raw_cr(age) * scale
-
-    # Start at 1.0 ft seedling height
-    start_height = 1.0
-
-    # Find effective age of 1.0 ft on the CR curve
-    max_height = bh + p['c1'] * (site_index ** p['c2'])
-    exponent = p['c4'] * (site_index ** p['c5'])
-    raw_start = start_height / scale if scale > 0 else start_height
-
-    if raw_start >= max_height - 0.1:
-        effective_age = 200.0
-    elif raw_start <= bh + 0.1:
-        effective_age = 0.1
-    else:
-        ratio = (raw_start - bh) / (p['c1'] * (site_index ** p['c2']))
-        if ratio <= 0 or ratio >= 1.0 or exponent <= 0:
-            effective_age = 0.1
-        else:
-            inner = ratio ** (1.0 / exponent)
-            if inner >= 1.0:
-                effective_age = 0.1
-            else:
-                effective_age = max(0.1, math.log(1.0 - inner) / p['c3'])
-
-    # Total height = CR(effective_age + 10)
-    total_height = _scaled_cr(effective_age + 10.0)
+    cycle_length = _VARIANT_CYCLE_LENGTHS.get(variant, 10)
+    total_height = height_at_age(species, cycle_length, site_index, variant)
 
     # Apply HHTMAX cap
     hhtmax = _get_hhtmax(species, variant)
@@ -647,10 +604,10 @@ class Stand:
             # establishment height overestimates DBH (e.g., WC DF: 3.13" vs
             # native 1.50"). The midpoint between ESSUBH height and final
             # height approximates the average growth state.
-            h_at_carage = _compute_establishment_height(
-                species, site_index, _ESSUBH_DEFAULT_CARAGE, actual_variant
+            from .pn_height_age import height_at_age as _pn_height_at_age
+            pnwc_essubh_height = _pn_height_at_age(
+                species, 5, site_index, actual_variant
             )
-            pnwc_essubh_height = (h_at_carage / _ESSUBH_DEFAULT_CARAGE) * 5.0
         else:
             # Unknown variant: fallback to direct CR
             establishment_age = cycle_length + 2

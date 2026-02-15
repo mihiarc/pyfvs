@@ -268,6 +268,12 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         # Validate and bound site index
         site_index = self._validate_site_index(site_index)
 
+        # PN/WC: use species-specific height-age curves from htcalc.f
+        if variant in ('PN', 'WC'):
+            return self._calculate_potential_height_growth_pnwc(
+                dbh, site_index, tree_height, tree_age, variant
+            )
+
         # Load small tree height growth coefficients (variant-specific)
         small_tree_coeffs = self._get_small_tree_coefficients(variant=variant)
 
@@ -300,10 +306,10 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             # Scale factor anchors H(base_age) = SI.
             # SN: Fortran HTCALC uses raw LTBHEC coefficients with NO scaling
             # (base age 25, coefficients match SI directly).
-            # LS/CS/NE/PN/WC: base age 50, coefficients from LTBHEC need scaling
+            # LS/CS/NE: base age 50, coefficients from LTBHEC need scaling
             # to ensure the site curve passes through SI at base age.
             # This must match tree.py _grow_small_tree().
-            if variant in ('LS', 'CS', 'NE', 'PN', 'WC', 'CA', 'OP'):
+            if variant in ('LS', 'CS', 'NE', 'CA', 'OP'):
                 base_age = 50
                 raw_at_base = _raw_chapman_richards(base_age)
                 scale_factor = site_index / raw_at_base if raw_at_base > 0 else 1.0
@@ -349,6 +355,45 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         # Bound to reasonable range
         return max(0.1, min(3.0, fallback_growth))
     
+    def _calculate_potential_height_growth_pnwc(
+        self,
+        dbh: float,
+        site_index: float,
+        tree_height: Optional[float],
+        tree_age: Optional[float],
+        variant: str
+    ) -> float:
+        """Calculate POTHTG for PN/WC using species-specific htcalc.f curves.
+
+        Uses the exact height-age equations (King, Wiley, Farr, etc.) instead
+        of Chapman-Richards. Computes a 5-year height increment via the
+        effective-age method.
+
+        Args:
+            dbh: Diameter at breast height (inches)
+            site_index: Site index in feet
+            tree_height: Current tree height (feet)
+            tree_age: Tree age (years, after growth increment)
+            variant: 'PN' or 'WC'
+
+        Returns:
+            Potential height growth (feet) for a 5-year period
+        """
+        from .pn_height_age import height_at_age, age_from_height
+
+        if tree_height is None:
+            tree_height = self._estimate_height_from_dbh(dbh)
+
+        # Find effective age from current height on species curve
+        effective_age = age_from_height(self.species_code, tree_height, site_index, variant)
+
+        # 5-year height increment
+        previous_age = max(0, effective_age - 5)
+        previous_potht = height_at_age(self.species_code, previous_age, site_index, variant)
+        current_potht = height_at_age(self.species_code, effective_age, site_index, variant)
+
+        return max(0.0, current_potht - previous_potht)
+
     def _get_small_tree_coefficients(self, variant: str = 'SN') -> Dict[str, float]:
         """Get small tree height growth coefficients for the species.
 

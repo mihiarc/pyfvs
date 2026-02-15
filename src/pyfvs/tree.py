@@ -253,35 +253,24 @@ class Tree:
         self._update_crown_ratio_weibull(rank, relsdi, competition_factor, time_step)
     
     def _grow_small_tree(self, site_index, competition_factor, time_step=5):
-        """Implement small tree height growth model using Chapman-Richards function.
+        """Implement small tree height growth model.
 
-        The Chapman-Richards model (NC-128 form) predicts cumulative height at
-        a given age, not periodic growth. Height growth is calculated as the
-        difference between heights at future age and current age:
-
-            Height(t) = c1 * SI^c2 * (1 - exp(c3 * t))^(c4 * SI^c5)
-            HeightGrowth = Height(age + time_step) - Height(age)
-
-        **Time Step Handling:** Unlike the large tree diameter growth model which
-        requires explicit scaling (DDS * time_step/5), the Chapman-Richards
-        equation naturally handles any time step because it calculates cumulative
-        height at discrete ages. The growth increment is simply the difference
-        between the height curves at two points in time.
-
-        **Ecological Unit Effect:** Unlike the large-tree DDS model which applies
-        ecounit as an additive term in ln(DDS), the small-tree model does NOT
-        apply an ecounit modifier. This is because:
-        1. Site Index already incorporates regional productivity - SI=55 means
-           height at base age 25 = 55 feet, regardless of region
-        2. The Chapman-Richards curve is calibrated to match SI at base age
-        3. The FVS large-tree height growth (POTHTG) also does NOT apply ecounit
-        4. Ecounit affects DIAMETER growth (DDS), not height growth
+        For PN/WC variants, uses species-specific height-age curves from
+        htcalc.f (King, Wiley, Farr, etc.). For all other variants, uses
+        the Chapman-Richards NC-128 functional form.
 
         Args:
-            site_index: Site index (base age 25) in feet
+            site_index: Site index in feet (base age varies by variant)
             competition_factor: Competition factor (0-1)
             time_step: Number of years to grow (any positive integer)
         """
+        variant = getattr(self, '_variant', 'SN')
+
+        # PN/WC: use species-specific height-age curves from htcalc.f
+        if variant in ('PN', 'WC'):
+            self._grow_small_tree_pnwc(site_index, competition_factor, time_step)
+            return
+
         # Get species-specific parameters - prefer variant-specific JSON file
         # which has Fortran LTBHEC-matched coefficients, then fall back to
         # species config YAML (which may have older publication coefficients).
@@ -466,6 +455,47 @@ class Tree:
             except (FileNotFoundError, Exception):
                 continue
         return {}
+
+    def _grow_small_tree_pnwc(self, site_index, competition_factor, time_step=5):
+        """Small-tree height growth for PN/WC using species-specific htcalc.f curves.
+
+        Uses the exact height-age equations from Fortran htcalc.f (King, Wiley,
+        Farr, Cochran, Barrett, Dahms, etc.) instead of the generic NC-128
+        Chapman-Richards form. This is critical because PN/WC species have
+        completely different growth trajectories than SN species.
+
+        The effective-age method is used: find the age on the species curve
+        matching current height, then project forward by time_step.
+
+        Args:
+            site_index: Site index in feet (base age varies by species)
+            competition_factor: Competition factor (0-1)
+            time_step: Number of years to grow
+        """
+        from .pn_height_age import height_at_age, age_from_height
+
+        variant = getattr(self, '_variant', 'PN')
+
+        # Effective age from current height on the species curve
+        effective_age = age_from_height(self.species, self.height, site_index, variant)
+
+        # Future height on species curve
+        future_height = height_at_age(self.species, effective_age + time_step, site_index, variant)
+        height_growth = future_height - self.height
+
+        # Competition modifier (same as Chapman-Richards path)
+        max_reduction = self.growth_params.get('competition_effects', {}).get(
+            'small_tree_competition', {}).get('max_reduction', 0.2)
+        competition_modifier = 1.0 - (max_reduction * competition_factor)
+
+        actual_growth = height_growth * competition_modifier
+        self.height = max(0.5, self.height + actual_growth)
+
+        # Update DBH from height using H-D relationship
+        original_dbh = self.dbh
+        self._update_dbh_from_height()
+
+        # No SN ecounit effect for PN/WC (they use topographic effects in DDS)
 
     def _apply_dds_to_dbh(self, dds: float, use_bark_ratio: bool = True) -> float:
         """Apply DDS (diameter squared increment) to DBH with optional bark ratio conversion.
