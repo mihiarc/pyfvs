@@ -1,53 +1,53 @@
 {
     "metadata": {
         "variant": "PN",
-        "source": "FVS PN variant crown.f",
+        "source": "FVS PN variant crown.f DATA statements (lines 491-527)",
         "description": "Crown ratio coefficients for Pacific Northwest Coast variant",
         "model": "Weibull distribution with linear mean CR in relative SDI",
-        "notes": "17 species groups mapped from 39 PN species via IMAP array. Group 17 (Redwood) uses logistic equation."
+        "notes": "17 species groups mapped from 39 PN species via IMAP array. Group 17 uses C0/C1 for SS (Sitka Spruce). Redwood (RW, species 17) maps to group 11 but uses logistic equation when detected."
     },
     "mean_cr_coefficients": {
-        "description": "ACR = C0 + C1 * RELSDI * 100",
+        "description": "ACRNEW = C0 + C1 * RELSDI * 100 where RELSDI = SDI/SDIMAX (0 to 1.5)",
         "groups": {
-            "1":  {"C0": 5.073, "C1": -0.01143, "species": ["SF"]},
-            "2":  {"C0": 5.212, "C1": -0.01162, "species": ["WF", "GF"]},
-            "3":  {"C0": 4.860, "C1": -0.00617, "species": ["AF", "RF"]},
-            "4":  {"C0": 5.569, "C1": -0.02129, "species": ["NF"]},
-            "5":  {"C0": 4.280, "C1": -0.00248, "species": ["SP", "WP"]},
-            "6":  {"C0": 5.073, "C1": -0.02099, "species": ["JP", "PP"]},
-            "7":  {"C0": 5.191, "C1": -0.00827, "species": ["DF"]},
-            "8":  {"C0": 5.330, "C1": -0.01408, "species": ["RC"]},
-            "9":  {"C0": 4.522, "C1": -0.00628, "species": ["WH"]},
-            "10": {"C0": 5.330, "C1": -0.01408, "species": ["MH"]},
-            "11": {"C0": 5.138, "C1": -0.01128, "species": ["IC", "ES", "LP", "LL", "WB", "KP", "RW"]},
-            "12": {"C0": 3.802, "C1": -0.00393, "species": ["BM"]},
-            "13": {"C0": 6.193, "C1": -0.01792, "species": ["RA"]},
-            "14": {"C0": 5.175, "C1": -0.01128, "species": ["WA", "PB", "GC", "AS", "CW", "WO", "WJ", "PY", "DG", "HT", "CH", "WI", "OT"]},
-            "15": {"C0": 5.330, "C1": -0.01408, "species": ["YC"]},
-            "16": {"C0": 4.556, "C1": -0.00898, "species": ["SS"]},
-            "17": {"C0": 0, "C1": 0, "species": ["RW_LOGISTIC"], "note": "Redwood uses logistic equation, not Weibull"}
+            "1":  {"C0": 5.073342, "C1": -0.011430, "species": ["SF"]},
+            "2":  {"C0": 5.212394, "C1": -0.011623, "species": ["WF", "GF"]},
+            "3":  {"C0": 4.860467, "C1": -0.006173, "species": ["AF", "RF"]},
+            "4":  {"C0": 5.568864, "C1": -0.021293, "species": ["NF"]},
+            "5":  {"C0": 4.279655, "C1": -0.002484, "species": ["SP", "WP"]},
+            "6":  {"C0": 5.073273, "C1": -0.020988, "species": ["JP", "PP"]},
+            "7":  {"C0": 5.666442, "C1": -0.025199, "species": ["DF"]},
+            "8":  {"C0": 4.481330, "C1": -0.018092, "species": ["RC"]},
+            "9":  {"C0": 5.671345, "C1": -0.023463, "species": ["WH"]},
+            "10": {"C0": 6.484942, "C1": -0.023248, "species": ["MH"]},
+            "11": {"C0": 5.417431, "C1": -0.011608, "species": ["IC", "ES", "LP", "LL", "WB", "KP", "RW"]},
+            "12": {"C0": 4.420000, "C1": -0.010660, "species": ["BM"]},
+            "13": {"C0": 4.656659, "C1": -0.022612, "species": ["RA"]},
+            "14": {"C0": 4.625125, "C1": -0.016042, "species": ["WA", "PB", "GC", "AS", "CW", "WO", "WJ", "PY", "DG", "HT", "CH", "WI", "OT"]},
+            "15": {"C0": 5.200550, "C1": -0.014890, "species": ["YC"]},
+            "16": {"C0": 4.890318, "C1": -0.018837, "species": ["LP"]},
+            "17": {"C0": 5.812879, "C1": -0.028504, "species": ["SS"]}
         }
     },
     "weibull_parameters": {
-        "description": "A=location, B=WEIBB0+WEIBB1*ACR (scale), C=WEIBC0+WEIBC1*ACR (shape)",
+        "description": "A=location, B=WEIBB0+WEIBB1*ACR (scale), C=WEIBC0+WEIBC1*ACR (shape). Fortran floors: B>=3.0, C>=2.0",
         "groups": {
-            "1":  {"WEIBA": 0, "WEIBB0": -0.17168, "WEIBB1": 1.16155, "WEIBC0": 2.82630, "WEIBC1": 0},
-            "2":  {"WEIBA": 0, "WEIBB0":  0.13094, "WEIBB1": 1.09341, "WEIBC0": 1.35514, "WEIBC1": 0.35047},
-            "3":  {"WEIBA": 1, "WEIBB0": -0.98111, "WEIBB1": 1.09227, "WEIBC0": 1.32605, "WEIBC1": 0.31839},
-            "4":  {"WEIBA": 0, "WEIBB0": -0.13581, "WEIBB1": 1.14771, "WEIBC0": 3.01749, "WEIBC1": 0},
-            "5":  {"WEIBA": 0, "WEIBB0":  0.01995, "WEIBB1": 1.10874, "WEIBC0": 2.62123, "WEIBC1": 0.18673},
-            "6":  {"WEIBA": 0, "WEIBB0": -0.03670, "WEIBB1": 1.13279, "WEIBC0": 2.87609, "WEIBC1": 0},
-            "7":  {"WEIBA": 0, "WEIBB0":  0.04023, "WEIBB1": 1.10040, "WEIBC0": 2.57407, "WEIBC1": 0},
-            "8":  {"WEIBA": 0, "WEIBB0":  0.13424, "WEIBB1": 1.08508, "WEIBC0": 1.49476, "WEIBC1": 0.37279},
-            "9":  {"WEIBA": 0, "WEIBB0":  0.14291, "WEIBB1": 1.10098, "WEIBC0": 2.64033, "WEIBC1": 0.12893},
-            "10": {"WEIBA": 0, "WEIBB0":  0.13424, "WEIBB1": 1.08508, "WEIBC0": 1.49476, "WEIBC1": 0.37279},
-            "11": {"WEIBA": 0, "WEIBB0": -0.14891, "WEIBB1": 1.14484, "WEIBC0": 2.67756, "WEIBC1": 0},
-            "12": {"WEIBA": 0, "WEIBB0":  0.13424, "WEIBB1": 1.08508, "WEIBC0": 1.49476, "WEIBC1": 0.37279},
-            "13": {"WEIBA": 0, "WEIBB0": -0.17168, "WEIBB1": 1.16155, "WEIBC0": 2.82630, "WEIBC1": 0},
-            "14": {"WEIBA": 0, "WEIBB0":  0.12139, "WEIBB1": 1.06988, "WEIBC0": 3.47174, "WEIBC1": -0.11500},
-            "15": {"WEIBA": 0, "WEIBB0":  0.13424, "WEIBB1": 1.08508, "WEIBC0": 1.49476, "WEIBC1": 0.37279},
-            "16": {"WEIBA": 0, "WEIBB0":  0.14291, "WEIBB1": 1.10098, "WEIBC0": 2.64033, "WEIBC1": 0.12893},
-            "17": {"WEIBA": 0, "WEIBB0": 0, "WEIBB1": 0, "WEIBC0": 0, "WEIBC1": 0}
+            "1":  {"WEIBA": 0, "WEIBB0": -0.171680, "WEIBB1": 1.161549, "WEIBC0": 2.826300, "WEIBC1": 0.0},
+            "2":  {"WEIBA": 0, "WEIBB0":  0.130939, "WEIBB1": 1.093406, "WEIBC0": 1.355139, "WEIBC1": 0.350472},
+            "3":  {"WEIBA": 1, "WEIBB0": -0.981113, "WEIBB1": 1.092273, "WEIBC0": 1.326047, "WEIBC1": 0.318386},
+            "4":  {"WEIBA": 0, "WEIBB0": -0.135807, "WEIBB1": 1.147712, "WEIBC0": 3.017494, "WEIBC1": 0.0},
+            "5":  {"WEIBA": 0, "WEIBB0":  0.019948, "WEIBB1": 1.108738, "WEIBC0": 2.621230, "WEIBC1": 0.186734},
+            "6":  {"WEIBA": 0, "WEIBB0": -0.036696, "WEIBB1": 1.132792, "WEIBC0": 2.876094, "WEIBC1": 0.0},
+            "7":  {"WEIBA": 0, "WEIBB0": -0.012061, "WEIBB1": 1.119712, "WEIBC0": 3.212600, "WEIBC1": 0.0},
+            "8":  {"WEIBA": 0, "WEIBB0": -0.062693, "WEIBB1": 1.139657, "WEIBC0": 1.766400, "WEIBC1": 0.0},
+            "9":  {"WEIBA": 0, "WEIBB0":  0.073435, "WEIBB1": 1.107183, "WEIBC0": 2.623700, "WEIBC1": 0.0},
+            "10": {"WEIBA": 0, "WEIBB0":  0.162672, "WEIBB1": 1.073404, "WEIBC0": 3.288501, "WEIBC1": 0.0},
+            "11": {"WEIBA": 0, "WEIBB0":  0.196054, "WEIBB1": 1.073909, "WEIBC0": 0.345647, "WEIBC1": 0.620145},
+            "12": {"WEIBA": 1, "WEIBB0": -0.818809, "WEIBB1": 1.054176, "WEIBC0": -2.366108, "WEIBC1": 1.202413},
+            "13": {"WEIBA": 0, "WEIBB0":  0.035786, "WEIBB1": 1.121389, "WEIBC0": 2.040800, "WEIBC1": 0.0},
+            "14": {"WEIBA": 0, "WEIBB0": -0.238295, "WEIBB1": 1.180163, "WEIBC0": 3.044134, "WEIBC1": 0.0},
+            "15": {"WEIBA": 1, "WEIBB0": -0.811424, "WEIBB1": 1.056190, "WEIBC0": -3.831124, "WEIBC1": 1.401938},
+            "16": {"WEIBA": 0, "WEIBB0": -0.131210, "WEIBB1": 1.159760, "WEIBC0": 2.598238, "WEIBC1": 0.0},
+            "17": {"WEIBA": 0, "WEIBB0": -0.107413, "WEIBB1": 1.140775, "WEIBC0": 3.071200, "WEIBC1": 0.0}
         }
     },
     "redwood_logistic": {
@@ -62,7 +62,7 @@
     },
     "species_to_group": {
         "SF": 1, "WF": 2, "GF": 2, "AF": 3, "RF": 3,
-        "SS": 16, "NF": 4, "YC": 15, "IC": 11, "ES": 11,
+        "SS": 17, "NF": 4, "YC": 15, "IC": 11, "ES": 11,
         "LP": 16, "JP": 6, "SP": 5, "WP": 5, "PP": 6,
         "DF": 7, "RW": 11, "RC": 8, "WH": 9, "MH": 10,
         "BM": 12, "RA": 13, "WA": 14, "PB": 14, "GC": 14,
@@ -70,6 +70,6 @@
         "WB": 11, "KP": 11, "PY": 14, "DG": 14, "HT": 14,
         "CH": 14, "WI": 14, "OT": 14
     },
-    "imap_array": [1,2,2,3,3,16,4,15,11,11,16,6,5,5,6,7,11,8,9,10,12,13,14,14,14,14,14,14,14,11,11,11,14,14,14,14,14,14,14],
+    "imap_array": [1,2,2,3,3,17,4,15,11,11,16,6,5,5,6,7,11,8,9,10,12,13,14,14,14,14,14,14,14,11,11,11,14,14,14,14,14,14,14],
     "imap_species_order": ["SF","WF","GF","AF","RF","SS","NF","YC","IC","ES","LP","JP","SP","WP","PP","DF","RW","RC","WH","MH","BM","RA","WA","PB","GC","AS","CW","WO","WJ","LL","WB","KP","PY","DG","HT","CH","WI","--","OT"]
 }

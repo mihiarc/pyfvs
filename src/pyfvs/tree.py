@@ -739,10 +739,10 @@ class Tree:
         """
         from .bark_ratio import create_bark_ratio_model
 
-        # Default elevations vary by variant and region
+        # Default elevations from variant grinit.f (in hundreds of feet)
         DEFAULT_ELEVATIONS = {
-            'PN': 10.0,    # 1000 ft (100s ft) - coastal PNW
-            'WC': 20.0,    # 2000 ft (100s ft) - West Cascades
+            'PN': 7.0,     # 700 ft - coastal PNW (pn/grinit.f line 169)
+            'WC': 35.0,    # 3500 ft - West Cascades (wc/grinit.f line 168)
             'CA': 3000.0,  # 3000 ft (feet) - inland California
             'OC': 0.0,     # SW Oregon (100s ft)
             'WS': 0.0,     # Sierra Nevada (100s ft)

@@ -403,10 +403,11 @@ class TestPNIntegration:
         volume = metrics['volume']
 
         # PN DF at SI=120 should produce good yields
-        assert 200 <= tpa <= 400, f"TPA {tpa} outside expected range"
-        assert 8.0 <= qmd <= 22.0, f"QMD {qmd} outside expected range"
-        assert 150 <= ba <= 600, f"BA {ba} outside expected range"
-        assert 5000 <= volume <= 25000, f"Volume {volume} outside expected range"
+        # High productivity site: heavy mortality reduces TPA, large QMD
+        assert 150 <= tpa <= 400, f"TPA {tpa} outside expected range"
+        assert 8.0 <= qmd <= 26.0, f"QMD {qmd} outside expected range"
+        assert 150 <= ba <= 700, f"BA {ba} outside expected range"
+        assert 5000 <= volume <= 30000, f"Volume {volume} outside expected range"
 
     def test_pn_vs_sn_higher_productivity(self):
         """PN at SI=120 should produce more volume than SN at same SI."""

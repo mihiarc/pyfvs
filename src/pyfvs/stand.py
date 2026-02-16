@@ -1009,12 +1009,14 @@ class Stand:
     def grow(self, years: int = 5):
         """Grow stand for specified number of years.
 
-        The FVS growth model was calibrated for 5-year cycles. To ensure
-        consistent results regardless of the user-specified time step, cycles
-        longer than 5 years are internally subdivided into 5-year sub-cycles.
-        This recalculates competition metrics at appropriate intervals,
-        preventing longer cycles from accumulating excessive growth due to
-        stale (low) competition values.
+        Each FVS variant was calibrated for a specific cycle length:
+        SN/OP use 5-year cycles, all others use 10-year cycles. Growth model
+        selection (small-tree vs large-tree) is decided at the START of each
+        cycle and held constant, matching Fortran regent.f behavior.
+
+        For user-specified periods longer than the variant's base cycle,
+        the period is subdivided into base-cycle-length sub-cycles with
+        competition metrics recalculated between cycles.
 
         Args:
             years: Number of years to grow (default 5 years to match FVS)
@@ -1022,15 +1024,19 @@ class Stand:
         if years <= 0:
             return
 
-        # Standard FVS cycle length for which the model was calibrated
-        BASE_CYCLE = 5
+        # Variant-specific cycle length matching Fortran calibration
+        # SN/OP: 5-year cycles; all others: 10-year cycles
+        if self.variant in ('SN', 'OP'):
+            base_cycle = 5
+        else:
+            base_cycle = 10
 
-        # For cycles > 5 years, internally subdivide to maintain consistent
-        # dynamics. This ensures competition is recalculated appropriately.
-        if years > BASE_CYCLE:
+        # For periods > base cycle, subdivide into base-cycle sub-cycles.
+        # This recalculates competition metrics at appropriate intervals.
+        if years > base_cycle:
             remaining = years
             while remaining > 0:
-                sub_cycle = min(BASE_CYCLE, remaining)
+                sub_cycle = min(base_cycle, remaining)
                 self._grow_single_cycle(sub_cycle)
                 remaining -= sub_cycle
         else:
@@ -1040,11 +1046,11 @@ class Stand:
         """Execute a single growth cycle (internal helper).
 
         This method performs the actual growth calculation for a single cycle.
-        It should only be called with cycle lengths <= 5 years to ensure
-        the growth model operates within its calibrated parameters.
+        Called with variant-appropriate cycle lengths (5yr for SN/OP, 10yr
+        for PN/WC/LS/NE/CS).
 
         Args:
-            years: Number of years to grow (should be <= 5 for best accuracy)
+            years: Number of years to grow
         """
         # Store initial tree count for logging
         initial_count = len(self.trees)

@@ -694,19 +694,24 @@ class PNCrownRatioModel:
     def calculate_average_crown_ratio(self, relsdi: float) -> float:
         """Calculate average crown ratio using PN linear equation.
 
-        PN equation: ACR = C0 + C1 * RELSDI * 100
-        where RELSDI is on the 1-12 scale (as used in FVS).
+        Fortran crown.f: RELSDI = SDI/SDIMAX (0-1.5 scale), capped at 1.5.
+        ACRNEW = C0 + C1 * RELSDI * 100 (C1 operates on 0-150 scale).
+
+        PyFVS passes relsdi on 1-12 scale (SDI/SDIMAX * 10), so we convert
+        back to Fortran's 0-1.5 scale before applying C1.
 
         Args:
-            relsdi: Relative stand density index (1.0-12.0 scale)
+            relsdi: Relative stand density index (1.0-12.0 scale from StandMetrics)
 
         Returns:
             Average crown ratio as proportion (0.05-0.95)
         """
-        relsdi = max(1.0, min(12.0, relsdi))
+        # Convert from PyFVS 1-12 scale back to Fortran 0-1.5 scale
+        relsdi_fortran = relsdi / 10.0
+        relsdi_fortran = max(0.0, min(1.5, relsdi_fortran))
 
-        # PN uses RELSDI * 100 in the equation (converting to 100-1200 scale)
-        acr = self._mean_cr_c0 + self._mean_cr_c1 * relsdi * 100.0
+        # PN/WC crown.f: ACRNEW = C0 + C1 * RELSDI * 100 (Fortran scale)
+        acr = self._mean_cr_c0 + self._mean_cr_c1 * relsdi_fortran * 100.0
 
         # ACR is on 0-10 scale in PN, convert to proportion
         acr_proportion = acr / 10.0
@@ -742,9 +747,9 @@ class PNCrownRatioModel:
         weib_b = self._weibb0 + self._weibb1 * acr_ten
         weib_c = self._weibc0 + self._weibc1 * acr_ten
 
-        # Ensure B and C are positive and reasonable
-        weib_b = max(1.0, weib_b)
-        weib_c = max(0.5, weib_c)
+        # Fortran crown.f: IF(B .LT. 3.0) B=3.0; IF(C .LT. 2.0) C=2.0
+        weib_b = max(3.0, weib_b)
+        weib_c = max(2.0, weib_c)
 
         # Bound tree rank to avoid numerical issues
         x = max(0.05, min(0.95, tree_rank))

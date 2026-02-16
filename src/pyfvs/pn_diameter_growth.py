@@ -67,8 +67,8 @@ class PNDiameterGrowthModel(ParameterizedModel):
             'DGBA': 0.0,
             'DGPCCF': 0.0,
             'DGHAH': 0.0,
-            'DGFOR': -0.739354,
-            'DGDS': -0.0000896,
+            'DGFOR': -0.199200,  # Siuslaw NF (IFOR=2 default), was -0.739354 (Olympic)
+            'DGDS': -0.0000641,  # Location 2 default, was -0.0000896 (location 1)
             'DGEL': -0.009845,
             'DGEL2': 0.0,
             'DGSASP': 0.003263,
@@ -145,6 +145,51 @@ class PNDiameterGrowthModel(ParameterizedModel):
             species_code: FVS species code (e.g., 'DF', 'WH', 'RC')
         """
         super().__init__(species_code)
+        self._sigma = self._load_sigma()
+
+    def _load_sigma(self) -> float:
+        """Load SIGMAR for this species from variance_parameters.
+
+        SIGMAR is the standard deviation of ln(DDS) residuals, used for
+        the Baskerville (1972) bias correction. Values come from pn/blkdat.f.
+
+        Returns:
+            SIGMAR value, or 0.0 if not found.
+        """
+        variance_params = self.raw_data.get('variance_parameters', {})
+        return variance_params.get(self.species_code, 0.0)
+
+    def _baskerville_correction(self, ln_dds: float) -> float:
+        """Apply bounded Baskerville (1972) bias correction to DDS.
+
+        Native FVS applies DDS*exp(Z) where Z~N(0,sigma^2) bounded to +-2sigma.
+        The truncated normal E[exp(Z)] ~ exp(alpha*sigma^2/2) where alpha~0.88.
+        This corrects the Jensen's inequality bias: E[exp(X)] > exp(E[X]).
+
+        Fortran dgscor.f suppresses stochastic error for large trees:
+        - ln(DDS) > 5.0: no correction
+        - 4.0 < ln(DDS) <= 5.0: linear taper
+        - ln(DDS) <= 4.0: full correction
+
+        Args:
+            ln_dds: Natural log of diameter squared increment.
+
+        Returns:
+            Correction multiplier (>= 1.0).
+        """
+        if self._sigma <= 0.0:
+            return 1.0
+
+        alpha = 0.88
+        full_correction = math.exp(alpha * self._sigma * self._sigma / 2.0)
+
+        if ln_dds > 5.0:
+            return 1.0
+        elif ln_dds > 4.0:
+            taper = (5.0 - ln_dds) / 1.0
+            return 1.0 + (full_correction - 1.0) * taper
+        else:
+            return full_correction
 
     # Species mapping from MAPSPC array in dgf.f
     # Maps 39 species to 20 coefficient sets
@@ -237,10 +282,13 @@ class PNDiameterGrowthModel(ParameterizedModel):
         dghah = params.get('DGHAH', 0.0)
         dgfor = params.get('DGFOR', -0.7)
         if isinstance(dgfor, list):
-            dgfor = dgfor[0]  # Use first location class
+            # PN default IFOR=2 (Siuslaw NF) → MAPLOC(2,JSPC) → location class 2
+            # DGFOR array is 0-indexed, so location class 2 = index 1
+            dgfor = dgfor[1] if len(dgfor) > 1 else dgfor[0]
         dgds = params.get('DGDS', -0.0001)
         if isinstance(dgds, list):
-            dgds = dgds[0]
+            # Same IFOR=2 mapping for location-dependent DGDS
+            dgds = dgds[1] if len(dgds) > 1 else dgds[0]
         dgel = params.get('DGEL', 0.0)
         dgel2 = params.get('DGEL2', 0.0)
         dgsasp = params.get('DGSASP', 0.0)
@@ -287,8 +335,11 @@ class PNDiameterGrowthModel(ParameterizedModel):
                   pccf_term + relht_term + lba_term + bal_term + ba_term +
                   si_term + elev_term + slope_term + aspect_term)
 
-        # Convert from ln(DDS) to DDS
-        dds = math.exp(ln_dds)
+        # Apply Baskerville stochastic bias correction
+        bask = self._baskerville_correction(ln_dds)
+
+        # Convert from ln(DDS) to DDS with correction
+        dds = math.exp(ln_dds) * bask
 
         # Scale by time step (base cycle is 10 years)
         dds = dds * (time_step / 10.0)
