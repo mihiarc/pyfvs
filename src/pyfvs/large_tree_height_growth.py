@@ -184,25 +184,90 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             self._load_fallback_shade_tolerance()
     
     def _load_fallback_shade_tolerance(self):
-        """Load fallback shade tolerance parameters."""
-        # Default shade tolerance coefficients
+        """Load fallback shade tolerance parameters.
+
+        Includes all 5 shade tolerance classes from WC htgf.f lines 76-131
+        and species mappings for SN, PN, and WC variants.
+        """
+        # All 5 shade tolerance classes from Fortran htgf.f
         self.shade_tolerance_coeffs = {
-            'Intolerant': {
-                'RHR': 13, 'RHYXS': 0.05, 'RHM': 1.1, 
-                'RHB': -1.60, 'RHXS': 0, 'RHK': 1
+            'Very Tolerant': {
+                'RHR': 20, 'RHYXS': 0.20, 'RHM': 1.1,
+                'RHB': -1.10, 'RHXS': 0, 'RHK': 1
             },
             'Tolerant': {
                 'RHR': 16, 'RHYXS': 0.15, 'RHM': 1.1,
                 'RHB': -1.20, 'RHXS': 0, 'RHK': 1
+            },
+            'Intermediate': {
+                'RHR': 15, 'RHYXS': 0.10, 'RHM': 1.1,
+                'RHB': -1.45, 'RHXS': 0, 'RHK': 1
+            },
+            'Intolerant': {
+                'RHR': 13, 'RHYXS': 0.05, 'RHM': 1.1,
+                'RHB': -1.60, 'RHXS': 0, 'RHK': 1
+            },
+            'Very Intolerant': {
+                'RHR': 12, 'RHYXS': 0.01, 'RHM': 1.1,
+                'RHB': -1.60, 'RHXS': 0, 'RHK': 1
             }
         }
-        
-        # Default species mapping
+
+        # Species shade tolerance mapping — covers SN, PN/WC species
+        # PN/WC mappings from WC htgf.f lines 101-131 (TOLPTS array)
+        # SN species use simplified Intolerant/Tolerant from SN htgf.f
         self.species_shade_tolerance = {
+            # SN species
             'LP': 'Intolerant',
-            'SP': 'Intolerant', 
+            'SP': 'Intolerant',
             'SA': 'Intolerant',
-            'LL': 'Intolerant'
+            'LL': 'Intolerant',
+            'LB': 'Intolerant',
+            'SB': 'Intolerant',
+            'VP': 'Intolerant',
+            'SR': 'Intolerant',
+            'LO': 'Intolerant',
+            'TB': 'Intolerant',
+            'RO': 'Intermediate',
+            'YP': 'Intermediate',
+            'SU': 'Intermediate',
+            # PN/WC conifers
+            'SF': 'Very Tolerant',      # Pacific silver fir
+            'WF': 'Tolerant',           # White fir
+            'GF': 'Tolerant',           # Grand fir
+            'AF': 'Tolerant',           # Subalpine fir
+            'RF': 'Tolerant',           # Red fir
+            'SS': 'Intermediate',       # Sitka spruce
+            'NF': 'Tolerant',           # Noble fir
+            'YC': 'Very Tolerant',      # Alaska yellow-cedar
+            'IC': 'Tolerant',           # Incense-cedar
+            'ES': 'Intermediate',       # Engelmann spruce
+            'JP': 'Intolerant',         # Jeffrey pine
+            'WP': 'Intermediate',       # Western white pine
+            'PP': 'Intolerant',         # Ponderosa pine
+            'DF': 'Intermediate',       # Douglas-fir
+            'RW': 'Tolerant',           # Redwood
+            'RC': 'Very Tolerant',      # Western redcedar
+            'WH': 'Very Tolerant',      # Western hemlock
+            'MH': 'Very Tolerant',      # Mountain hemlock
+            # PN/WC hardwoods
+            'BM': 'Tolerant',           # Bigleaf maple
+            'RA': 'Intolerant',         # Red alder
+            'WA': 'Intolerant',         # White alder
+            'PB': 'Intolerant',         # Paper birch
+            'GC': 'Intermediate',       # Giant chinkapin
+            'AS': 'Very Intolerant',    # Quaking aspen
+            'CW': 'Very Intolerant',    # Black cottonwood
+            'WO': 'Intermediate',       # Oregon white oak
+            'WJ': 'Very Intolerant',    # Western juniper
+            'WB': 'Intolerant',         # Whitebark pine
+            'KP': 'Very Intolerant',    # Knobcone pine
+            'PY': 'Very Tolerant',      # Pacific yew
+            'DG': 'Tolerant',           # Pacific dogwood
+            'HT': 'Very Intolerant',    # Hawthorn
+            'CH': 'Intermediate',       # Cherry
+            'WI': 'Very Intolerant',    # Willow
+            'OT': 'Intermediate',       # Other
         }
     
     def _load_site_index_ranges(self):

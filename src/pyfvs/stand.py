@@ -310,11 +310,20 @@ def _compute_essubh_height(species: str, site_index: float,
 
 
 def _compute_western_establishment_height(species: str, site_index: float,
-                                           variant: str) -> float:
-    """Compute establishment height for 10-year western variants (PN/WC).
+                                           variant: str) -> tuple:
+    """Compute establishment height and DBH for western variants (PN/WC).
 
-    Uses species-specific height-age curves from htcalc.f (King, Wiley, Farr,
-    etc.) to compute height at age = cycle_length (10 years).
+    Matches the combined Fortran ESSUBH + first REGENT cycle output.
+    Native FVS cycle 1 metrics include both ESSUBH initialization AND
+    the first REGENT growth cycle (with LESTB SCALE=0.5), so PyFVS
+    establishment must include both to align cycle 1 comparisons.
+
+    Flow (matching Fortran):
+    1. ESSUBH (essubh.f): ONE SMHGDG call from H=1.0, DD=0.1 → height only
+    2. Set DBH = DIAM(ISPC) — species-specific minimum from regent.f
+    3. REGENT first cycle (regent.f LESTB): TWO SMHGDG calls that ACCUMULATE
+       growth totals (HTGR, DGR), then SCALE=0.5 applied once to totals.
+       DBH is SET to DG (not D+DG) per regent.f:385.
 
     Args:
         species: Species code (e.g., 'DF', 'WH', 'RC')
@@ -322,19 +331,72 @@ def _compute_western_establishment_height(species: str, site_index: float,
         variant: FVS variant code ('PN' or 'WC')
 
     Returns:
-        Establishment height in feet.
+        Tuple of (establishment_height, establishment_dbh) in feet and inches.
     """
-    from .pn_height_age import height_at_age
+    from .pn_small_tree_growth import calculate_small_tree_growth, get_smhgdg_coefficients
 
-    cycle_length = _VARIANT_CYCLE_LENGTHS.get(variant, 10)
-    total_height = height_at_age(species, cycle_length, site_index, variant)
+    # --- Phase 1: ESSUBH (essubh.f) ---
+    # ONE 5yr SMHGDG call from H=1.0, DD=0.1 with zero competition (MODE=0)
+    hg5_essubh, _ = calculate_small_tree_growth(
+        species=species, height=1.0, dbh=0.1,
+        site_index=site_index, variant=variant,
+        ptba=0.0, ptbal=0.0, crown_ratio=0.5, avg_height=0.0
+    )
+    height = 1.0 + hg5_essubh
 
-    # Apply HHTMAX cap
+    # Apply HHTMAX cap after ESSUBH
     hhtmax = _get_hhtmax(species, variant)
-    if hhtmax > 0 and total_height > hhtmax:
-        total_height = hhtmax
+    if hhtmax > 0 and height > hhtmax:
+        height = hhtmax
 
-    return max(0.5, total_height)
+    # Set DBH to species-specific DIAM from regent.f DATA statement
+    coeffs = get_smhgdg_coefficients(species)
+    diam = coeffs.get('diam', 0.3) if coeffs else 0.3
+    dbh = diam
+
+    # --- Phase 2: First REGENT cycle (regent.f LESTB) ---
+    # Fortran regent.f calls SMHGDG twice, ACCUMULATES growth totals,
+    # then applies SCALE once. DBH is SET to DG (not D+DG). See:
+    #   regent.f:237-249 (two SMHGDG calls with accumulation)
+    #   regent.f:371     (DG(K) = DGR * SCALE * WK4)
+    #   regent.f:385     (DBH(K) = DG(K) — SET, not increment)
+    avg_h = height  # Stand average stays fixed at ESSUBH height
+
+    # Call 1: SMHGDG with post-ESSUBH state
+    hg5_1, dgr5_1 = calculate_small_tree_growth(
+        species=species, height=height, dbh=diam,
+        site_index=site_index, variant=variant,
+        ptba=0.0, ptbal=0.0, crown_ratio=0.5, avg_height=avg_h
+    )
+    # Accumulate tree state for call 2 (regent.f: HK=H+HTGR, DK=D+DGR)
+    hk = height + hg5_1
+    dk = diam + dgr5_1
+
+    # Call 2: SMHGDG with accumulated state (same stand avg_height)
+    hg5_2, dgr5_2 = calculate_small_tree_growth(
+        species=species, height=hk, dbh=dk,
+        site_index=site_index, variant=variant,
+        ptba=0.0, ptbal=0.0, crown_ratio=0.5, avg_height=avg_h
+    )
+
+    # Accumulate totals (regent.f: HTGR=HTGR+HG5, DGR=DGR+DGR5)
+    total_htgr = hg5_1 + hg5_2
+    total_dgr = dgr5_1 + dgr5_2
+
+    # Apply SCALE once to totals (regent.f:371: DG(K)=DGR*SCALE*WK4)
+    scale = 0.5
+    dg = total_dgr * scale
+    htgr_scaled = total_htgr * scale
+
+    # SET: DBH = DG (regent.f:385: DBH(K)=DG(K), NOT D+DG!)
+    establishment_dbh = max(diam, dg)
+    establishment_height = height + htgr_scaled
+
+    # Apply HHTMAX cap after REGENT
+    if hhtmax > 0 and establishment_height > hhtmax:
+        establishment_height = hhtmax
+
+    return max(0.5, establishment_height), establishment_dbh
 
 
 def _estimate_dbh_from_height(height: float, species: str, variant: str) -> float:
@@ -662,21 +724,11 @@ class Stand:
             )
             csne_essubh_height = (h_at_carage / carmean_age) * 5.0
         elif actual_variant in ('PN', 'WC'):
-            # Western 10yr variants: 1.0 ft seedling + 10yr CR growth
-            base_height = _compute_western_establishment_height(
+            # Western 10yr variants: SMHGDG-based establishment
+            # Returns both height and DBH directly from the growth model,
+            # eliminating the H-D inverse error that caused overestimated DBH.
+            base_height, pnwc_establishment_dbh = _compute_western_establishment_height(
                 species, site_index, actual_variant
-            )
-            # Compute ESSUBH-equivalent intermediate height for non-equilibrium
-            # DBH estimation. In Fortran, height and diameter decouple during
-            # establishment: ESSUBH grows height via site curve, regent adds
-            # more height growth, but diameter only grows through actual DDS
-            # equations (not equilibrium H-D). Using H-D inverse at the full
-            # establishment height overestimates DBH (e.g., WC DF: 3.13" vs
-            # native 1.50"). The midpoint between ESSUBH height and final
-            # height approximates the average growth state.
-            from .pn_height_age import height_at_age as _pn_height_at_age
-            pnwc_essubh_height = _pn_height_at_age(
-                species, 5, site_index, actual_variant
             )
         else:
             # Unknown variant: fallback to direct CR
@@ -715,10 +767,10 @@ class Stand:
             # Use H-D inverse at midpoint between ESSUBH and final height
             # to approximate the non-equilibrium DBH.
             if actual_variant in ('PN', 'WC'):
-                midpoint_height = (pnwc_essubh_height + tree_height) / 2
-                tree_dbh = _estimate_dbh_from_height(
-                    midpoint_height, species, actual_variant
-                )
+                # Use SMHGDG-derived DBH directly (not H-D inverse)
+                # Small variation proportional to height variation
+                dbh_multiplier = tree_height / base_height if base_height > 0 else 1.0
+                tree_dbh = max(0.0, pnwc_establishment_dbh * dbh_multiplier)
             elif actual_variant in ('CS', 'NE'):
                 midpoint_height = (csne_essubh_height + tree_height) / 2
                 tree_dbh = _estimate_dbh_from_height(
@@ -729,13 +781,14 @@ class Stand:
                     tree_height, species, actual_variant
                 )
 
-            trees.append(Tree(
+            tree = Tree(
                 dbh=tree_dbh,
                 height=tree_height,
                 species=species,
                 age=cycle_length,
                 variant=actual_variant
-            ))
+            )
+            trees.append(tree)
 
         stand = cls(trees, site_index, species, forest_type=forest_type,
                     ecounit=ecounit, variant=variant)
@@ -1022,9 +1075,14 @@ class Stand:
         # Used for RELHT in SN, PN, WC, CA, OC, WS variants
         top_height = self._metrics.calculate_top_height(self.trees)
 
-        # Set top_height on each tree so RELHT can be computed in tree.grow()
+        # Compute average height for SMHGDG AVHT (PN/WC small-tree model)
+        avg_height = sum(t.height for t in self.trees) / len(self.trees)
+
+        # Set stand-level metrics on each tree for use in tree.grow()
         for tree in self.trees:
             tree._top_height = top_height
+            tree._avg_height = avg_height
+            tree._stand_ba = ba
 
         # Get competition metrics for each tree
         competition_metrics = self._calculate_competition_metrics()

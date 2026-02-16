@@ -192,22 +192,46 @@ class Tree:
         initial_height = self.height
         
         # Get transition parameters from config
-        transition_params = self.growth_params['growth_transitions']['small_to_large_tree']
-        xmin = transition_params['xmin']  # minimum DBH for transition (inches)
-        xmax = transition_params['xmax']  # maximum DBH for transition (inches)
-        
+        variant = getattr(self, '_variant', 'SN')
+
+        # PN/WC: species-specific transition zones from regent.f XMIN/XMAX
+        if variant in ('PN', 'WC'):
+            from .pn_small_tree_growth import get_smhgdg_coefficients
+            smhgdg = get_smhgdg_coefficients(self.species)
+            if smhgdg:
+                xmin = smhgdg['xmin']
+                xmax = smhgdg['xmax']
+            else:
+                xmin = 2.0
+                xmax = 4.0
+        else:
+            transition_params = self.growth_params['growth_transitions']['small_to_large_tree']
+            xmin = transition_params['xmin']
+            xmax = transition_params['xmax']
+
+        # Store stand-level metrics on tree for SMHGDG (set by stand.py,
+        # but may be missing when tree.grow() is called directly)
+        if variant in ('PN', 'WC'):
+            if not hasattr(self, '_stand_ba'):
+                self._stand_ba = ba
+            if not hasattr(self, '_pbal') or self._pbal is None:
+                self._pbal = pbal
+            if not hasattr(self, '_avg_height'):
+                self._avg_height = 0.0
+
         # Calculate weight for blending growth models based on initial DBH
-        # When xmin == xmax (hard cutover matching Fortran regent.f/dgdriv.f),
-        # weight jumps from 0 to 1 at the threshold.
         if initial_dbh < xmin:
             weight = 0.0
         elif initial_dbh >= xmax:
             weight = 1.0
         elif xmin >= xmax:
-            # Hard cutover: should not reach here, but safety fallback
             weight = 1.0
+        elif variant in ('PN', 'WC'):
+            # PN/WC: linear blend matching Fortran regent.f
+            # XWT = (D - XMN) / (XMX - XMN)
+            weight = (initial_dbh - xmin) / (xmax - xmin)
         else:
-            # Smoothstep function: 3t² - 2t³ where t = (dbh - xmin) / (xmax - xmin)
+            # Other variants: smoothstep function 3t^2 - 2t^3
             t = (initial_dbh - xmin) / (xmax - xmin)
             weight = t * t * (3.0 - 2.0 * t)
             
@@ -457,45 +481,52 @@ class Tree:
         return {}
 
     def _grow_small_tree_pnwc(self, site_index, competition_factor, time_step=5):
-        """Small-tree height growth for PN/WC using species-specific htcalc.f curves.
+        """Small-tree growth for PN/WC using SMHGDG logistic model.
 
-        Uses the exact height-age equations from Fortran htcalc.f (King, Wiley,
-        Farr, Cochran, Barrett, Dahms, etc.) instead of the generic NC-128
-        Chapman-Richards form. This is critical because PN/WC species have
-        completely different growth trajectories than SN species.
+        Implements the Gould & Harrington (2011) model from Fortran smhgdg.f
+        which predicts both height and diameter growth simultaneously with
+        competition effects. This replaces the earlier htcalc.f height-age
+        approach which gave incorrect diameter estimates via H-D inverse.
 
-        The effective-age method is used: find the age on the species curve
-        matching current height, then project forward by time_step.
+        SMHGDG returns 5-year growth increments. For time_step > 5, we call
+        the model multiple times with updated state between calls (matching
+        Fortran regent.f behavior which calls SMHGDG once per 5-year sub-step).
+
+        The first-cycle LESTB scaling (SCALE=0.5) is already built into the
+        establishment function (_compute_western_establishment_height) so that
+        initialization matches native FVS cycle 1 output. No special scaling
+        is needed during grow().
 
         Args:
             site_index: Site index in feet (base age varies by species)
             competition_factor: Competition factor (0-1)
             time_step: Number of years to grow
         """
-        from .pn_height_age import height_at_age, age_from_height
+        from .pn_small_tree_growth import calculate_small_tree_growth
 
         variant = getattr(self, '_variant', 'PN')
 
-        # Effective age from current height on the species curve
-        effective_age = age_from_height(self.species, self.height, site_index, variant)
+        # Stand-level metrics (set by stand.py before grow())
+        ba = getattr(self, '_stand_ba', 0.0)
+        pbal = getattr(self, '_pbal', 0.0)
+        avg_height = getattr(self, '_avg_height', 0.0)
 
-        # Future height on species curve
-        future_height = height_at_age(self.species, effective_age + time_step, site_index, variant)
-        height_growth = future_height - self.height
-
-        # Competition modifier (same as Chapman-Richards path)
-        max_reduction = self.growth_params.get('competition_effects', {}).get(
-            'small_tree_competition', {}).get('max_reduction', 0.2)
-        competition_modifier = 1.0 - (max_reduction * competition_factor)
-
-        actual_growth = height_growth * competition_modifier
-        self.height = max(0.5, self.height + actual_growth)
-
-        # Update DBH from height using H-D relationship
-        original_dbh = self.dbh
-        self._update_dbh_from_height()
-
-        # No SN ecounit effect for PN/WC (they use topographic effects in DDS)
+        # Call SMHGDG in 5-year sub-steps (Fortran base period is 5 years)
+        n_steps = max(1, time_step // 5)
+        for _ in range(n_steps):
+            hg5, dg5 = calculate_small_tree_growth(
+                species=self.species,
+                height=self.height,
+                dbh=self.dbh,
+                site_index=site_index,
+                variant=variant,
+                ptba=ba,
+                ptbal=pbal,
+                crown_ratio=self.crown_ratio,
+                avg_height=avg_height
+            )
+            self.height = max(0.5, self.height + hg5)
+            self.dbh = max(0.0, self.dbh + dg5)
 
     def _apply_dds_to_dbh(self, dds: float, use_bark_ratio: bool = True) -> float:
         """Apply DDS (diameter squared increment) to DBH with optional bark ratio conversion.
