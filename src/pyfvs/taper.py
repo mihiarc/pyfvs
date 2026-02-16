@@ -178,9 +178,24 @@ class ClarkTaperModel(TaperModel):
     COEFFICIENT_FILE_R8 = 'taper/clark_r8_coefficients.json'
     COEFFICIENT_FILE_R9 = 'taper/clark_r9_coefficients.json'
 
-    # Correction factors from NVEL r9cor subroutine
-    SOFTWOOD_CORRECTION = 0.96  # 4% reduction for softwoods
-    HARDWOOD_CORRECTION = 0.90  # 10% reduction for hardwoods
+    # R8 (Region 8 — Southern) correction factors.
+    # Fortran has no r8cor, but our base Clark integration runs ~4% high
+    # for R8 coefficients.  These empirical factors match SN native.
+    R8_SOFTWOOD_CORRECTION = 0.96
+    R8_HARDWOOD_CORRECTION = 0.90
+
+    # R9 (Region 9 — North/Central) correction factors from NVEL r9cor
+    # subroutine (r9clark.f lines 1497-1564).  Raw Clark integration
+    # underestimates R9 volumes; r9cor increases them.
+    R9_SOFTWOOD_CORRECTION = 1.04   # FIA < 300
+    R9_HARDWOOD_CORRECTION = 1.10   # FIA >= 300 (excl. poplar)
+    R9_POPLAR_CORRECTION = 1.0      # FIA 741-746, 621
+
+    # Variants that use R9 Clark coefficients + r9cor
+    _R9_VARIANTS = {'NE', 'CS', 'LS'}
+
+    # Poplar / cottonwood species (FIA 741-746, 621) — r9cor cf = 1.0
+    _POPLAR_SPECIES = {'YP', 'QA', 'CT'}
 
     # Hardwood species (for correction factor selection)
     _HARDWOOD_SPECIES = {
@@ -537,11 +552,21 @@ class ClarkTaperModel(TaperModel):
 
         total_vol = K * (V1 + V2 + V3)
 
-        # Apply correction factor (from NVEL r9cor)
-        if self.species_code in self._HARDWOOD_SPECIES:
-            total_vol *= self.HARDWOOD_CORRECTION
+        # Apply region-specific correction factor
+        if self.variant in self._R9_VARIANTS:
+            # R9 correction from NVEL r9cor (r9clark.f:1497-1564)
+            if self.species_code in self._POPLAR_SPECIES:
+                total_vol *= self.R9_POPLAR_CORRECTION
+            elif self.species_code in self._HARDWOOD_SPECIES:
+                total_vol *= self.R9_HARDWOOD_CORRECTION
+            else:
+                total_vol *= self.R9_SOFTWOOD_CORRECTION
         else:
-            total_vol *= self.SOFTWOOD_CORRECTION
+            # R8 (SN) — empirical correction (no r8cor in Fortran)
+            if self.species_code in self._HARDWOOD_SPECIES:
+                total_vol *= self.R8_HARDWOOD_CORRECTION
+            else:
+                total_vol *= self.R8_SOFTWOOD_CORRECTION
 
         return max(0.0, total_vol)
 
