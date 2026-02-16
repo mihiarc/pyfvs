@@ -252,12 +252,17 @@ class LSDiameterGrowthModel(ParameterizedModel):
         )
 
         # LS DDS equation is calibrated for outside-bark application.
-        # Fortran dgf.f line 453: DIAGRO = SQRT(DBH^2 + EXP(DDS)) - DBH
-        # Then converts to IB for dgdriv.f, but we return OB growth directly.
+        # Fortran dgf.f line 453: DIAGRO = SQRT(DBH^2 + EXP(DDS)) - DBH  (OB growth)
+        # Fortran dgf.f line 455: DIAGRI = DIAGRO * BARK  (convert to IB growth)
+        # Fortran grow.f: DBH = DBH + DG where DG is the IB increment.
+        # The model coefficients were calibrated expecting IB growth added to OB DBH.
         dbh_new = math.sqrt(dbh * dbh + dds)
+        dg_ob = dbh_new - dbh
 
-        # Return the OB increment
-        return max(0.0, dbh_new - dbh)
+        # Convert OB growth to IB growth (matching Fortran DIAGRI = DIAGRO * BARK)
+        dg_ib = dg_ob * bark_ratio
+
+        return max(0.0, dg_ib)
 
 
 # Module-level cache for model instances

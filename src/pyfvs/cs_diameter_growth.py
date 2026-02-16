@@ -289,12 +289,18 @@ class CSDiameterGrowthModel(ParameterizedModel):
             time_step=time_step
         )
 
-        # CS DDS equation is calibrated for outside-bark application
-        # (same as LS — Fortran dgf.f applies DDS to OB diameter).
+        # CS DDS equation is calibrated for outside-bark application.
+        # Fortran dgf.f line 547: DIAGRO = SQRT(DBH^2 + EXP(DDS)) - DBH  (OB growth)
+        # Fortran dgf.f line 549: DIAGRI = DIAGRO * BARK  (convert to IB growth)
+        # Fortran grow.f: DBH = DBH + DG where DG is the IB increment.
+        # The model coefficients were calibrated expecting IB growth added to OB DBH.
         dbh_new = math.sqrt(dbh * dbh + dds)
+        dg_ob = dbh_new - dbh
 
-        # Return the OB increment
-        return max(0.0, dbh_new - dbh)
+        # Convert OB growth to IB growth (matching Fortran DIAGRI = DIAGRO * BARK)
+        dg_ib = dg_ob * bark_ratio
+
+        return max(0.0, dg_ib)
 
 
 # Module-level cache for model instances
