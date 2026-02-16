@@ -772,7 +772,15 @@ class Stand:
                 dbh_multiplier = tree_height / base_height if base_height > 0 else 1.0
                 tree_dbh = max(0.0, pnwc_establishment_dbh * dbh_multiplier)
             elif actual_variant in ('CS', 'NE'):
-                midpoint_height = (csne_essubh_height + tree_height) / 2
+                # Variant-specific midpoint fraction for H-D inverse.
+                # CS DDS accumulates more diameter during establishment than
+                # NE, so CS needs a higher fraction (closer to equilibrium).
+                # CS frac=0.75: QMD≈1.06 vs native 1.11 for WO SI=65
+                # NE frac=0.50: QMD≈0.87 vs native 0.91 for RM SI=60
+                estab_frac = 0.75 if actual_variant == 'CS' else 0.50
+                midpoint_height = csne_essubh_height + estab_frac * (
+                    tree_height - csne_essubh_height
+                )
                 tree_dbh = _estimate_dbh_from_height(
                     midpoint_height, species, actual_variant
                 )
