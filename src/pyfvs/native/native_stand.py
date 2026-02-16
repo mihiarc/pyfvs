@@ -319,7 +319,28 @@ class NativeStand:
         else:
             qmd = 0.0
 
-        top_height = float(np.max(ht)) if len(ht) > 0 else 0.0
+        # Top height: average height of 40 largest trees by DBH.
+        # Native FVS tree records represent groups (TPA expansion),
+        # so sort by DBH descending and accumulate TPA until 40.
+        if len(ht) > 0 and len(dbh) > 0:
+            sorted_idx = np.argsort(-dbh)  # descending DBH
+            cumulative_tpa = 0.0
+            height_sum = 0.0
+            count_tpa = 0.0
+            for idx in sorted_idx:
+                tree_tpa = tpa_arr[idx]
+                if tree_tpa <= 0:
+                    continue
+                remaining = max(0.0, 40.0 - cumulative_tpa)
+                if remaining <= 0:
+                    break
+                use_tpa = min(tree_tpa, remaining)
+                height_sum += ht[idx] * use_tpa
+                count_tpa += use_tpa
+                cumulative_tpa += tree_tpa
+            top_height = height_sum / count_tpa if count_tpa > 0 else float(np.max(ht))
+        else:
+            top_height = 0.0
 
         # Volume: sum of per-tree cubic foot volume * TPA
         if tcuft is not None:

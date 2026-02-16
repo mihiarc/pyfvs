@@ -332,8 +332,11 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
                         tree_age = max(0.1, math.log(1.0 - inner) / c3)
 
             # Compute 5-year height increment.
-            # tree_age is now effective age (FINDAG) for non-SN variants,
+            # tree_age is effective age (FINDAG) for LS/CS/NE variants,
             # or calendar age for SN.
+            # Uses backward increment H(age) - H(age-5) to match the
+            # historical calibration. tree.py scales by time_step/5.0
+            # for 10yr cycle variants.
             previous_age = max(0, tree_age - 5)
 
             previous_potht = _raw_chapman_richards(previous_age) * scale_factor
@@ -637,14 +640,19 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             variant=variant
         )
         
-        # Calculate crown ratio modifier
+        # Apply height growth modifier.
+        # LS/CS/NE Fortran htgf.f uses eastern GMOD formula:
+        #   GMOD = (1.0 - ((1.0-BALMOD)*(1.0-RELHTA))) * 0.8
+        # which caps at 0.80 for dominant trees (RELHTA >= 1.0).
+        # Native FVS compensates with OLDRN stochastic autocorrelation
+        # that boosts dominant trees by ~25%, giving effective ~1.0.
+        # Since PyFVS is deterministic, we use the SN formula which
+        # gives ~0.98 for dominant trees — a better approximation of
+        # the combined (1+OLDRN)*GMOD effect.
         hgmdcr = self.calculate_crown_ratio_modifier(crown_ratio)
-        
-        # Calculate relative height modifier
-        hgmdrh = self.calculate_relative_height_modifier(relative_height, species_code)
-        
-        # Apply main equation 4.7.2.1
-        # Fortran htgf.f: HTGMOD bounded to [0.1, 2.0]
+        hgmdrh = self.calculate_relative_height_modifier(
+            relative_height, species_code
+        )
         htgmod = 0.25 * hgmdcr + 0.75 * hgmdrh
         htgmod = max(0.1, min(2.0, htgmod))
 
