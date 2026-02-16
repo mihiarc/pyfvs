@@ -853,9 +853,13 @@ class LSMortalityModel:
             else:
                 mort = 0.0
 
-            # Select mortality rate (Fortran uses one or the other, never both)
-            # varmrt.f: IF(T .LE. TEM .OR. RN .LE. 0.0) RIP = RI
-            total_mort_prob = mort if density_removal_fraction > 0 else rip
+            # Use the higher of density or background mortality.
+            # Background mortality always provides a floor — density-dependent
+            # mortality adds on top when SDI is high enough that the density
+            # rate exceeds background. This prevents a mortality drop when
+            # RELSDI crosses the 0.55 threshold (density mort can be lower
+            # than background for shade-tolerant species with low removal fractions).
+            total_mort_prob = max(mort, rip)
 
             if random.random() > total_mort_prob:
                 survivors.append(tree)
