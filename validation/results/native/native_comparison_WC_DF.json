@@ -20,38 +20,38 @@
     {
       "cycle": 2,
       "age": 20,
-      "tpa": 389,
-      "basal_area": 51.890969251861115,
-      "qmd": 4.945468000269993,
+      "tpa": 383,
+      "basal_area": 51.11786556614688,
+      "qmd": 4.946787721293368,
       "top_height": 40.73407240178667,
-      "volume": 815.5844491245751
+      "volume": 803.6794579248177
     },
     {
       "cycle": 3,
       "age": 30,
-      "tpa": 370,
-      "basal_area": 136.91241700344713,
-      "qmd": 8.236768538355614,
-      "top_height": 55.49649407825241,
-      "volume": 2850.453832109444
+      "tpa": 375,
+      "basal_area": 139.80792762438227,
+      "qmd": 8.267735429586061,
+      "top_height": 55.52988500260034,
+      "volume": 2909.4237930442564
     },
     {
       "cycle": 4,
       "age": 40,
-      "tpa": 359,
-      "basal_area": 212.63830233802642,
-      "qmd": 10.421010397730136,
-      "top_height": 69.66329514564296,
-      "volume": 5548.082007190073
+      "tpa": 357,
+      "basal_area": 211.6764010374532,
+      "qmd": 10.4264969082005,
+      "top_height": 69.53091053914464,
+      "volume": 5524.783961561485
     },
     {
       "cycle": 5,
       "age": 50,
       "tpa": 339,
-      "basal_area": 274.56001724425886,
-      "qmd": 12.185829658701621,
-      "top_height": 82.68785594801774,
-      "volume": 8577.516594256018
+      "basal_area": 272.2801561632876,
+      "qmd": 12.135130520076725,
+      "top_height": 82.52163015344988,
+      "volume": 8515.821395656118
     }
   ],
   "native": [
@@ -104,80 +104,80 @@
   "metrics": {
     "tpa": {
       "n": 5,
-      "bias": 2.5647,
-      "mae": 5.9376,
-      "rmse": 7.9051,
-      "mape": 1.63,
-      "r_squared": 0.8057,
-      "max_error": 14.6671,
+      "bias": 1.9647,
+      "mae": 5.4217,
+      "rmse": 6.9611,
+      "mape": 1.5,
+      "r_squared": 0.8493,
+      "max_error": 9.799,
       "min_error": -8.4321,
       "equivalence_test_passed": false
     },
     "basal_area": {
       "n": 5,
-      "bias": 9.8525,
-      "mae": 9.8525,
-      "rmse": 11.566,
-      "mape": 10.13,
-      "r_squared": 0.9849,
-      "max_error": 15.8854,
+      "bias": 9.6286,
+      "mae": 9.6286,
+      "rmse": 11.6299,
+      "mape": 10.01,
+      "r_squared": 0.9847,
+      "max_error": 18.781,
       "min_error": 0.7637,
       "equivalence_test_passed": false
     },
     "qmd": {
       "n": 5,
-      "bias": 0.2933,
-      "mae": 0.2933,
-      "rmse": 0.3302,
-      "mape": 4.59,
-      "r_squared": 0.9919,
-      "max_error": 0.4745,
+      "bias": 0.2907,
+      "mae": 0.2907,
+      "rmse": 0.3261,
+      "mape": 4.6,
+      "r_squared": 0.9921,
+      "max_error": 0.4727,
       "min_error": 0.1126,
       "equivalence_test_passed": false
     },
     "top_height": {
       "n": 5,
-      "bias": 1.1187,
-      "mae": 1.1187,
-      "rmse": 1.356,
-      "mape": 1.87,
-      "r_squared": 0.9959,
-      "max_error": 2.2931,
+      "bias": 1.0657,
+      "mae": 1.0657,
+      "rmse": 1.2739,
+      "mape": 1.81,
+      "r_squared": 0.9964,
+      "max_error": 2.1269,
       "min_error": 0.2506,
       "equivalence_test_passed": false
     },
     "volume": {
       "n": 5,
-      "bias": 312.6543,
-      "mae": 312.6543,
-      "rmse": 419.4112,
-      "mape": 8.12,
-      "r_squared": 0.9787,
-      "max_error": 787.2809,
-      "min_error": 26.4752,
+      "bias": 305.0686,
+      "mae": 305.0686,
+      "rmse": 400.6466,
+      "mape": 8.01,
+      "r_squared": 0.9805,
+      "max_error": 725.5857,
+      "min_error": 14.5702,
       "equivalence_test_passed": false
     }
   },
   "acceptance": {
     "tpa": {
       "passed": true,
-      "message": "tpa validation PASSED (MAPE: 1.6%)"
+      "message": "tpa validation PASSED (MAPE: 1.5%)"
     },
     "basal_area": {
       "passed": false,
-      "message": "basal_area MAPE 10.1% exceeds threshold of 3.0%"
+      "message": "basal_area MAPE 10.0% exceeds threshold of 5.0%"
     },
     "qmd": {
       "passed": false,
-      "message": "diameter MAE 0.293 inches exceeds threshold of 0.1 inches"
+      "message": "diameter MAE 0.291 inches exceeds threshold of 0.1 inches"
     },
     "top_height": {
       "passed": false,
-      "message": "height MAE 1.119 feet exceeds threshold of 0.5 feet"
+      "message": "height MAE 1.066 feet exceeds threshold of 0.5 feet"
     },
     "volume": {
       "passed": true,
-      "message": "volume validation PASSED (MAPE: 8.1%)"
+      "message": "volume validation PASSED (MAPE: 8.0%)"
     }
   }
 }
