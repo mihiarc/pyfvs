@@ -62,10 +62,16 @@ Stand.initialize_planted(tpa, si, species, variant) -> Tree objects -> grow() ->
 ```python
 from pyfvs import Stand, GrowthParameters
 
-# Basic usage
+# Basic usage (stochastic by default, non-reproducible)
 stand = Stand.initialize_planted(500, 70, 'LP', variant='SN', ecounit='M231')
 stand.grow(50)
 metrics = stand.get_metrics()  # keys: tpa, basal_area, qmd, volume, top_height
+
+# Reproducible stochastic run
+stand = Stand.initialize_planted(500, 70, 'LP', random_seed=42)
+
+# Deterministic mode (Baskerville correction, no randomness)
+stand = Stand.initialize_planted(500, 70, 'LP', stochastic=False)
 
 # Thinning
 stand.thin_from_below(target_tpa=200)
@@ -89,6 +95,9 @@ if fvs_library_available('SN'):
 - `get_metrics()` returns `basal_area` (not `ba`), `tpa` (not `trees_per_acre`), `volume` (not `total_cubic_volume`)
 - `Tree()` requires `variant='LS'` for LS species like RN, JP, SM
 - `Tree.grow()` uses `time_step=` (not `cycle_length=`)
+- **Stochastic is default**: `Stand` uses `stochastic=True` by default. Pass `random_seed=N` for reproducibility or `stochastic=False` for deterministic mode.
+- Stochastic applies to SN, LS, PN, WC, CS diameter growth. NE and OP are unaffected (different model forms).
+- Factory functions use `create_*_diameter_growth_model()` naming (no `get_*` aliases)
 - SN ecounit effects are large: M231 adds +0.790 to ln(DDS), 232 (base) adds 0.0
 - FVS calibrated for 5yr cycles; `stand.grow()` auto-subdivides longer periods
 - DDS applies to inside-bark diameter (bark ratio conversion in tree.py)
