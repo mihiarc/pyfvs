@@ -803,6 +803,18 @@ class Stand:
                 tree_dbh = _estimate_dbh_from_height(
                     midpoint_height, species, actual_variant
                 )
+            elif actual_variant in ('SN', 'CA', 'OC', 'WS'):
+                # SN: H-D inverse at partial uncapped height to match native
+                # record-tripling QMD effect. Native FVS triples tree records
+                # with stochastic DG, creating DBH variance → QMD > mean(DBH).
+                # Using a height slightly above the HHTMAX cap compensates for
+                # the missing variance (QMD = sqrt(μ² + σ²) > μ).
+                uncapped_height = base_height * height_multiplier
+                estab_frac = 0.25
+                hd_height = tree_height + estab_frac * (uncapped_height - tree_height)
+                tree_dbh = _estimate_dbh_from_height(
+                    hd_height, species, actual_variant
+                )
             else:
                 tree_dbh = _estimate_dbh_from_height(
                     tree_height, species, actual_variant

@@ -423,7 +423,8 @@ class TestSNRegression:
         no forest type effect (IFORTP=0 in Fortran means all flags=0),
         no plant effect (MANAGD not set), correct LTBHEC row 13 coefficients,
         initial tree variation (dbh_sd=0.02, height_sd=0.1) for PBAL differentiation,
-        and no establishment skip.
+        no establishment skip, and NO ecounit in small-tree growth (matching
+        Fortran DGBND which uses pure height + H-D inverse).
         """
         stand = Stand.initialize_planted(500, 70, 'LP', variant='SN', ecounit='M231',
                                          stochastic=False)
@@ -431,11 +432,11 @@ class TestSNRegression:
         metrics = stand.get_metrics()
 
         # SN LP 500 TPA SI=70 M231 50yr — deterministic Baskerville correction
-        # M231 ecounit gives +0.790 to ln(DDS) → very fast growth
-        # Higher density triggers more mortality → fewer, bigger trees
-        assert metrics['tpa'] == pytest.approx(123, rel=0.10)
-        assert metrics['qmd'] == pytest.approx(21.12, rel=0.10)
-        assert metrics['basal_area'] == pytest.approx(299, rel=0.10)
+        # M231 ecounit gives +0.790 to ln(DDS) for large-tree DDS only
+        # No ecounit in small-tree model (matching Fortran DGBND)
+        assert metrics['tpa'] == pytest.approx(163, rel=0.10)
+        assert metrics['qmd'] == pytest.approx(17.90, rel=0.10)
+        assert metrics['basal_area'] == pytest.approx(285, rel=0.10)
 
     def test_sn_small_tree_height_growth_unchanged(self):
         """SN LP small tree height growth uses correct LTBHEC row 13 coefficients.

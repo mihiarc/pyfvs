@@ -436,28 +436,11 @@ class Tree:
         # Minimum 0.5 ft prevents degenerate zero-height trees
         self.height = max(0.5, self.height + actual_growth)
 
-        # Get ecological unit effect for DIAMETER growth (not height)
-        # This matches how FVS applies ecounit to the DDS equation for large trees
-        # Default to '231T' when no ecounit set (matching native FVS state=0 default)
-        from .ecological_unit import get_ecounit_effect
-        effective_ecounit = self._ecounit if self._ecounit is not None else '231T'
-        ecounit_effect = get_ecounit_effect(self.species, effective_ecounit)
-        # Convert additive ln(DDS) effect to multiplicative diameter increment effect
-        # For M231 with LP: ecounit_effect = 0.790, exp(0.790) ≈ 2.2x growth
-        ecounit_multiplier = math.exp(ecounit_effect)
-
-        # Save original DBH before height-diameter update
-        original_dbh = self.dbh
-
-        # Calculate new DBH from height using height-diameter relationship
+        # Calculate new DBH from height using height-diameter relationship.
+        # Ecounit effects are NOT applied to small-tree growth, matching
+        # Fortran DGBND which uses pure height + H-D inverse. Ecounit
+        # effects only apply in the large-tree DDS model (DGF).
         self._update_dbh_from_height()
-
-        # Apply ecounit effect to the DBH INCREMENT (not to height)
-        # This ensures regional productivity affects diameter growth
-        if ecounit_multiplier != 1.0 and self.dbh > original_dbh:
-            dbh_increment = self.dbh - original_dbh
-            adjusted_increment = dbh_increment * ecounit_multiplier
-            self.dbh = original_dbh + adjusted_increment
 
     def _load_variant_small_tree_coefficients(self, variant: str) -> dict:
         """Load variant-specific NC-128 small tree height growth coefficients.
