@@ -206,6 +206,13 @@ class Tree:
             else:
                 xmin = 2.0
                 xmax = 4.0
+        elif variant == 'SN':
+            # SN: blend zone 1.0-3.0" so trees at establishment DBH ~2.5"
+            # get ~84% DDS weight instead of 0% from hard 3.0" cutover.
+            # Compensates for lack of native Fortran's record tripling
+            # which creates DBH differentiation pushing trees above 3.0" earlier.
+            xmin = 1.0
+            xmax = 3.0
         else:
             transition_params = self.growth_params['growth_transitions']['small_to_large_tree']
             xmin = transition_params['xmin']
