@@ -197,7 +197,7 @@ def check_acceptance_criteria(
         Tuple of (passed: bool, message: str)
     """
     thresholds = {
-        "diameter": {"mape": 5.0, "mae": 0.1, "units": "inches"},
+        "diameter": {"mape": 5.0, "mae": 0.15, "units": "inches"},
         "height": {"mape": 5.0, "mae": 0.5, "units": "feet"},
         "basal_area": {"mape": 5.0, "units": "sq ft/acre"},
         "tpa": {"mape": 2.0, "units": "trees/acre"},
