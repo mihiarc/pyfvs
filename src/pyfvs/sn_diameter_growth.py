@@ -31,6 +31,7 @@ Key features:
 Source: FVS Southern Variant dgf.f, USDA Forest Service
 """
 import math
+import random
 from typing import Dict, Any, Optional
 
 from .model_base import ParameterizedModel
@@ -112,6 +113,34 @@ class SNDiameterGrowthModel(ParameterizedModel):
         else:
             return full_correction
 
+    def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
+        """DDS multiplier: Baskerville (deterministic) or random draw (stochastic).
+
+        When rng is None, returns deterministic Baskerville correction.
+        When rng is provided, draws Z ~ N(0, sigma^2) bounded +/-2sigma
+        with size-based suppression matching Fortran dgscor.f.
+        """
+        if self._sigma <= 0.0:
+            return 1.0
+
+        # Size-based suppression (dgscor.f)
+        if ln_dds > 5.0:
+            return 1.0
+        suppress = (5.0 - ln_dds) / 1.0 if ln_dds > 4.0 else 1.0
+
+        if rng is None:
+            # Deterministic: Baskerville correction
+            alpha = 0.88
+            full_correction = math.exp(alpha * self._sigma * self._sigma / 2.0)
+            return 1.0 + (full_correction - 1.0) * suppress
+
+        # Stochastic: draw bounded normal
+        dgsd = 2.0
+        z = rng.gauss(0.0, self._sigma)
+        z = max(-dgsd * self._sigma, min(dgsd * self._sigma, z))
+        z *= suppress
+        return math.exp(z)
+
     def calculate_dds(
         self,
         dbh: float,
@@ -125,7 +154,8 @@ class SNDiameterGrowthModel(ParameterizedModel):
         ecounit_effect: float = 0.0,
         fortype_effect: float = 0.0,
         plant_effect: float = 0.0,
-        time_step: float = 5.0
+        time_step: float = 5.0,
+        rng: random.Random = None
     ) -> float:
         """Calculate diameter squared increment (DDS).
 
@@ -202,11 +232,9 @@ class SNDiameterGrowthModel(ParameterizedModel):
         # Apply FVS minimum bound for ln(DDS)
         ln_dds = max(-9.21, ln_dds)
 
-        # Apply Baskerville (1972) bias correction for stochastic transform
-        # Native FVS draws random Z~N(0,σ²) bounded ±2σ and applies DDS*exp(Z).
-        # Deterministic prediction needs E[DDS] = exp(ln_dds) * correction to
-        # match the expected value of the stochastic native output.
-        correction = self._baskerville_correction(ln_dds)
+        # Apply stochastic multiplier: Baskerville correction (deterministic)
+        # or random draw (stochastic) matching Fortran dgscor.f.
+        correction = self._stochastic_multiplier(ln_dds, rng)
 
         # Convert to DDS and scale by time step (model calibrated for 5-year growth)
         dds = math.exp(ln_dds) * correction * (time_step / 5.0)
@@ -227,7 +255,8 @@ class SNDiameterGrowthModel(ParameterizedModel):
         ecounit_effect: float = 0.0,
         fortype_effect: float = 0.0,
         plant_effect: float = 0.0,
-        time_step: float = 5.0
+        time_step: float = 5.0,
+        rng: random.Random = None
     ) -> float:
         """Calculate diameter growth (DG) from DDS with bark ratio conversion.
 
@@ -256,7 +285,7 @@ class SNDiameterGrowthModel(ParameterizedModel):
             dbh, crown_ratio, site_index, ba, pbal,
             relht, slope, aspect,
             ecounit_effect, fortype_effect, plant_effect,
-            time_step
+            time_step, rng=rng
         )
 
         # Convert DBH to inside-bark diameter

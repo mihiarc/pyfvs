@@ -6,6 +6,7 @@ the Tree.grow() method, reducing the number of individual parameters from 11
 to a single object. This improves code readability and makes it easier to
 pass growth context between Stand and Tree objects.
 """
+import random
 from dataclasses import dataclass, field
 from typing import Optional, TYPE_CHECKING
 
@@ -104,6 +105,7 @@ class GrowthParameters:
     time_step: int = 5
     ecounit: Optional[str] = None
     forest_type: Optional[str] = None
+    rng: Optional[random.Random] = field(default=None, repr=False)
 
     @classmethod
     def from_stand(
@@ -176,5 +178,6 @@ class GrowthParameters:
             aspect=0.0,
             time_step=time_step,
             ecounit=stand.ecounit,
-            forest_type=stand.forest_type
+            forest_type=stand.forest_type,
+            rng=getattr(stand, '_rng', None)
         )

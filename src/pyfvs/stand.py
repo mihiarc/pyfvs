@@ -449,7 +449,9 @@ class Stand:
         species: str = 'LP',
         forest_type: Optional[str] = None,
         ecounit: Optional[str] = None,
-        variant: Optional[str] = None
+        variant: Optional[str] = None,
+        stochastic: bool = False,
+        random_seed: Optional[int] = None
     ):
         """Initialize a stand with a list of trees.
 
@@ -460,8 +462,17 @@ class Stand:
             forest_type: FVS forest type group (e.g., "FTYLPN", "FTLOHD")
             ecounit: Ecological unit code (e.g., "M221", "232")
             variant: FVS variant code (e.g., 'SN', 'LS'). If None, uses default.
+            stochastic: Enable stochastic diameter growth mode. When True,
+                per-tree per-cycle random draws replace deterministic Baskerville
+                correction, matching native FVS dgscor.f behavior.
+            random_seed: Seed for reproducible stochastic runs. Only used when
+                stochastic=True. If None, uses non-reproducible random state.
         """
         self.trees = trees if trees is not None else []
+
+        # Stochastic diameter growth mode
+        self.stochastic = stochastic
+        self._rng = random.Random(random_seed) if stochastic else None
 
         # Set variant (default based on global setting)
         self.variant = (variant or get_default_variant()).upper()
@@ -653,7 +664,9 @@ class Stand:
         species: str = 'LP',
         ecounit: Optional[str] = None,
         forest_type: Optional[str] = None,
-        variant: Optional[str] = None
+        variant: Optional[str] = None,
+        stochastic: bool = False,
+        random_seed: Optional[int] = None
     ):
         """Create a new planted stand.
 
@@ -664,6 +677,8 @@ class Stand:
             ecounit: Ecological unit code (e.g., "M231", "232") for regional growth effects
             forest_type: FVS forest type group (e.g., "FTYLPN")
             variant: FVS variant code (e.g., 'SN', 'LS'). If None, uses default.
+            stochastic: Enable stochastic diameter growth mode.
+            random_seed: Seed for reproducible stochastic runs.
 
         Returns:
             Stand: New stand instance
@@ -674,6 +689,10 @@ class Stand:
 
             Lake States variant:
                 >>> stand = Stand.initialize_planted(500, 60, 'RN', variant='LS')
+
+            Stochastic with reproducible seed:
+                >>> stand = Stand.initialize_planted(500, 70, 'LP', variant='SN',
+                ...                                  stochastic=True, random_seed=42)
         """
         if trees_per_acre <= 0:
             raise ValueError(f"trees_per_acre must be positive, got {trees_per_acre}")
@@ -799,7 +818,8 @@ class Stand:
             trees.append(tree)
 
         stand = cls(trees, site_index, species, forest_type=forest_type,
-                    ecounit=ecounit, variant=variant)
+                    ecounit=ecounit, variant=variant,
+                    stochastic=stochastic, random_seed=random_seed)
         stand.age = cycle_length
         return stand
 
@@ -1123,7 +1143,8 @@ class Stand:
                 time_step=years,
                 ecounit=self.ecounit,
                 forest_type=self._forest_type,  # Pass raw value; None → UPHD default in tree
-                qmd_ge5=qmd_ge5  # For LS variant RELDBH calculation
+                qmd_ge5=qmd_ge5,  # For LS variant RELDBH calculation
+                rng=self._rng
             )
 
         # Apply mortality (pass pre-growth QMD for Fortran-style TPA targeting)

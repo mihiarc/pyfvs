@@ -27,6 +27,7 @@ Key differences from SN variant:
 Source: FVS Lake States Variant dgf.f, USDA Forest Service
 """
 import math
+import random
 from typing import Dict, Any, Optional
 
 from .model_base import ParameterizedModel
@@ -152,6 +153,34 @@ class LSDiameterGrowthModel(ParameterizedModel):
         else:
             return full_correction
 
+    def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
+        """DDS multiplier: Baskerville (deterministic) or random draw (stochastic).
+
+        When rng is None, returns deterministic Baskerville correction.
+        When rng is provided, draws Z ~ N(0, sigma^2) bounded +/-2sigma
+        with size-based suppression matching Fortran dgscor.f.
+        """
+        if self._sigma <= 0.0:
+            return 1.0
+
+        # Size-based suppression (dgscor.f)
+        if ln_dds > 5.0:
+            return 1.0
+        suppress = (5.0 - ln_dds) / 1.0 if ln_dds > 4.0 else 1.0
+
+        if rng is None:
+            # Deterministic: Baskerville correction
+            alpha = 0.88
+            full_correction = math.exp(alpha * self._sigma * self._sigma / 2.0)
+            return 1.0 + (full_correction - 1.0) * suppress
+
+        # Stochastic: draw bounded normal
+        dgsd = 2.0
+        z = rng.gauss(0.0, self._sigma)
+        z = max(-dgsd * self._sigma, min(dgsd * self._sigma, z))
+        z *= suppress
+        return math.exp(z)
+
     def _get_coefficient_data(self) -> Dict[str, Any]:
         """Load coefficient data from JSON file using ConfigLoader with caching.
 
@@ -171,7 +200,8 @@ class LSDiameterGrowthModel(ParameterizedModel):
         ba: float,
         bal: float,
         qmd_ge5: float = None,
-        time_step: float = 10.0
+        time_step: float = 10.0,
+        rng: random.Random = None
     ) -> float:
         """Calculate diameter squared increment (DDS).
 
@@ -251,11 +281,9 @@ class LSDiameterGrowthModel(ParameterizedModel):
         # that can cause runaway growth without bounds
         ln_dds = max(-5.0, min(5.0, ln_dds))
 
-        # Apply Baskerville (1972) bias correction for stochastic transform
-        # Native FVS draws random Z~N(0,sigma^2) bounded +/-2sigma and applies DDS*exp(Z).
-        # Deterministic prediction needs E[DDS] = exp(ln_dds) * correction to
-        # match the expected value of the stochastic native output.
-        correction = self._baskerville_correction(ln_dds)
+        # Apply stochastic multiplier: Baskerville correction (deterministic)
+        # or random draw (stochastic) matching Fortran dgscor.f.
+        correction = self._stochastic_multiplier(ln_dds, rng)
 
         # Convert from ln(DDS) to DDS with correction
         dds = math.exp(ln_dds) * correction
@@ -274,7 +302,8 @@ class LSDiameterGrowthModel(ParameterizedModel):
         bal: float,
         bark_ratio: float = 0.9,
         qmd_ge5: float = None,
-        time_step: float = 10.0
+        time_step: float = 10.0,
+        rng: random.Random = None
     ) -> float:
         """Calculate diameter growth in inches.
 
@@ -302,7 +331,8 @@ class LSDiameterGrowthModel(ParameterizedModel):
             ba=ba,
             bal=bal,
             qmd_ge5=qmd_ge5,
-            time_step=time_step
+            time_step=time_step,
+            rng=rng
         )
 
         # LS DDS equation is calibrated for outside-bark application.
@@ -351,7 +381,8 @@ def calculate_ls_diameter_growth(
     species_code: str = 'RN',
     bark_ratio: float = 0.9,
     qmd_ge5: float = None,
-    time_step: float = 10.0
+    time_step: float = 10.0,
+    rng: random.Random = None
 ) -> float:
     """Convenience function to calculate LS diameter growth.
 
@@ -378,5 +409,6 @@ def calculate_ls_diameter_growth(
         bal=bal,
         bark_ratio=bark_ratio,
         qmd_ge5=qmd_ge5,
-        time_step=time_step
+        time_step=time_step,
+        rng=rng
     )

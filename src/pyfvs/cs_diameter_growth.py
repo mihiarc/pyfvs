@@ -28,6 +28,7 @@ Key characteristics:
 Source: FVS Central States Variant dgf.f, USDA Forest Service
 """
 import math
+import random
 from typing import Dict, Any
 
 from .model_base import ParameterizedModel
@@ -143,6 +144,46 @@ class CSDiameterGrowthModel(ParameterizedModel):
         """
         self.variant = variant
         super().__init__(species_code)
+        self._sigma = self._load_sigma()
+
+    def _load_sigma(self) -> float:
+        """Load SIGMAR for this species from variance_parameters.
+
+        SIGMAR is the standard deviation of ln(DDS) residuals. CS does NOT
+        use Baskerville correction in deterministic mode, but sigma is needed
+        for stochastic draws when rng is provided.
+
+        Returns:
+            SIGMAR value, or 0.0 if not found.
+        """
+        variance_params = self.raw_data.get('variance_parameters', {})
+        return variance_params.get(self.species_code, 0.0)
+
+    def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
+        """DDS multiplier: no correction (deterministic) or random draw (stochastic).
+
+        CS does NOT use Baskerville correction in deterministic mode (already
+        slightly overshoots native). When rng is provided, draws noise
+        matching Fortran dgscor.f.
+        """
+        if self._sigma <= 0.0:
+            return 1.0
+
+        # Size-based suppression (dgscor.f)
+        if ln_dds > 5.0:
+            return 1.0
+        suppress = (5.0 - ln_dds) / 1.0 if ln_dds > 4.0 else 1.0
+
+        if rng is None:
+            # Deterministic: NO Baskerville correction for CS
+            return 1.0
+
+        # Stochastic: draw bounded normal
+        dgsd = 2.0
+        z = rng.gauss(0.0, self._sigma)
+        z = max(-dgsd * self._sigma, min(dgsd * self._sigma, z))
+        z *= suppress
+        return math.exp(z)
 
     def _get_coefficient_data(self) -> Dict[str, Any]:
         """Load coefficient data from JSON file using ConfigLoader with caching.
@@ -163,7 +204,8 @@ class CSDiameterGrowthModel(ParameterizedModel):
         ba: float,
         bal: float,
         qmd_ge5: float = None,
-        time_step: float = 10.0
+        time_step: float = 10.0,
+        rng: random.Random = None
     ) -> float:
         """Calculate diameter squared increment (DDS).
 
@@ -241,8 +283,12 @@ class CSDiameterGrowthModel(ParameterizedModel):
         # ln(DDS) = 5 corresponds to DDS = 148 sq in (~2.2" growth per decade for 10" tree)
         ln_dds = max(-5.0, min(5.0, ln_dds))
 
-        # Convert from ln(DDS) to DDS
-        dds = math.exp(ln_dds)
+        # Apply stochastic multiplier: no correction (deterministic) or
+        # random draw (stochastic) matching Fortran dgscor.f.
+        correction = self._stochastic_multiplier(ln_dds, rng)
+
+        # Convert from ln(DDS) to DDS with correction
+        dds = math.exp(ln_dds) * correction
 
         # Scale for time step (CS is calibrated for 10-year periods)
         dds_scaled = dds * (time_step / 10.0)
@@ -258,7 +304,8 @@ class CSDiameterGrowthModel(ParameterizedModel):
         bal: float,
         bark_ratio: float = 0.9,
         qmd_ge5: float = None,
-        time_step: float = 10.0
+        time_step: float = 10.0,
+        rng: random.Random = None
     ) -> float:
         """Calculate diameter growth in inches.
 
@@ -286,7 +333,8 @@ class CSDiameterGrowthModel(ParameterizedModel):
             ba=ba,
             bal=bal,
             qmd_ge5=qmd_ge5,
-            time_step=time_step
+            time_step=time_step,
+            rng=rng
         )
 
         # CS DDS equation is calibrated for outside-bark application.
@@ -335,7 +383,8 @@ def calculate_cs_diameter_growth(
     species_code: str = 'WO',
     bark_ratio: float = 0.9,
     qmd_ge5: float = None,
-    time_step: float = 10.0
+    time_step: float = 10.0,
+    rng: random.Random = None
 ) -> float:
     """Convenience function to calculate CS diameter growth.
 
@@ -362,5 +411,6 @@ def calculate_cs_diameter_growth(
         bal=bal,
         bark_ratio=bark_ratio,
         qmd_ge5=qmd_ge5,
-        time_step=time_step
+        time_step=time_step,
+        rng=rng
     )

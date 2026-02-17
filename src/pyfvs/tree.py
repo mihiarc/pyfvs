@@ -100,7 +100,8 @@ class Tree:
         forest_type: str = None,
         qmd_ge5: float = None,
         *,
-        site_index: float = None
+        site_index: float = None,
+        rng=None
     ) -> None:
         """Grow the tree for the specified number of years.
 
@@ -153,6 +154,7 @@ class Tree:
             time_step = params.time_step
             ecounit = params.ecounit
             forest_type = params.forest_type
+            rng = params.rng if rng is None else rng
         else:
             # Individual parameters - handle both positional and keyword site_index
             if params_or_site_index is not None:
@@ -251,7 +253,7 @@ class Tree:
             self._grow_small_tree(site_index, competition_factor, time_step)
         elif weight == 1.0:
             # Pure large-tree model (DBH > xmax)
-            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5)
+            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng)
         else:
             # Transition zone: blend both models
             self._grow_small_tree(site_index, competition_factor, time_step)
@@ -262,7 +264,7 @@ class Tree:
             self.dbh = initial_dbh
             self.height = initial_height
 
-            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5)
+            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng)
             large_dbh = self.dbh
             large_height = self.height
 
@@ -554,7 +556,7 @@ class Tree:
         else:
             return math.sqrt(self.dbh * self.dbh + dds)
 
-    def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None):
+    def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None):
         """Implement large tree diameter growth model using variant-specific equations.
 
         Dispatches to the appropriate growth method based on the tree's variant:
@@ -572,12 +574,13 @@ class Tree:
             aspect: Aspect in radians
             time_step: Number of years to grow (default: 5)
             qmd_ge5: QMD of trees >= 5" DBH (for LS/CS RELDBH calculation)
+            rng: Random number generator for stochastic mode (None = deterministic)
         """
         variant = getattr(self, '_variant', 'SN')
 
         # SN variant (default) - special handling for ecounit/forest type effects
         if variant == 'SN':
-            self._grow_large_tree_sn(site_index, competition_factor, ba, pbal, slope, aspect, time_step)
+            self._grow_large_tree_sn(site_index, competition_factor, ba, pbal, slope, aspect, time_step, rng=rng)
 
         # OP variant - predicts diameter growth directly (not DDS)
         elif variant == 'OP':
@@ -585,15 +588,15 @@ class Tree:
 
         # Topographic variants - use elevation/slope/aspect effects
         elif variant in ('PN', 'WC', 'CA', 'OC', 'WS'):
-            self._grow_large_tree_topographic(variant, site_index, ba, pbal, slope, aspect, time_step)
+            self._grow_large_tree_topographic(variant, site_index, ba, pbal, slope, aspect, time_step, rng=rng)
 
         # Standard variants - DDS without topographic effects
         elif variant in ('LS', 'NE', 'CS'):
-            self._grow_large_tree_standard(variant, site_index, ba, pbal, time_step, qmd_ge5)
+            self._grow_large_tree_standard(variant, site_index, ba, pbal, time_step, qmd_ge5, rng=rng)
 
         else:
             # Unknown variant - fall back to SN
-            self._grow_large_tree_sn(site_index, competition_factor, ba, pbal, slope, aspect, time_step)
+            self._grow_large_tree_sn(site_index, competition_factor, ba, pbal, slope, aspect, time_step, rng=rng)
 
     def _grow_large_tree_standard(
         self,
@@ -602,7 +605,8 @@ class Tree:
         ba: float,
         pbal: float,
         time_step: float = 10.0,
-        qmd_ge5: float = None
+        qmd_ge5: float = None,
+        rng=None
     ) -> None:
         """Generic large tree growth for non-topographic variants (LS, NE, CS).
 
@@ -635,7 +639,8 @@ class Tree:
                 bal=pbal,
                 bark_ratio=bark_ratio,
                 qmd_ge5=qmd_ge5,
-                time_step=time_step
+                time_step=time_step,
+                rng=rng
             )
         elif variant == 'NE':
             from .ne_diameter_growth import get_ne_diameter_growth_model
@@ -660,7 +665,8 @@ class Tree:
                 bal=pbal,
                 bark_ratio=bark_ratio,
                 qmd_ge5=qmd_ge5,
-                time_step=time_step
+                time_step=time_step,
+                rng=rng
             )
         else:
             raise ValueError(f"Unsupported variant for standard growth: {variant}")
@@ -718,7 +724,8 @@ class Tree:
         slope: float = 0.0,
         aspect: float = 0.0,
         time_step: float = 10.0,
-        elevation: float = None
+        elevation: float = None,
+        rng=None
     ) -> None:
         """Generic large tree growth for topographic variants (PN, WC, CA, OC, WS).
 
@@ -830,7 +837,8 @@ class Tree:
                 slope=slope,
                 aspect=aspect,
                 time_step=time_step,
-                bark_ratio=bark_ratio
+                bark_ratio=bark_ratio,
+                rng=rng
             )
 
         # Apply increment to DBH
@@ -893,7 +901,7 @@ class Tree:
         # Update height using height-diameter relationship for OP
         self._update_height_large_tree_variant('OP', site_index)
 
-    def _grow_large_tree_sn(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5):
+    def _grow_large_tree_sn(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, rng=None):
         """Implement large tree diameter growth model for SN (Southern) variant.
 
         Uses the SN variant ln(DDS) equation:
@@ -967,7 +975,8 @@ class Tree:
             ecounit_effect=ecounit_effect,
             fortype_effect=fortype_effect,
             plant_effect=plant_effect,
-            time_step=time_step
+            time_step=time_step,
+            rng=rng
         )
 
         # Apply increment to DBH
