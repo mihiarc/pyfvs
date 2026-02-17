@@ -143,54 +143,6 @@ class CSDiameterGrowthModel(ParameterizedModel):
         """
         self.variant = variant
         super().__init__(species_code)
-        self._sigma = self._load_sigma()
-
-    def _load_sigma(self) -> float:
-        """Load SIGMAR for this species from variance_parameters.
-
-        SIGMAR is the standard deviation of ln(DDS) residuals, used for
-        the Baskerville (1972) bias correction. Values come from cs/blkdat.f.
-
-        Returns:
-            SIGMAR value, or 0.0 if not found.
-        """
-        variance_params = self.raw_data.get('variance_parameters', {})
-        return variance_params.get(self.species_code, 0.0)
-
-    def _baskerville_correction(self, ln_dds: float) -> float:
-        """Apply bounded Baskerville (1972) bias correction to DDS.
-
-        Native FVS applies DDS*exp(Z) where Z~N(0,sigma^2) bounded to +/-2sigma (DGSD=2.0).
-        The truncated normal E[exp(Z)] ~ exp(alpha*sigma^2/2) where alpha~0.88 for +/-2sigma bounds.
-        This corrects the Jensen's inequality bias: E[exp(X)] > exp(E[X]).
-
-        Fortran dgscor.f suppresses stochastic error for large trees:
-        - ln(DDS) > 5.0: no correction (large trees already well-predicted)
-        - 4.0 < ln(DDS) <= 5.0: linear taper from full to no correction
-        - ln(DDS) <= 4.0: full correction
-
-        Args:
-            ln_dds: Natural log of diameter squared increment.
-
-        Returns:
-            Correction multiplier (>= 1.0).
-        """
-        if self._sigma <= 0.0:
-            return 1.0
-
-        # alpha=0.88 accounts for +/-2sigma truncation of normal distribution
-        alpha = 0.88
-        full_correction = math.exp(alpha * self._sigma * self._sigma / 2.0)
-
-        # Fortran-style error suppression for large trees (dgscor.f)
-        if ln_dds > 5.0:
-            return 1.0
-        elif ln_dds > 4.0:
-            # Linear taper: at ln_dds=4.0 -> full correction, at 5.0 -> no correction
-            taper = (5.0 - ln_dds) / 1.0
-            return 1.0 + (full_correction - 1.0) * taper
-        else:
-            return full_correction
 
     def _get_coefficient_data(self) -> Dict[str, Any]:
         """Load coefficient data from JSON file using ConfigLoader with caching.
@@ -289,14 +241,8 @@ class CSDiameterGrowthModel(ParameterizedModel):
         # ln(DDS) = 5 corresponds to DDS = 148 sq in (~2.2" growth per decade for 10" tree)
         ln_dds = max(-5.0, min(5.0, ln_dds))
 
-        # Apply Baskerville (1972) bias correction for stochastic transform
-        # Native FVS draws random Z~N(0,sigma^2) bounded +/-2sigma and applies DDS*exp(Z).
-        # Deterministic prediction needs E[DDS] = exp(ln_dds) * correction to
-        # match the expected value of the stochastic native output.
-        correction = self._baskerville_correction(ln_dds)
-
-        # Convert from ln(DDS) to DDS with correction
-        dds = math.exp(ln_dds) * correction
+        # Convert from ln(DDS) to DDS
+        dds = math.exp(ln_dds)
 
         # Scale for time step (CS is calibrated for 10-year periods)
         dds_scaled = dds * (time_step / 10.0)
