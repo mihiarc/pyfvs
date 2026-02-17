@@ -77,42 +77,6 @@ class SNDiameterGrowthModel(ParameterizedModel):
         variance_params = self.raw_data.get('variance_parameters', {})
         return variance_params.get(self.species_code, 0.0)
 
-    def _baskerville_correction(self, ln_dds: float) -> float:
-        """Apply bounded Baskerville (1972) bias correction to DDS.
-
-        Native FVS applies DDS*exp(Z) where Z~N(0,σ²) bounded to ±2σ (DGSD=2.0).
-        The truncated normal E[exp(Z)] ≈ exp(α*σ²/2) where α≈0.88 for ±2σ bounds.
-        This corrects the Jensen's inequality bias: E[exp(X)] > exp(E[X]).
-
-        Fortran dgscor.f suppresses stochastic error for large trees:
-        - ln(DDS) > 5.0: no correction (large trees already well-predicted)
-        - 4.0 < ln(DDS) <= 5.0: linear taper from full to no correction
-        - ln(DDS) <= 4.0: full correction
-
-        Args:
-            ln_dds: Natural log of diameter squared increment.
-
-        Returns:
-            Correction multiplier (>= 1.0).
-        """
-        if self._sigma <= 0.0:
-            return 1.0
-
-        # α=0.88 accounts for ±2σ truncation of normal distribution
-        # Full theoretical is exp(σ²/2); truncated is exp(0.88*σ²/2)
-        alpha = 0.88
-        full_correction = math.exp(alpha * self._sigma * self._sigma / 2.0)
-
-        # Fortran-style error suppression for large trees (dgscor.f)
-        if ln_dds > 5.0:
-            return 1.0
-        elif ln_dds > 4.0:
-            # Linear taper: at ln_dds=4.0 → full correction, at 5.0 → no correction
-            taper = (5.0 - ln_dds) / 1.0
-            return 1.0 + (full_correction - 1.0) * taper
-        else:
-            return full_correction
-
     def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
         """DDS multiplier: Baskerville (deterministic) or random draw (stochastic).
 

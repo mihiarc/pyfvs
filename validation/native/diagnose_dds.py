@@ -33,7 +33,7 @@ from pyfvs.ls_diameter_growth import create_ls_diameter_growth_model
 from pyfvs.cs_diameter_growth import create_cs_diameter_growth_model
 from pyfvs.pn_diameter_growth import create_pn_diameter_growth_model
 from pyfvs.wc_diameter_growth import create_wc_diameter_growth_model
-from pyfvs.op_diameter_growth import get_op_diameter_growth_model
+from pyfvs.op_diameter_growth import create_op_diameter_growth_model
 from pyfvs.bark_ratio import create_bark_ratio_model
 
 console = Console()
@@ -105,7 +105,7 @@ def compute_pyfvs_dds(
             ba=ba, bal=pbal, time_step=time_step,
         )
     elif variant == 'OP':
-        model = get_op_diameter_growth_model(species)
+        model = create_op_diameter_growth_model(species)
         bark_model = create_bark_ratio_model(species, variant='OP')
         bark_ratio = bark_model.calculate_bark_ratio(dbh)
         # OP predicts DG directly, convert to DDS for comparison
@@ -137,7 +137,7 @@ def compute_pyfvs_dg(
     bark_ratio = bark_model.calculate_bark_ratio(dbh)
 
     if variant == 'OP':
-        model = get_op_diameter_growth_model(species)
+        model = create_op_diameter_growth_model(species)
         return model.calculate_diameter_growth(
             dbh=dbh, crown_ratio=crown_ratio, site_index=site_index,
             ba=ba, bal=pbal, time_step=time_step,

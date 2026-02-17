@@ -327,10 +327,6 @@ def create_ne_diameter_growth_model(species_code: str = 'RM') -> NEDiameterGrowt
     return _model_cache[species_upper]
 
 
-# Backwards compatibility alias
-get_ne_diameter_growth_model = create_ne_diameter_growth_model
-
-
 def calculate_ne_diameter_growth(
     dbh: float,
     crown_ratio: float,
@@ -356,7 +352,7 @@ def calculate_ne_diameter_growth(
     Returns:
         Diameter increment in inches (outside bark)
     """
-    model = get_ne_diameter_growth_model(species_code)
+    model = create_ne_diameter_growth_model(species_code)
     return model.calculate_diameter_growth(
         dbh=dbh,
         crown_ratio=crown_ratio,

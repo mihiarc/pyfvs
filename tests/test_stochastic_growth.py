@@ -139,21 +139,26 @@ class TestStochasticDivergence:
 # =========================================================================
 
 class TestDeterministicUnchanged:
-    """Stochastic=False (default) must produce identical results to pre-change behavior."""
+    """Stochastic=False must produce deterministic Baskerville-corrected results."""
 
-    def test_sn_deterministic_default(self):
-        """SN: stochastic=False is the default and works normally."""
+    def test_sn_stochastic_is_default(self):
+        """SN: stochastic=True is the default."""
         stand = Stand.initialize_planted(500, 70, 'LP', variant='SN')
+        assert stand.stochastic is True
+        assert stand._rng is not None
+
+    def test_sn_deterministic_explicit(self):
+        """SN: stochastic=False gives deterministic results."""
+        stand = Stand.initialize_planted(500, 70, 'LP', variant='SN', stochastic=False)
         assert stand.stochastic is False
         assert stand._rng is None
         stand.grow(25)
         m = stand.get_metrics()
-        # Sanity: BA should be reasonable for LP at age 30
         assert 50 < m['basal_area'] < 250
 
-    def test_ls_deterministic_default(self):
+    def test_ls_deterministic_explicit(self):
         """LS: deterministic mode works normally."""
-        stand = Stand.initialize_planted(500, 60, 'RN', variant='LS')
+        stand = Stand.initialize_planted(500, 60, 'RN', variant='LS', stochastic=False)
         assert stand._rng is None
         stand.grow(30)
         m = stand.get_metrics()

@@ -39,7 +39,7 @@ from .model_base import ParameterizedModel
 
 __all__ = [
     'OCDiameterGrowthModel',
-    'get_oc_diameter_growth_model',
+    'create_oc_diameter_growth_model',
     'calculate_oc_dds',
 ]
 
@@ -294,23 +294,19 @@ class OCDiameterGrowthModel(ParameterizedModel):
         return max(0.0, diameter_growth)
 
 
-def get_oc_diameter_growth_model(species_code: str = 'DF') -> OCDiameterGrowthModel:
-    """Get or create a cached OC diameter growth model instance.
+def create_oc_diameter_growth_model(species_code: str = 'DF') -> OCDiameterGrowthModel:
+    """Factory function to create a cached OC diameter growth model.
 
     Args:
         species_code: FVS species code
 
     Returns:
-        OCDiameterGrowthModel instance
+        Cached OCDiameterGrowthModel instance
     """
     key = species_code.upper()
     if key not in _model_cache:
         _model_cache[key] = OCDiameterGrowthModel(species_code)
     return _model_cache[key]
-
-
-# Alias for consistency with other modules
-create_oc_diameter_growth_model = get_oc_diameter_growth_model
 
 
 def calculate_oc_dds(
@@ -336,5 +332,5 @@ def calculate_oc_dds(
     Returns:
         DDS value
     """
-    model = get_oc_diameter_growth_model(species_code)
+    model = create_oc_diameter_growth_model(species_code)
     return model.calculate_dds(dbh, crown_ratio, site_index, ba, bal, **kwargs)

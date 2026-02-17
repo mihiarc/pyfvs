@@ -351,7 +351,7 @@ class OPDiameterGrowthModel(ParameterizedModel):
 _model_cache: Dict[str, OPDiameterGrowthModel] = {}
 
 
-def get_op_diameter_growth_model(
+def create_op_diameter_growth_model(
     species_code: str = "DF",
     version: int = 2
 ) -> OPDiameterGrowthModel:
@@ -368,7 +368,3 @@ def get_op_diameter_growth_model(
     if cache_key not in _model_cache:
         _model_cache[cache_key] = OPDiameterGrowthModel(species_code, version)
     return _model_cache[cache_key]
-
-
-# Alias for consistency with other modules
-create_op_diameter_growth_model = get_op_diameter_growth_model

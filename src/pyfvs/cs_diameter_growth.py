@@ -370,10 +370,6 @@ def create_cs_diameter_growth_model(species_code: str = 'WO') -> CSDiameterGrowt
     return _model_cache[species_upper]
 
 
-# Backwards compatibility alias
-get_cs_diameter_growth_model = create_cs_diameter_growth_model
-
-
 def calculate_cs_diameter_growth(
     dbh: float,
     crown_ratio: float,
@@ -402,7 +398,7 @@ def calculate_cs_diameter_growth(
     Returns:
         Diameter increment in inches (outside bark)
     """
-    model = get_cs_diameter_growth_model(species_code)
+    model = create_cs_diameter_growth_model(species_code)
     return model.calculate_diameter_growth(
         dbh=dbh,
         crown_ratio=crown_ratio,

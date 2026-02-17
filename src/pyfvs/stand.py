@@ -450,7 +450,7 @@ class Stand:
         forest_type: Optional[str] = None,
         ecounit: Optional[str] = None,
         variant: Optional[str] = None,
-        stochastic: bool = False,
+        stochastic: bool = True,
         random_seed: Optional[int] = None
     ):
         """Initialize a stand with a list of trees.
@@ -463,8 +463,8 @@ class Stand:
             ecounit: Ecological unit code (e.g., "M221", "232")
             variant: FVS variant code (e.g., 'SN', 'LS'). If None, uses default.
             stochastic: Enable stochastic diameter growth mode. When True,
-                per-tree per-cycle random draws replace deterministic Baskerville
-                correction, matching native FVS dgscor.f behavior.
+                per-tree per-cycle random draws match native FVS dgscor.f behavior.
+                When False, uses deterministic Baskerville bias correction.
             random_seed: Seed for reproducible stochastic runs. Only used when
                 stochastic=True. If None, uses non-reproducible random state.
         """
@@ -665,7 +665,7 @@ class Stand:
         ecounit: Optional[str] = None,
         forest_type: Optional[str] = None,
         variant: Optional[str] = None,
-        stochastic: bool = False,
+        stochastic: bool = True,
         random_seed: Optional[int] = None
     ):
         """Create a new planted stand.
@@ -677,22 +677,22 @@ class Stand:
             ecounit: Ecological unit code (e.g., "M231", "232") for regional growth effects
             forest_type: FVS forest type group (e.g., "FTYLPN")
             variant: FVS variant code (e.g., 'SN', 'LS'). If None, uses default.
-            stochastic: Enable stochastic diameter growth mode.
+            stochastic: Enable stochastic diameter growth mode (default True).
+                Set to False for deterministic Baskerville correction.
             random_seed: Seed for reproducible stochastic runs.
 
         Returns:
             Stand: New stand instance
 
         Examples:
-            Southern variant (default):
+            Southern variant (default, stochastic):
                 >>> stand = Stand.initialize_planted(500, 70, 'LP')
 
-            Lake States variant:
-                >>> stand = Stand.initialize_planted(500, 60, 'RN', variant='LS')
+            Reproducible seed:
+                >>> stand = Stand.initialize_planted(500, 70, 'LP', random_seed=42)
 
-            Stochastic with reproducible seed:
-                >>> stand = Stand.initialize_planted(500, 70, 'LP', variant='SN',
-                ...                                  stochastic=True, random_seed=42)
+            Deterministic mode:
+                >>> stand = Stand.initialize_planted(500, 70, 'LP', stochastic=False)
         """
         if trees_per_acre <= 0:
             raise ValueError(f"trees_per_acre must be positive, got {trees_per_acre}")

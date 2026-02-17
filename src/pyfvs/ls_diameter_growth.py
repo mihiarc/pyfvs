@@ -118,41 +118,6 @@ class LSDiameterGrowthModel(ParameterizedModel):
         variance_params = self.raw_data.get('variance_parameters', {})
         return variance_params.get(self.species_code, 0.0)
 
-    def _baskerville_correction(self, ln_dds: float) -> float:
-        """Apply bounded Baskerville (1972) bias correction to DDS.
-
-        Native FVS applies DDS*exp(Z) where Z~N(0,sigma^2) bounded to +/-2sigma (DGSD=2.0).
-        The truncated normal E[exp(Z)] ~ exp(alpha*sigma^2/2) where alpha~0.88 for +/-2sigma bounds.
-        This corrects the Jensen's inequality bias: E[exp(X)] > exp(E[X]).
-
-        Fortran dgscor.f suppresses stochastic error for large trees:
-        - ln(DDS) > 5.0: no correction (large trees already well-predicted)
-        - 4.0 < ln(DDS) <= 5.0: linear taper from full to no correction
-        - ln(DDS) <= 4.0: full correction
-
-        Args:
-            ln_dds: Natural log of diameter squared increment.
-
-        Returns:
-            Correction multiplier (>= 1.0).
-        """
-        if self._sigma <= 0.0:
-            return 1.0
-
-        # alpha=0.88 accounts for +/-2sigma truncation of normal distribution
-        alpha = 0.88
-        full_correction = math.exp(alpha * self._sigma * self._sigma / 2.0)
-
-        # Fortran-style error suppression for large trees (dgscor.f)
-        if ln_dds > 5.0:
-            return 1.0
-        elif ln_dds > 4.0:
-            # Linear taper: at ln_dds=4.0 -> full correction, at 5.0 -> no correction
-            taper = (5.0 - ln_dds) / 1.0
-            return 1.0 + (full_correction - 1.0) * taper
-        else:
-            return full_correction
-
     def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
         """DDS multiplier: Baskerville (deterministic) or random draw (stochastic).
 
@@ -368,10 +333,6 @@ def create_ls_diameter_growth_model(species_code: str = 'RN') -> LSDiameterGrowt
     return _model_cache[species_upper]
 
 
-# Backwards compatibility alias
-get_ls_diameter_growth_model = create_ls_diameter_growth_model
-
-
 def calculate_ls_diameter_growth(
     dbh: float,
     crown_ratio: float,
@@ -400,7 +361,7 @@ def calculate_ls_diameter_growth(
     Returns:
         Diameter increment in inches (outside bark)
     """
-    model = get_ls_diameter_growth_model(species_code)
+    model = create_ls_diameter_growth_model(species_code)
     return model.calculate_diameter_growth(
         dbh=dbh,
         crown_ratio=crown_ratio,

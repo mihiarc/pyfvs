@@ -629,8 +629,8 @@ class Tree:
 
         # Get appropriate diameter growth model based on variant
         if variant == 'LS':
-            from .ls_diameter_growth import get_ls_diameter_growth_model
-            dg_model = get_ls_diameter_growth_model(self.species)
+            from .ls_diameter_growth import create_ls_diameter_growth_model
+            dg_model = create_ls_diameter_growth_model(self.species)
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
@@ -643,8 +643,8 @@ class Tree:
                 rng=rng
             )
         elif variant == 'NE':
-            from .ne_diameter_growth import get_ne_diameter_growth_model
-            dg_model = get_ne_diameter_growth_model(self.species)
+            from .ne_diameter_growth import create_ne_diameter_growth_model
+            dg_model = create_ne_diameter_growth_model(self.species)
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
@@ -655,8 +655,8 @@ class Tree:
                 time_step=time_step
             )
         elif variant == 'CS':
-            from .cs_diameter_growth import get_cs_diameter_growth_model
-            dg_model = get_cs_diameter_growth_model(self.species)
+            from .cs_diameter_growth import create_cs_diameter_growth_model
+            dg_model = create_cs_diameter_growth_model(self.species)
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
@@ -763,14 +763,14 @@ class Tree:
             from .wc_diameter_growth import create_wc_diameter_growth_model
             dg_model = create_wc_diameter_growth_model(self.species)
         elif variant == 'CA':
-            from .ca_diameter_growth import get_ca_diameter_growth_model
-            dg_model = get_ca_diameter_growth_model(self.species)
+            from .ca_diameter_growth import create_ca_diameter_growth_model
+            dg_model = create_ca_diameter_growth_model(self.species)
         elif variant == 'OC':
-            from .oc_diameter_growth import get_oc_diameter_growth_model
-            dg_model = get_oc_diameter_growth_model(self.species)
+            from .oc_diameter_growth import create_oc_diameter_growth_model
+            dg_model = create_oc_diameter_growth_model(self.species)
         elif variant == 'WS':
-            from .ws_diameter_growth import get_ws_diameter_growth_model
-            dg_model = get_ws_diameter_growth_model(self.species)
+            from .ws_diameter_growth import create_ws_diameter_growth_model
+            dg_model = create_ws_diameter_growth_model(self.species)
         else:
             raise ValueError(f"Unsupported variant for topographic growth: {variant}")
 
@@ -879,10 +879,10 @@ class Tree:
             pbal: Basal area in larger trees (sq ft/acre)
             time_step: Number of years to grow (default: 5)
         """
-        from .op_diameter_growth import get_op_diameter_growth_model
+        from .op_diameter_growth import create_op_diameter_growth_model
 
         # Get the OP diameter growth model for this species
-        dg_model = get_op_diameter_growth_model(self.species)
+        dg_model = create_op_diameter_growth_model(self.species)
 
         # Calculate diameter growth using ORGANON model
         # Note: ORGANON predicts diameter growth directly, not DDS

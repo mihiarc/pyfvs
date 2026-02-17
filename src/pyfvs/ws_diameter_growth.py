@@ -38,7 +38,7 @@ from .model_base import ParameterizedModel
 
 __all__ = [
     'WSDiameterGrowthModel',
-    'get_ws_diameter_growth_model',
+    'create_ws_diameter_growth_model',
     'calculate_ws_dds',
 ]
 
@@ -280,23 +280,19 @@ class WSDiameterGrowthModel(ParameterizedModel):
         return max(0.0, diameter_growth)
 
 
-def get_ws_diameter_growth_model(species_code: str = 'SP') -> WSDiameterGrowthModel:
-    """Get or create a cached WS diameter growth model instance.
+def create_ws_diameter_growth_model(species_code: str = 'SP') -> WSDiameterGrowthModel:
+    """Factory function to create a cached WS diameter growth model.
 
     Args:
         species_code: FVS species code
 
     Returns:
-        WSDiameterGrowthModel instance
+        Cached WSDiameterGrowthModel instance
     """
     key = species_code.upper()
     if key not in _model_cache:
         _model_cache[key] = WSDiameterGrowthModel(species_code)
     return _model_cache[key]
-
-
-# Alias for consistency with other modules
-create_ws_diameter_growth_model = get_ws_diameter_growth_model
 
 
 def calculate_ws_dds(
@@ -322,5 +318,5 @@ def calculate_ws_dds(
     Returns:
         DDS value
     """
-    model = get_ws_diameter_growth_model(species_code)
+    model = create_ws_diameter_growth_model(species_code)
     return model.calculate_dds(dbh, crown_ratio, site_index, ba, bal, **kwargs)

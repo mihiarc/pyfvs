@@ -425,11 +425,12 @@ class TestSNRegression:
         initial tree variation (dbh_sd=0.02, height_sd=0.1) for PBAL differentiation,
         and no establishment skip.
         """
-        stand = Stand.initialize_planted(500, 70, 'LP', variant='SN', ecounit='M231')
+        stand = Stand.initialize_planted(500, 70, 'LP', variant='SN', ecounit='M231',
+                                         stochastic=False)
         stand.grow(50)
         metrics = stand.get_metrics()
 
-        # SN LP 500 TPA SI=70 M231 50yr — Baskerville correction active
+        # SN LP 500 TPA SI=70 M231 50yr — deterministic Baskerville correction
         # M231 ecounit gives +0.790 to ln(DDS) → very fast growth
         # Higher density triggers more mortality → fewer, bigger trees
         assert metrics['tpa'] == pytest.approx(123, rel=0.10)
