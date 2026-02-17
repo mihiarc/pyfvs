@@ -331,17 +331,32 @@ class HeightDiameterModel(ParameterizedModel):
             raise ValueError(f"Unknown model: {model}")
 
 
+_height_diameter_model_cache: dict[tuple[str, str], HeightDiameterModel] = {}
+
+
 def create_height_diameter_model(species_code: str = "LP", variant: str = None) -> HeightDiameterModel:
     """Factory function to create a height-diameter model for a species.
+
+    Caches model instances by (species, variant) to avoid repeatedly loading
+    coefficient files from disk. This is critical for performance in
+    Stand.initialize_planted() which calls this once per tree.
 
     Args:
         species_code: Species code (e.g., "LP", "SP", "SA", "JP", "RN", etc.)
         variant: FVS variant code (e.g., "SN", "LS"). If None, uses current default.
 
     Returns:
-        HeightDiameterModel instance
+        HeightDiameterModel instance (may be shared across calls)
     """
-    return HeightDiameterModel(species_code, variant=variant)
+    from .config_loader import get_default_variant
+    resolved_variant = (variant or get_default_variant()).upper()
+    cache_key = (species_code.upper(), resolved_variant)
+
+    if cache_key not in _height_diameter_model_cache:
+        _height_diameter_model_cache[cache_key] = HeightDiameterModel(
+            species_code, variant=variant
+        )
+    return _height_diameter_model_cache[cache_key]
 
 
 def curtis_arney_height(dbh: float, p2: float, p3: float, p4: float, dbw: float = 0.1) -> float:

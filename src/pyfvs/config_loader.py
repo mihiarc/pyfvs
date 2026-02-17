@@ -106,24 +106,35 @@ class ConfigLoader:
         # Cache for coefficient files (loaded once, reused)
         self._coefficient_cache: Dict[str, Dict[str, Any]] = {}
 
+        # Cache for config files (YAML/JSON/TOML parsed once per file path)
+        self._config_file_cache: Dict[str, Dict[str, Any]] = {}
+
         # Load main configuration files
         self._load_main_config()
     
     def _load_config_file(self, file_path: Path) -> Dict[str, Any]:
         """Load configuration from YAML or TOML file.
-        
+
+        Results are cached by file path to avoid repeatedly parsing the same
+        files. This is critical for performance when creating many Tree objects
+        with the same species, since each Tree.__init__ loads species config.
+
         Args:
             file_path: Path to the configuration file
-            
+
         Returns:
             Dictionary containing configuration data
-            
+
         Raises:
             FileNotFoundError: If file doesn't exist
             ConfigurationError: If file format is not supported or parsing fails
         """
         from .exceptions import FileNotFoundError as FVSFileNotFoundError, ConfigurationError, InvalidDataError
-        
+
+        cache_key = str(file_path)
+        if cache_key in self._config_file_cache:
+            return self._config_file_cache[cache_key]
+
         if not file_path.exists():
             raise FVSFileNotFoundError(str(file_path), "configuration file")
         
@@ -135,7 +146,6 @@ class ConfigLoader:
                     data = yaml.safe_load(f)
                     if data is None:
                         raise InvalidDataError("YAML file", "file is empty or contains only comments")
-                    return data
             elif suffix == '.toml':
                 if tomllib is None:
                     raise ImportError(
@@ -143,13 +153,12 @@ class ConfigLoader:
                         "Install with: pip install tomli"
                     )
                 with open(file_path, 'rb') as f:
-                    return tomllib.load(f)
+                    data = tomllib.load(f)
             elif suffix == '.json':
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if data is None:
                         raise InvalidDataError("JSON file", "file is empty or contains null")
-                    return data
             else:
                 raise ConfigurationError(f"Unsupported configuration file format: {suffix}. "
                                        f"Supported formats: .yaml, .yml, .toml, .json")
@@ -161,6 +170,9 @@ class ConfigLoader:
             if isinstance(e, (FVSFileNotFoundError, ConfigurationError, InvalidDataError)):
                 raise
             raise ConfigurationError(f"Failed to load configuration from {file_path}: {str(e)}") from e
+
+        self._config_file_cache[cache_key] = data
+        return data
     
     def _save_config_file(self, data: Dict[str, Any], file_path: Path) -> None:
         """Save configuration to YAML or TOML file.
