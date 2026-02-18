@@ -21,6 +21,7 @@ Usage:
         def __init__(self, species_code: str = "LP"):
             super().__init__(species_code)
 """
+import logging
 import math
 import random
 from abc import ABC
@@ -28,6 +29,8 @@ from typing import Dict, Any, Optional
 
 from .config_loader import load_coefficient_file
 from .species import SpeciesCode
+
+logger = logging.getLogger("pyfvs.model_base")
 
 
 class ParameterizedModel(ABC):
@@ -87,6 +90,10 @@ class ParameterizedModel(ABC):
         try:
             return load_coefficient_file(self.COEFFICIENT_FILE)
         except FileNotFoundError:
+            logger.warning(
+                "%s: coefficient file '%s' not found, using fallback parameters",
+                self.__class__.__name__, self.COEFFICIENT_FILE,
+            )
             return {}
 
     def _load_parameters(self) -> None:
@@ -107,10 +114,21 @@ class ParameterizedModel(ABC):
             # Get species coefficients from the configured key
             species_coeffs = self.raw_data.get(self.COEFFICIENT_KEY, {})
 
+            if not species_coeffs:
+                logger.warning(
+                    "%s: key '%s' not found in '%s', using fallback parameters",
+                    self.__class__.__name__, self.COEFFICIENT_KEY, self.COEFFICIENT_FILE,
+                )
+
             if self.species_code in species_coeffs:
                 self.coefficients = species_coeffs[self.species_code]
             elif self.DEFAULT_SPECIES in species_coeffs:
                 # Fallback to default species if current species not found
+                logger.warning(
+                    "%s: species '%s' not found in '%s', falling back to DEFAULT_SPECIES '%s'",
+                    self.__class__.__name__, self.species_code,
+                    self.COEFFICIENT_FILE, self.DEFAULT_SPECIES,
+                )
                 self.coefficients = species_coeffs[self.DEFAULT_SPECIES]
             else:
                 # Fallback to hardcoded parameters
@@ -127,10 +145,23 @@ class ParameterizedModel(ABC):
         (e.g., equation_info, bounds).
         """
         if self.species_code in self.FALLBACK_PARAMETERS:
+            logger.warning(
+                "%s: using FALLBACK_PARAMETERS for species '%s'",
+                self.__class__.__name__, self.species_code,
+            )
             self.coefficients = self.FALLBACK_PARAMETERS[self.species_code].copy()
         elif self.DEFAULT_SPECIES in self.FALLBACK_PARAMETERS:
+            logger.warning(
+                "%s: using FALLBACK_PARAMETERS for DEFAULT_SPECIES '%s' (species '%s' not found)",
+                self.__class__.__name__, self.DEFAULT_SPECIES, self.species_code,
+            )
             self.coefficients = self.FALLBACK_PARAMETERS[self.DEFAULT_SPECIES].copy()
         else:
+            logger.error(
+                "%s: no coefficients loaded for species '%s' — "
+                "file '%s' missing/empty and no FALLBACK_PARAMETERS defined",
+                self.__class__.__name__, self.species_code, self.COEFFICIENT_FILE,
+            )
             self.coefficients = {}
 
     def get_species_coefficients(self) -> Dict[str, Any]:

@@ -159,6 +159,13 @@ class ConfigLoader:
                     data = json.load(f)
                     if data is None:
                         raise InvalidDataError("JSON file", "file is empty or contains null")
+                # Validate JSON coefficient files against registered schemas
+                from .config_schemas import validate_coefficient_file
+                try:
+                    relative_name = str(file_path.relative_to(self.cfg_dir))
+                except ValueError:
+                    relative_name = file_path.name
+                validate_coefficient_file(relative_name, data)
             else:
                 raise ConfigurationError(f"Unsupported configuration file format: {suffix}. "
                                        f"Supported formats: .yaml, .yml, .toml, .json")
@@ -381,6 +388,15 @@ class ConfigLoader:
         info['code'] = self.variant
         info['variant_dir'] = str(self.variant_dir)
         return info
+
+    def validate_all_configs(self):
+        """Validate all JSON coefficient files in cfg/ against registered schemas.
+
+        Returns:
+            List of ValidationWarning objects from config_schemas.validate_all_configs.
+        """
+        from .config_schemas import validate_all_configs
+        return validate_all_configs(self.cfg_dir)
 
     def clear_coefficient_cache(self) -> None:
         """Clear the coefficient file cache.
