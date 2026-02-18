@@ -835,16 +835,9 @@ def create_crown_ratio_model(species_code: str = "LP", variant: Optional[str] = 
     if variant is None:
         variant = get_default_variant()
 
-    if variant == 'LS':
-        return LSCrownRatioModel(species_code)
-    elif variant == 'NE':
-        return NECrownRatioModel(species_code)
-    elif variant == 'CS':
-        return CSCrownRatioModel(species_code)
-    elif variant in ('PN', 'WC', 'OP'):
-        return PNCrownRatioModel(species_code)
-    else:
-        return CrownRatioModel(species_code)
+    from .variant_registry import get_variant_config
+    config = get_variant_config(variant)
+    return config.crown_ratio_class(species_code)
 
 
 def calculate_average_crown_ratio(species_code: str, relsdi: float,

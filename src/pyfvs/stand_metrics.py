@@ -196,31 +196,14 @@ class StandMetricsCalculator:
         if self.variant in self._sdi_cache:
             return self._sdi_cache[self.variant]
 
-        if self.variant == 'LS':
-            self._sdi_cache['LS'] = self.LS_SDI_MAXIMUMS
-            return self.LS_SDI_MAXIMUMS
+        from .variant_registry import get_variant_config
+        config = get_variant_config(self.variant)
 
-        if self.variant == 'PN':
-            self._sdi_cache['PN'] = self.PN_SDI_MAXIMUMS
-            return self.PN_SDI_MAXIMUMS
+        if config.sdi_maximums:
+            self._sdi_cache[self.variant] = config.sdi_maximums
+            return config.sdi_maximums
 
-        if self.variant == 'WC':
-            self._sdi_cache['WC'] = self.WC_SDI_MAXIMUMS
-            return self.WC_SDI_MAXIMUMS
-
-        if self.variant == 'NE':
-            self._sdi_cache['NE'] = self.NE_SDI_MAXIMUMS
-            return self.NE_SDI_MAXIMUMS
-
-        if self.variant == 'CS':
-            self._sdi_cache['CS'] = self.CS_SDI_MAXIMUMS
-            return self.CS_SDI_MAXIMUMS
-
-        if self.variant == 'OP':
-            self._sdi_cache['OP'] = self.OP_SDI_MAXIMUMS
-            return self.OP_SDI_MAXIMUMS
-
-        # Default: load SN SDI maximums
+        # SN and other variants without pre-defined SDI maximums: load from config
         sdi_maximums = self._load_sn_sdi_maximums()
         self._sdi_cache[self.variant] = sdi_maximums
         return sdi_maximums

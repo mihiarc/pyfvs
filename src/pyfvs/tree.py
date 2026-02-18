@@ -210,17 +210,16 @@ class Tree:
             else:
                 xmin = 2.0
                 xmax = 4.0
-        elif variant == 'SN':
-            # SN: blend zone 1.0-3.0" so trees at establishment DBH ~2.5"
-            # get ~84% DDS weight instead of 0% from hard 3.0" cutover.
-            # Compensates for lack of native Fortran's record tripling
-            # which creates DBH differentiation pushing trees above 3.0" earlier.
-            xmin = 1.0
-            xmax = 3.0
         else:
-            transition_params = self.growth_params['growth_transitions']['small_to_large_tree']
-            xmin = transition_params['xmin']
-            xmax = transition_params['xmax']
+            from .variant_registry import get_variant_config
+            vc = get_variant_config(variant)
+            if vc.transition_xmin is not None:
+                xmin = vc.transition_xmin
+                xmax = vc.transition_xmax
+            else:
+                transition_params = self.growth_params['growth_transitions']['small_to_large_tree']
+                xmin = transition_params['xmin']
+                xmax = transition_params['xmax']
 
         # Default avg_height to 0.0 for PN/WC SMHGDG if not provided
         if avg_height is None:
@@ -618,24 +617,12 @@ class Tree:
         bark_model = create_bark_ratio_model(self.species, variant=variant)
         bark_ratio = bark_model.calculate_bark_ratio(self.dbh)
 
-        # Get appropriate diameter growth model based on variant
-        if variant == 'LS':
-            from .ls_diameter_growth import create_ls_diameter_growth_model
-            dg_model = create_ls_diameter_growth_model(self.species)
-            diameter_increment = dg_model.calculate_diameter_growth(
-                dbh=self.dbh,
-                crown_ratio=self.crown_ratio,
-                site_index=site_index,
-                ba=ba,
-                bal=pbal,
-                bark_ratio=bark_ratio,
-                qmd_ge5=qmd_ge5,
-                time_step=time_step,
-                rng=rng
-            )
-        elif variant == 'NE':
-            from .ne_diameter_growth import create_ne_diameter_growth_model
-            dg_model = create_ne_diameter_growth_model(self.species)
+        # Get diameter growth model from registry (unified factory)
+        from .variant_registry import create_diameter_growth_model
+        dg_model = create_diameter_growth_model(self.species, variant)
+
+        # Each variant's DG model has a slightly different call signature
+        if variant == 'NE':
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
@@ -645,9 +632,7 @@ class Tree:
                 bark_ratio=bark_ratio,
                 time_step=time_step
             )
-        elif variant == 'CS':
-            from .cs_diameter_growth import create_cs_diameter_growth_model
-            dg_model = create_cs_diameter_growth_model(self.species)
+        else:  # LS, CS
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
@@ -659,8 +644,6 @@ class Tree:
                 time_step=time_step,
                 rng=rng
             )
-        else:
-            raise ValueError(f"Unsupported variant for standard growth: {variant}")
 
         # Apply increment to DBH (ensure non-negative)
         self.dbh = max(self.dbh, self.dbh + diameter_increment)
@@ -737,37 +720,14 @@ class Tree:
             elevation: Elevation - units vary by variant (see below)
         """
         from .bark_ratio import create_bark_ratio_model
+        from .variant_registry import create_diameter_growth_model, get_variant_config
 
-        # Default elevations from variant grinit.f (in hundreds of feet)
-        DEFAULT_ELEVATIONS = {
-            'PN': 7.0,     # 700 ft - coastal PNW (pn/grinit.f line 169)
-            'WC': 35.0,    # 3500 ft - West Cascades (wc/grinit.f line 168)
-            'CA': 3000.0,  # 3000 ft (feet) - inland California
-            'OC': 0.0,     # SW Oregon (100s ft)
-            'WS': 0.0,     # Sierra Nevada (100s ft)
-        }
+        # Get diameter growth model from registry (unified factory)
+        dg_model = create_diameter_growth_model(self.species, variant)
 
-        # Get model factory for variant
-        if variant == 'PN':
-            from .pn_diameter_growth import create_pn_diameter_growth_model
-            dg_model = create_pn_diameter_growth_model(self.species)
-        elif variant == 'WC':
-            from .wc_diameter_growth import create_wc_diameter_growth_model
-            dg_model = create_wc_diameter_growth_model(self.species)
-        elif variant == 'CA':
-            from .ca_diameter_growth import create_ca_diameter_growth_model
-            dg_model = create_ca_diameter_growth_model(self.species)
-        elif variant == 'OC':
-            from .oc_diameter_growth import create_oc_diameter_growth_model
-            dg_model = create_oc_diameter_growth_model(self.species)
-        elif variant == 'WS':
-            from .ws_diameter_growth import create_ws_diameter_growth_model
-            dg_model = create_ws_diameter_growth_model(self.species)
-        else:
-            raise ValueError(f"Unsupported variant for topographic growth: {variant}")
-
-        # Use provided elevation or default
-        elev = elevation if elevation is not None else DEFAULT_ELEVATIONS.get(variant, 0.0)
+        # Use provided elevation or default from registry
+        variant_config = get_variant_config(variant)
+        elev = elevation if elevation is not None else variant_config.default_elevation
 
         # Get bark ratio for diameter conversion (variant-aware)
         bark_model = create_bark_ratio_model(self.species, variant=variant)
@@ -871,10 +831,10 @@ class Tree:
             pbal: Basal area in larger trees (sq ft/acre)
             time_step: Number of years to grow (default: 5)
         """
-        from .op_diameter_growth import create_op_diameter_growth_model
+        from .variant_registry import create_diameter_growth_model as _create_dg_model
 
-        # Get the OP diameter growth model for this species
-        dg_model = create_op_diameter_growth_model(self.species)
+        # Get the OP diameter growth model from registry
+        dg_model = _create_dg_model(self.species, 'OP')
 
         # Calculate diameter growth using ORGANON model
         # Note: ORGANON predicts diameter growth directly, not DDS
@@ -910,11 +870,11 @@ class Tree:
             aspect: Aspect in radians
             time_step: Number of years to grow (default: 5)
         """
-        from .sn_diameter_growth import create_sn_diameter_growth_model
+        from .variant_registry import create_diameter_growth_model
         from .bark_ratio import create_bark_ratio_model
 
-        # Get the SN diameter growth model for this species
-        dg_model = create_sn_diameter_growth_model(self.species)
+        # Get the SN diameter growth model from registry
+        dg_model = create_diameter_growth_model(self.species, 'SN')
 
         # Get bark ratio for diameter conversion
         bark_model = create_bark_ratio_model(self.species)

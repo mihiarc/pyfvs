@@ -690,16 +690,9 @@ def create_bark_ratio_model(species_code: str = "LP", variant: Optional[str] = N
     if variant is None:
         variant = get_default_variant()
 
-    if variant == 'LS':
-        return LSBarkRatioModel(species_code)
-    elif variant == 'NE':
-        return NEBarkRatioModel(species_code)
-    elif variant == 'CS':
-        return CSBarkRatioModel(species_code)
-    elif variant in ('PN', 'WC', 'OP'):
-        return PNBarkRatioModel(species_code)
-    else:
-        return BarkRatioModel(species_code)
+    from .variant_registry import get_variant_config
+    config = get_variant_config(variant)
+    return config.bark_ratio_class(species_code)
 
 
 def calculate_dib_from_dob(species_code: str, dob: float) -> float:

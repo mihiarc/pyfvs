@@ -1232,13 +1232,15 @@ def create_taper_model(species_code: str,
     if cache_key in _taper_model_cache:
         return _taper_model_cache[cache_key]
 
-    model: Optional[TaperModel] = None
+    from .variant_registry import get_variant_config
+    config = get_variant_config(variant)
 
-    if variant == 'SN':
-        model = ClarkTaperModel(species_code, variant)
-    elif variant in ('NE', 'CS', 'LS'):
-        model = ClarkTaperModel(species_code, variant)
-    elif variant in ('PN', 'WC', 'OP'):
+    model: Optional[TaperModel] = None
+    taper_cls = config.taper_class
+
+    if taper_cls is None:
+        return None  # No taper model for this variant (CA, OC, WS)
+    elif taper_cls is FlewellingTaperModel:
         # Flewelling model for species with proper coefficients (DF, WH, RC).
         # Species without coefficients (SS, RA, etc.) get None from
         # _load_coefficients and fall back to combined-variable.
@@ -1248,7 +1250,7 @@ def create_taper_model(species_code: str,
         else:
             return None
     else:
-        return None  # No taper model for CA, OC, WS yet
+        model = taper_cls(species_code, variant)
 
     _taper_model_cache[cache_key] = model
     return model

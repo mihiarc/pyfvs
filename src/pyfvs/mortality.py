@@ -1064,36 +1064,20 @@ def create_mortality_model(
         from .config_loader import get_default_variant
         variant = get_default_variant()
 
-    if variant == 'LS':
-        return LSMortalityModel(default_species=default_species, max_sdi=max_sdi)
-    elif variant == 'NE':
-        return NEMortalityModel(default_species=default_species, max_sdi=max_sdi)
-    elif variant == 'CS':
-        return CSMortalityModel(default_species=default_species, max_sdi=max_sdi)
-    elif variant == 'PN':
-        # PN uses the same base FVS SDI mortality model as SN
-        # but with PN-specific SDI maximums (loaded via StandMetricsCalculator)
-        from .stand_metrics import StandMetricsCalculator
-        if max_sdi is None:
-            pn_sdi_maxs = StandMetricsCalculator.PN_SDI_MAXIMUMS
-            max_sdi = pn_sdi_maxs.get(default_species, 850)
-        return MortalityModel(default_species=default_species, max_sdi=max_sdi)
-    elif variant == 'WC':
-        # WC uses the same SDI mortality model with WC-specific SDI maximums
-        from .stand_metrics import StandMetricsCalculator
-        if max_sdi is None:
-            wc_sdi_maxs = StandMetricsCalculator.WC_SDI_MAXIMUMS
-            max_sdi = wc_sdi_maxs.get(default_species, 800)
-        return MortalityModel(default_species=default_species, max_sdi=max_sdi)
-    elif variant == 'OP':
-        # OP uses the same SDI mortality model with OP-specific SDI maximums
-        from .stand_metrics import StandMetricsCalculator
-        if max_sdi is None:
-            op_sdi_maxs = StandMetricsCalculator.OP_SDI_MAXIMUMS
-            max_sdi = op_sdi_maxs.get(default_species, 850)
-        return MortalityModel(default_species=default_species, max_sdi=max_sdi)
+    from .variant_registry import get_variant_config
+    config = get_variant_config(variant)
+
+    # For variants that use the base MortalityModel with variant-specific SDI
+    # maximums (PN, WC, OP), look up SDI from the registry when not provided.
+    if config.mortality_needs_sdi_lookup and max_sdi is None:
+        sdi_maximums = config.sdi_maximums
+        max_sdi = sdi_maximums.get(default_species, 850)
+
+    mortality_cls = config.mortality_class
+    if mortality_cls is MortalityModel:
+        return mortality_cls(default_species=default_species, max_sdi=max_sdi)
     else:
-        return MortalityModel(default_species=default_species, max_sdi=max_sdi)
+        return mortality_cls(default_species=default_species, max_sdi=max_sdi)
 
 
 def get_mortality_model(species: str = 'LP') -> MortalityModel:

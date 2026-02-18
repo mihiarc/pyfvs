@@ -39,13 +39,6 @@ from .stand_output import StandOutputGenerator, YieldRecord
 
 __all__ = ['Stand']
 
-# Variant cycle lengths (from variant source code)
-# SN and OP use 5-year cycles; all others use 10-year cycles
-_VARIANT_CYCLE_LENGTHS = {
-    'SN': 5, 'OP': 5, 'LS': 10, 'PN': 10, 'WC': 10,
-    'NE': 10, 'CS': 10, 'CA': 10, 'OC': 10, 'WS': 10,
-}
-
 # Import establishment functions (extracted to reduce stand.py size)
 from .establishment import (
     ESSUBH_DEFAULT_CARAGE,
@@ -345,7 +338,8 @@ class Stand:
         temp_stand = cls([], site_index, species, variant=variant)
         actual_variant = temp_stand.variant
 
-        cycle_length = _VARIANT_CYCLE_LENGTHS.get(actual_variant, 5)
+        from .variant_registry import get_variant_config
+        cycle_length = get_variant_config(actual_variant).cycle_length
 
         # Variant-dispatched establishment height computation.
         # Fortran ESSUBH + regent behavior differs by cycle length:
@@ -703,11 +697,8 @@ class Stand:
             return
 
         # Variant-specific cycle length matching Fortran calibration
-        # SN/OP: 5-year cycles; all others: 10-year cycles
-        if self.variant in ('SN', 'OP'):
-            base_cycle = 5
-        else:
-            base_cycle = 10
+        from .variant_registry import get_variant_config
+        base_cycle = get_variant_config(self.variant).cycle_length
 
         # For periods > base cycle, subdivide into base-cycle sub-cycles.
         # This recalculates competition metrics at appropriate intervals.

@@ -107,16 +107,11 @@ def get_hhtmax(species: str, variant: str) -> float:
     Returns:
         Maximum establishment height in feet, or 0 if no cap applies.
     """
-    if variant == 'SN':
-        return _SN_HHTMAX.get(species, _SN_HHTMAX_DEFAULT)
-    elif variant == 'NE':
-        return _NE_HHTMAX.get(species, _NE_HHTMAX_DEFAULT)
-    elif variant == 'CS':
-        return _CS_HHTMAX.get(species, _CS_HHTMAX_DEFAULT)
-    elif variant == 'LS':
-        return _LS_HHTMAX.get(species, _LS_HHTMAX_DEFAULT)
-    # Other variants: use 20.0 as default cap (conservative)
-    return 20.0
+    from .variant_registry import get_variant_config
+    config = get_variant_config(variant)
+    if config.hhtmax:
+        return config.hhtmax.get(species, config.hhtmax_default)
+    return config.hhtmax_default
 
 
 def load_small_tree_coefficients(species: str, variant: str) -> dict:
