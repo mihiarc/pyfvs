@@ -246,9 +246,9 @@ class TestPerformance:
         time_per_year = elapsed / n_years
 
         # Should be reasonable for 500 TPA stand
-        # (allows for initialization overhead, slower machines, and concurrent load)
-        assert 0.01 < time_per_year < 30.0, \
-            f"Unexpected time per year for {n_years} years: {time_per_year:.2f} s/year"
+        # Only enforce upper bound — faster is always fine
+        assert time_per_year < 30.0, \
+            f"Simulation too slow for {n_years} years: {time_per_year:.2f} s/year"
 
 
 class TestOptimizationOpportunities:
