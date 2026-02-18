@@ -333,6 +333,10 @@ class PNDiameterGrowthModel(ParameterizedModel):
                   pccf_term + relht_term + lba_term + bal_term + ba_term +
                   si_term + elev_term + slope_term + aspect_term)
 
+        # Bound ln(DDS) to prevent overflow from extreme topographic effects.
+        # Matches LS/CS bounds: ln(DDS)=5 → DDS=148 sq in (~2.2" growth/decade).
+        ln_dds = max(-5.0, min(5.0, ln_dds))
+
         # Apply stochastic multiplier: Baskerville correction (deterministic)
         # or random draw (stochastic) matching Fortran dgscor.f.
         bask = self._stochastic_multiplier(ln_dds, rng)

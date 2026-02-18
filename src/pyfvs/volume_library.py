@@ -50,9 +50,6 @@ class VolumeResult:
         self.sawlog_board_foot = vol_array[9] if len(vol_array) > 9 else 0.0
         self.board_foot_international = vol_array[10] if len(vol_array) > 10 else 0.0
         self.board_foot_doyle = vol_array[11] if len(vol_array) > 11 else 0.0
-        # Backwards compatibility aliases
-        self.sawlog_cubic_foot_intl = self.board_foot_international
-        self.sawlog_board_foot_intl = self.board_foot_doyle
         self.biomass_main_stem = vol_array[12] if len(vol_array) > 12 else 0.0
         self.biomass_live_branches = vol_array[13] if len(vol_array) > 13 else 0.0
         self.biomass_foliage = vol_array[14] if len(vol_array) > 14 else 0.0
@@ -510,14 +507,15 @@ class VolumeCalculator:
             d2h = dbh * dbh * height
 
             # Calculate total cubic volume using combined-variable equation
-            # V = a + b × D²H (outside bark)
+            # V = a + b × D²H
             total_cubic_ob = max(0.0, self.coef_ob['a'] + self.coef_ob['b'] * d2h)
-
-            # Inside bark volume
             total_cubic_ib = max(0.0, self.coef_ib['a'] + self.coef_ib['b'] * d2h)
 
-            # Use outside bark as the primary total volume (standard FVS practice)
-            total_cubic = total_cubic_ob
+            # Use inside bark as primary total volume to match taper pathway.
+            # Taper models return IB volume; CV must be consistent so that
+            # switching pathways (e.g., if taper coefficients are missing)
+            # doesn't cause a ~10% volume discontinuity.
+            total_cubic = total_cubic_ib
 
             # Get inside-bark diameter for merchantable calculations
             bark_model = create_bark_ratio_model(self.species_code)
@@ -587,7 +585,7 @@ class VolumeCalculator:
 
             # Build volume array
             vol_array = [
-                total_cubic,           # 0: total cubic volume (outside bark)
+                total_cubic,           # 0: total cubic volume (inside bark)
                 total_cubic,           # 1: gross cubic volume
                 total_cubic * 0.95,    # 2: net cubic volume (5% defect)
                 merchantable_cubic,    # 3: merchantable cubic volume (inside bark)

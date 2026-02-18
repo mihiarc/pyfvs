@@ -765,8 +765,10 @@ class Stand:
         # drives PBAL (basal area in larger trees) competition effects.
         # Without variation, all trees in a monoculture have PBAL=0,
         # removing a critical growth dampening term.
-        # Use deterministic seed for reproducibility.
-        rng = random.Random(42)
+        # Seed the height-variation RNG from random_seed so different seeds
+        # produce different initial height distributions.  Fall back to 42
+        # for backwards-compatible deterministic runs (random_seed=None).
+        rng = random.Random(random_seed if random_seed is not None else 42)
         trees = []
         for _ in range(trees_per_acre):
             # Lognormal height variation: sigma=0.1, bounded [0.7x, 1.3x]
