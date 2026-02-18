@@ -19,40 +19,35 @@ References:
     Flewelling & Raynes (1993) - Variable-shape stem-profile predictions
     Amateis & Burkhart (1987) - Cubic-Foot Volume Equations for Loblolly Pine
 """
+from dataclasses import dataclass, asdict
 from typing import Dict, Any, Optional, List
 
 from .config_loader import get_default_variant
 
 
+@dataclass
 class VolumeResult:
-    """Container for volume calculation results."""
+    """Container for volume calculation results.
 
-    def __init__(self, vol_array: List[float], error_flag: int = 0):
-        """Initialize volume result.
-
-        Args:
-            vol_array: Array of 15 volume values
-            error_flag: Error flag from volume calculation
-        """
-        self.error_flag = error_flag
-        self.volumes = vol_array
-
-        # Map volume array indices to meaningful names
-        self.total_cubic_volume = vol_array[0] if len(vol_array) > 0 else 0.0
-        self.gross_cubic_volume = vol_array[1] if len(vol_array) > 1 else 0.0
-        self.net_cubic_volume = vol_array[2] if len(vol_array) > 2 else 0.0
-        self.merchantable_cubic_volume = vol_array[3] if len(vol_array) > 3 else 0.0
-        self.board_foot_volume = vol_array[4] if len(vol_array) > 4 else 0.0
-        self.cord_volume = vol_array[5] if len(vol_array) > 5 else 0.0
-        self.green_weight = vol_array[6] if len(vol_array) > 6 else 0.0
-        self.dry_weight = vol_array[7] if len(vol_array) > 7 else 0.0
-        self.sawlog_cubic_volume = vol_array[8] if len(vol_array) > 8 else 0.0
-        self.sawlog_board_foot = vol_array[9] if len(vol_array) > 9 else 0.0
-        self.board_foot_international = vol_array[10] if len(vol_array) > 10 else 0.0
-        self.board_foot_doyle = vol_array[11] if len(vol_array) > 11 else 0.0
-        self.biomass_main_stem = vol_array[12] if len(vol_array) > 12 else 0.0
-        self.biomass_live_branches = vol_array[13] if len(vol_array) > 13 else 0.0
-        self.biomass_foliage = vol_array[14] if len(vol_array) > 14 else 0.0
+    All cubic volumes are inside bark. Board-foot volumes use the standard
+    FVS log rules: Scribner (primary), International 1/4", and Doyle.
+    """
+    total_cubic_volume: float = 0.0
+    gross_cubic_volume: float = 0.0
+    net_cubic_volume: float = 0.0
+    merchantable_cubic_volume: float = 0.0
+    board_foot_volume: float = 0.0          # Primary BF (Scribner)
+    cord_volume: float = 0.0
+    green_weight: float = 0.0
+    dry_weight: float = 0.0
+    sawlog_cubic_volume: float = 0.0
+    sawlog_board_foot: float = 0.0
+    board_foot_international: float = 0.0   # International 1/4" rule
+    board_foot_doyle: float = 0.0           # Doyle rule
+    biomass_main_stem: float = 0.0
+    biomass_live_branches: float = 0.0
+    biomass_foliage: float = 0.0
+    error_flag: int = 0
 
     def is_valid(self) -> bool:
         """Check if volume calculation was successful."""
@@ -60,24 +55,7 @@ class VolumeResult:
 
     def to_dict(self) -> Dict[str, float]:
         """Convert to dictionary for easy access."""
-        return {
-            'total_cubic_volume': self.total_cubic_volume,
-            'gross_cubic_volume': self.gross_cubic_volume,
-            'net_cubic_volume': self.net_cubic_volume,
-            'merchantable_cubic_volume': self.merchantable_cubic_volume,
-            'board_foot_volume': self.board_foot_volume,
-            'cord_volume': self.cord_volume,
-            'green_weight': self.green_weight,
-            'dry_weight': self.dry_weight,
-            'sawlog_cubic_volume': self.sawlog_cubic_volume,
-            'sawlog_board_foot': self.sawlog_board_foot,
-            'board_foot_international': self.board_foot_international,
-            'board_foot_doyle': self.board_foot_doyle,
-            'biomass_main_stem': self.biomass_main_stem,
-            'biomass_live_branches': self.biomass_live_branches,
-            'biomass_foliage': self.biomass_foliage,
-            'error_flag': self.error_flag
-        }
+        return asdict(self)
 
 
 # Combined-variable equation coefficients: V = a + b × D²H
@@ -473,34 +451,28 @@ class VolumeCalculator:
         # Net cubic (apply 5% defect allowance)
         net_cubic = total_cubic * 0.95
 
-        # Build volume array
-        vol_array = [
-            total_cubic,           # 0: total cubic volume (inside bark)
-            total_cubic,           # 1: gross cubic volume
-            net_cubic,             # 2: net cubic volume (5% defect)
-            merch_cubic,           # 3: merchantable cubic volume (to 4" top)
-            bf_scribner,           # 4: board foot volume (Scribner - FVS standard)
-            cord_volume,           # 5: cord volume
-            0.0,                   # 6: green weight (not calculated)
-            0.0,                   # 7: dry weight (not calculated)
-            0.0,                   # 8: sawlog cubic volume (future)
-            0.0,                   # 9: sawlog board foot (future)
-            bf_international,      # 10: International 1/4" board feet
-            bf_doyle,              # 11: Doyle board feet
-            0.0,                   # 12: biomass main stem
-            0.0,                   # 13: biomass live branches
-            0.0,                   # 14: biomass foliage
-        ]
-
-        return VolumeResult(vol_array, 0)
+        return VolumeResult(
+            total_cubic_volume=total_cubic,
+            gross_cubic_volume=total_cubic,
+            net_cubic_volume=net_cubic,
+            merchantable_cubic_volume=merch_cubic,
+            board_foot_volume=bf_scribner,
+            cord_volume=cord_volume,
+            board_foot_international=bf_international,
+            board_foot_doyle=bf_doyle,
+        )
 
     def _calculate_volume_combined_variable(self, dbh: float,
                                             height: float) -> VolumeResult:
         """Combined-variable fallback: V = a + b * D²H.
 
-        Used when taper coefficients are not available.
+        Used when taper coefficients are not available.  Computes board-foot
+        volumes using all three standard log rules (Scribner, International
+        1/4", and Doyle) for consistency with the taper pathway.
         """
         from .bark_ratio import create_bark_ratio_model
+        from .merchandising import (scribner_decimal_c,
+                                    international_quarter_inch, doyle)
 
         try:
             # Calculate combined variable D²H
@@ -508,7 +480,6 @@ class VolumeCalculator:
 
             # Calculate total cubic volume using combined-variable equation
             # V = a + b × D²H
-            total_cubic_ob = max(0.0, self.coef_ob['a'] + self.coef_ob['b'] * d2h)
             total_cubic_ib = max(0.0, self.coef_ib['a'] + self.coef_ib['b'] * d2h)
 
             # Use inside bark as primary total volume to match taper pathway.
@@ -523,12 +494,13 @@ class VolumeCalculator:
 
             # Initialize volume components
             merchantable_cubic = 0.0
-            board_foot = 0.0
             sawlog_cubic = 0.0
-            sawlog_board_foot = 0.0
             cord_volume = 0.0
+            bf_scribner = 0.0
+            bf_international = 0.0
+            bf_doyle = 0.0
 
-            # Calculate merchantable cubic volume (trees ≥5" DBH)
+            # Calculate merchantable cubic volume (trees >= 5" DBH)
             if dbh >= MIN_MERCH_DBH:
                 merch_height = self._estimate_merchantable_height(
                     dbh, height, MIN_MERCH_TOP, STUMP_HEIGHT
@@ -561,56 +533,49 @@ class VolumeCalculator:
                     sawlog_ratio = 0.75
                 sawlog_cubic = total_cubic_ib * sawlog_ratio
 
-                # Board foot calculation using Doyle rule
+                # Board foot calculation using all three log rules
                 stump_dib = dbh_inside_bark * 0.95
 
                 if stump_dib > 4:
                     num_logs = int(sawlog_height / 16)
                     remaining_length = sawlog_height - (num_logs * 16)
 
-                    board_foot = 0.0
                     for i in range(num_logs):
                         log_dib = stump_dib - (i * 2.0)
-                        if log_dib > 4:
-                            board_foot += ((log_dib - 4)**2 * 16) / 16
+                        if log_dib >= 4:
+                            bf_scribner += scribner_decimal_c(log_dib, 16.0)
+                            bf_international += international_quarter_inch(log_dib, 16.0)
+                            bf_doyle += doyle(log_dib, 16.0)
 
                     if remaining_length > 8 and (stump_dib - num_logs * 2.0) > 4:
                         log_dib = stump_dib - (num_logs * 2.0)
-                        board_foot += ((log_dib - 4)**2 * remaining_length) / 16
+                        bf_scribner += scribner_decimal_c(log_dib, remaining_length)
+                        bf_international += international_quarter_inch(log_dib, remaining_length)
+                        bf_doyle += doyle(log_dib, remaining_length)
 
                     # Apply defect factor
-                    board_foot *= 0.92
+                    bf_scribner *= 0.92
+                    bf_international *= 0.92
+                    bf_doyle *= 0.92
 
-                sawlog_board_foot = board_foot
-
-            # Build volume array
-            vol_array = [
-                total_cubic,           # 0: total cubic volume (inside bark)
-                total_cubic,           # 1: gross cubic volume
-                total_cubic * 0.95,    # 2: net cubic volume (5% defect)
-                merchantable_cubic,    # 3: merchantable cubic volume (inside bark)
-                board_foot,            # 4: board foot volume (Doyle)
-                cord_volume,           # 5: cord volume
-                0.0,                   # 6: green weight (not calculated)
-                0.0,                   # 7: dry weight (not calculated)
-                sawlog_cubic,          # 8: sawlog cubic volume
-                sawlog_board_foot,     # 9: sawlog board foot
-                0.0,                   # 10: sawlog cubic (Int'l)
-                0.0,                   # 11: sawlog bf (Int'l)
-                0.0,                   # 12: biomass main stem
-                0.0,                   # 13: biomass live branches
-                0.0,                   # 14: biomass foliage
-            ]
-
-            return VolumeResult(vol_array, 0)
+            return VolumeResult(
+                total_cubic_volume=total_cubic,
+                gross_cubic_volume=total_cubic,
+                net_cubic_volume=total_cubic * 0.95,
+                merchantable_cubic_volume=merchantable_cubic,
+                board_foot_volume=bf_scribner,
+                cord_volume=cord_volume,
+                sawlog_cubic_volume=sawlog_cubic,
+                sawlog_board_foot=bf_scribner,
+                board_foot_international=bf_international,
+                board_foot_doyle=bf_doyle,
+            )
 
         except Exception:
             # Ultimate fallback using combined-variable with default coefficients
             d2h = dbh * dbh * height
             cubic_volume = max(0.0, 0.18658 + 0.00250 * d2h)
-            vol_array = [cubic_volume] + [0.0] * 14
-
-            return VolumeResult(vol_array, 0)
+            return VolumeResult(total_cubic_volume=cubic_volume)
 
     def _estimate_merchantable_height(
         self,

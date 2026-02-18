@@ -1241,7 +1241,7 @@ class Tree:
             - PtBAL: Point basal area larger
             - TcuFt: Total cubic foot volume
             - McuFt: Merchantable cubic foot volume
-            - BdFt: Board foot volume (Doyle)
+            - BdFt: Board foot volume (Scribner)
         """
         from .crown_width import calculate_open_crown_width
 

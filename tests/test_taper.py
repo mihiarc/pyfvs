@@ -633,12 +633,13 @@ class TestVolumeIntegration:
         assert result.board_foot_international > 0  # Int'l 1/4" (slot 10)
         assert result.board_foot_doyle > 0          # Doyle (slot 11)
 
-    def test_combined_variable_no_intl_doyle(self):
-        """Combined-variable fallback should NOT populate Int'l and Doyle."""
+    def test_combined_variable_all_bf_rules(self):
+        """Combined-variable fallback should populate all three BF rules."""
         # Use SS in PN — no Flewelling coefficients, falls back to combined-variable
         result = calculate_tree_volume(14.0, 85.0, 'SS', variant='PN')
-        assert result.board_foot_international == 0.0
-        assert result.board_foot_doyle == 0.0
+        assert result.board_foot_volume > 0         # Scribner (primary)
+        assert result.board_foot_international > 0   # International 1/4"
+        assert result.board_foot_doyle > 0           # Doyle
 
     def test_merchantable_cubic_uses_4_inch_top(self):
         """Merchantable cubic should use 4" top (not 6/7" sawtimber top)."""
