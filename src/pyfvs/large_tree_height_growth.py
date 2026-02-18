@@ -386,7 +386,8 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             # calendar age gives SMALLER POTHTG because the site curve flattens
             # with age. Using effective age places the tree on the steeper part
             # of the curve where it actually is, yielding larger increments.
-            # SN uses scale_factor=1.0 and doesn't need this correction.
+            # SN uses scale_factor=1.0 with base-age-25 coefficients; the FINDAG
+            # inversion doesn't work correctly with that parameterization.
             if tree_height is not None and variant in ('LS', 'CS', 'NE', 'CA', 'OP'):
                 exponent = c4 * (site_index ** c5)
                 raw_ht = tree_height / scale_factor if scale_factor > 0 else tree_height
@@ -471,12 +472,14 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         # Find effective age from current height on species curve
         effective_age = age_from_height(self.species_code, tree_height, site_index, variant)
 
-        # 5-year height increment
-        previous_age = max(0, effective_age - 5)
-        previous_potht = height_at_age(self.species_code, previous_age, site_index, variant)
+        # Forward 5-year height increment (matching Fortran htgf.f)
+        # Uses H(age+5) - H(age), not H(age) - H(age-5), because the
+        # height-age curve is concave-down and backward overestimates.
+        future_age = effective_age + 5
         current_potht = height_at_age(self.species_code, effective_age, site_index, variant)
+        future_potht = height_at_age(self.species_code, future_age, site_index, variant)
 
-        return max(0.0, current_potht - previous_potht)
+        return max(0.0, future_potht - current_potht)
 
     def _get_small_tree_coefficients(self, variant: str = 'SN') -> Dict[str, float]:
         """Get small tree height growth coefficients for the species.
