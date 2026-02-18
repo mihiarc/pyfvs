@@ -51,6 +51,7 @@ class CSDiameterGrowthModel(ParameterizedModel):
     COEFFICIENT_FILE = 'cs/cs_diameter_growth_coefficients.json'
     COEFFICIENT_KEY = 'coefficients'
     DEFAULT_SPECIES = 'WO'  # White Oak is the default site species for CS
+    _use_baskerville = False  # CS already overshoots native without correction
 
     # Fallback parameters for key CS species (from dgf.f)
     FALLBACK_PARAMETERS = {
@@ -145,45 +146,6 @@ class CSDiameterGrowthModel(ParameterizedModel):
         self.variant = variant
         super().__init__(species_code)
         self._sigma = self._load_sigma()
-
-    def _load_sigma(self) -> float:
-        """Load SIGMAR for this species from variance_parameters.
-
-        SIGMAR is the standard deviation of ln(DDS) residuals. CS does NOT
-        use Baskerville correction in deterministic mode, but sigma is needed
-        for stochastic draws when rng is provided.
-
-        Returns:
-            SIGMAR value, or 0.0 if not found.
-        """
-        variance_params = self.raw_data.get('variance_parameters', {})
-        return variance_params.get(self.species_code, 0.0)
-
-    def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
-        """DDS multiplier: no correction (deterministic) or random draw (stochastic).
-
-        CS does NOT use Baskerville correction in deterministic mode (already
-        slightly overshoots native). When rng is provided, draws noise
-        matching Fortran dgscor.f.
-        """
-        if self._sigma <= 0.0:
-            return 1.0
-
-        # Size-based suppression (dgscor.f)
-        if ln_dds > 5.0:
-            return 1.0
-        suppress = (5.0 - ln_dds) / 1.0 if ln_dds > 4.0 else 1.0
-
-        if rng is None:
-            # Deterministic: NO Baskerville correction for CS
-            return 1.0
-
-        # Stochastic: draw bounded normal
-        dgsd = 2.0
-        z = rng.gauss(0.0, self._sigma)
-        z = max(-dgsd * self._sigma, min(dgsd * self._sigma, z))
-        z *= suppress
-        return math.exp(z)
 
     def _get_coefficient_data(self) -> Dict[str, Any]:
         """Load coefficient data from JSON file using ConfigLoader with caching.

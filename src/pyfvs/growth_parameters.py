@@ -106,6 +106,8 @@ class GrowthParameters:
     ecounit: Optional[str] = None
     forest_type: Optional[str] = None
     rng: Optional[random.Random] = field(default=None, repr=False)
+    top_height: Optional[float] = None
+    avg_height: Optional[float] = None
 
     @classmethod
     def from_stand(
@@ -167,6 +169,10 @@ class GrowthParameters:
                 smaller_count = sum(1 for t in stand.trees if t.dbh < target_dbh)
                 rank = smaller_count / len(stand.trees)
 
+        # Calculate stand-level height metrics
+        top_height = stand._metrics.calculate_top_height(stand.trees) if stand.trees else None
+        avg_height = (sum(t.height for t in stand.trees) / len(stand.trees)) if stand.trees else None
+
         return cls(
             site_index=stand.site_index,
             competition_factor=competition_factor,
@@ -179,5 +185,7 @@ class GrowthParameters:
             time_step=time_step,
             ecounit=stand.ecounit,
             forest_type=stand.forest_type,
-            rng=getattr(stand, '_rng', None)
+            rng=getattr(stand, '_rng', None),
+            top_height=top_height,
+            avg_height=avg_height
         )

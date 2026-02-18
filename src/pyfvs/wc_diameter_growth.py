@@ -139,46 +139,6 @@ class WCDiameterGrowthModel(ParameterizedModel):
         super().__init__(species_code)
         self._sigma = self._load_sigma()
 
-    def _load_sigma(self) -> float:
-        """Load SIGMAR for this species from variance_parameters.
-
-        SIGMAR is the standard deviation of ln(DDS) residuals, used for
-        the Baskerville (1972) bias correction. Values come from wc/blkdat.f.
-
-        Returns:
-            SIGMAR value, or 0.0 if not found.
-        """
-        variance_params = self.raw_data.get('variance_parameters', {})
-        return variance_params.get(self.species_code, 0.0)
-
-    def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
-        """DDS multiplier: Baskerville (deterministic) or random draw (stochastic).
-
-        When rng is None, returns deterministic Baskerville correction.
-        When rng is provided, draws Z ~ N(0, sigma^2) bounded +/-2sigma
-        with size-based suppression matching Fortran dgscor.f.
-        """
-        if self._sigma <= 0.0:
-            return 1.0
-
-        # Size-based suppression (dgscor.f)
-        if ln_dds > 5.0:
-            return 1.0
-        suppress = (5.0 - ln_dds) / 1.0 if ln_dds > 4.0 else 1.0
-
-        if rng is None:
-            # Deterministic: Baskerville correction
-            alpha = 0.88
-            full_correction = math.exp(alpha * self._sigma * self._sigma / 2.0)
-            return 1.0 + (full_correction - 1.0) * suppress
-
-        # Stochastic: draw bounded normal
-        dgsd = 2.0
-        z = rng.gauss(0.0, self._sigma)
-        z = max(-dgsd * self._sigma, min(dgsd * self._sigma, z))
-        z *= suppress
-        return math.exp(z)
-
     def _load_parameters(self) -> None:
         """Load species-specific parameters using species-to-group mapping.
 

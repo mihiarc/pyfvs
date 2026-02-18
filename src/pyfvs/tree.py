@@ -101,7 +101,9 @@ class Tree:
         qmd_ge5: float = None,
         *,
         site_index: float = None,
-        rng=None
+        rng=None,
+        top_height: float = None,
+        avg_height: float = None
     ) -> None:
         """Grow the tree for the specified number of years.
 
@@ -155,6 +157,8 @@ class Tree:
             ecounit = params.ecounit
             forest_type = params.forest_type
             rng = params.rng if rng is None else rng
+            top_height = params.top_height if top_height is None else top_height
+            avg_height = params.avg_height if avg_height is None else avg_height
         else:
             # Individual parameters - handle both positional and keyword site_index
             if params_or_site_index is not None:
@@ -218,15 +222,9 @@ class Tree:
             xmin = transition_params['xmin']
             xmax = transition_params['xmax']
 
-        # Store stand-level metrics on tree for SMHGDG (set by stand.py,
-        # but may be missing when tree.grow() is called directly)
-        if variant in ('PN', 'WC'):
-            if not hasattr(self, '_stand_ba'):
-                self._stand_ba = ba
-            if not hasattr(self, '_pbal') or self._pbal is None:
-                self._pbal = pbal
-            if not hasattr(self, '_avg_height'):
-                self._avg_height = 0.0
+        # Default avg_height to 0.0 for PN/WC SMHGDG if not provided
+        if avg_height is None:
+            avg_height = 0.0
 
         # Calculate weight for blending growth models based on initial DBH
         if initial_dbh < xmin:
@@ -257,13 +255,13 @@ class Tree:
 
         if weight == 0.0:
             # Pure small-tree model (DBH < xmin)
-            self._grow_small_tree(site_index, competition_factor, time_step)
+            self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
         elif weight == 1.0:
             # Pure large-tree model (DBH > xmax)
-            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng)
+            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height)
         else:
             # Transition zone: blend both models
-            self._grow_small_tree(site_index, competition_factor, time_step)
+            self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
             small_dbh = self.dbh
             small_height = self.height
 
@@ -271,7 +269,7 @@ class Tree:
             self.dbh = initial_dbh
             self.height = initial_height
 
-            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng)
+            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height)
             large_dbh = self.dbh
             large_height = self.height
 
@@ -285,7 +283,7 @@ class Tree:
         # Update crown ratio using Weibull model (pass time_step for proper scaling)
         self._update_crown_ratio_weibull(rank, relsdi, competition_factor, time_step)
     
-    def _grow_small_tree(self, site_index, competition_factor, time_step=5):
+    def _grow_small_tree(self, site_index, competition_factor, time_step=5, ba=0.0, pbal=0.0, avg_height=0.0):
         """Implement small tree height growth model.
 
         For PN/WC variants, uses species-specific height-age curves from
@@ -296,12 +294,15 @@ class Tree:
             site_index: Site index in feet (base age varies by variant)
             competition_factor: Competition factor (0-1)
             time_step: Number of years to grow (any positive integer)
+            ba: Stand basal area (sq ft/acre), for PN/WC SMHGDG
+            pbal: Basal area in larger trees (sq ft/acre), for PN/WC SMHGDG
+            avg_height: Average stand height (feet), for PN/WC SMHGDG
         """
         variant = getattr(self, '_variant', 'SN')
 
         # PN/WC: use species-specific height-age curves from htcalc.f
         if variant in ('PN', 'WC'):
-            self._grow_small_tree_pnwc(site_index, competition_factor, time_step)
+            self._grow_small_tree_pnwc(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
             return
 
         # Get species-specific parameters - prefer variant-specific JSON file
@@ -472,7 +473,7 @@ class Tree:
                 continue
         return {}
 
-    def _grow_small_tree_pnwc(self, site_index, competition_factor, time_step=5):
+    def _grow_small_tree_pnwc(self, site_index, competition_factor, time_step=5, ba=0.0, pbal=0.0, avg_height=0.0):
         """Small-tree growth for PN/WC using SMHGDG logistic model.
 
         Implements the Gould & Harrington (2011) model from Fortran smhgdg.f
@@ -485,7 +486,7 @@ class Tree:
         Fortran regent.f behavior which calls SMHGDG once per 5-year sub-step).
 
         The first-cycle LESTB scaling (SCALE=0.5) is already built into the
-        establishment function (_compute_western_establishment_height) so that
+        establishment function (compute_western_establishment_height) so that
         initialization matches native FVS cycle 1 output. No special scaling
         is needed during grow().
 
@@ -493,15 +494,13 @@ class Tree:
             site_index: Site index in feet (base age varies by species)
             competition_factor: Competition factor (0-1)
             time_step: Number of years to grow
+            ba: Stand basal area (sq ft/acre)
+            pbal: Basal area in larger trees (sq ft/acre)
+            avg_height: Average stand height (feet)
         """
         from .pn_small_tree_growth import calculate_small_tree_growth
 
         variant = getattr(self, '_variant', 'PN')
-
-        # Stand-level metrics (set by stand.py before grow())
-        ba = getattr(self, '_stand_ba', 0.0)
-        pbal = getattr(self, '_pbal', 0.0)
-        avg_height = getattr(self, '_avg_height', 0.0)
 
         # Call SMHGDG in 5-year sub-steps (Fortran base period is 5 years)
         n_steps = max(1, time_step // 5)
@@ -546,7 +545,7 @@ class Tree:
         else:
             return math.sqrt(self.dbh * self.dbh + dds)
 
-    def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None):
+    def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None, top_height=None):
         """Implement large tree diameter growth model using variant-specific equations.
 
         Dispatches to the appropriate growth method based on the tree's variant:
@@ -565,12 +564,13 @@ class Tree:
             time_step: Number of years to grow (default: 5)
             qmd_ge5: QMD of trees >= 5" DBH (for LS/CS RELDBH calculation)
             rng: Random number generator for stochastic mode (None = deterministic)
+            top_height: Stand top height in feet (for RELHT calculation)
         """
         variant = getattr(self, '_variant', 'SN')
 
         # SN variant (default) - special handling for ecounit/forest type effects
         if variant == 'SN':
-            self._grow_large_tree_sn(site_index, competition_factor, ba, pbal, slope, aspect, time_step, rng=rng)
+            self._grow_large_tree_sn(site_index, competition_factor, ba, pbal, slope, aspect, time_step, rng=rng, top_height=top_height)
 
         # OP variant - predicts diameter growth directly (not DDS)
         elif variant == 'OP':
@@ -578,15 +578,15 @@ class Tree:
 
         # Topographic variants - use elevation/slope/aspect effects
         elif variant in ('PN', 'WC', 'CA', 'OC', 'WS'):
-            self._grow_large_tree_topographic(variant, site_index, ba, pbal, slope, aspect, time_step, rng=rng)
+            self._grow_large_tree_topographic(variant, site_index, ba, pbal, slope, aspect, time_step, rng=rng, top_height=top_height)
 
         # Standard variants - DDS without topographic effects
         elif variant in ('LS', 'NE', 'CS'):
-            self._grow_large_tree_standard(variant, site_index, ba, pbal, time_step, qmd_ge5, rng=rng)
+            self._grow_large_tree_standard(variant, site_index, ba, pbal, time_step, qmd_ge5, rng=rng, top_height=top_height)
 
         else:
             # Unknown variant - fall back to SN
-            self._grow_large_tree_sn(site_index, competition_factor, ba, pbal, slope, aspect, time_step, rng=rng)
+            self._grow_large_tree_sn(site_index, competition_factor, ba, pbal, slope, aspect, time_step, rng=rng, top_height=top_height)
 
     def _grow_large_tree_standard(
         self,
@@ -596,7 +596,8 @@ class Tree:
         pbal: float,
         time_step: float = 10.0,
         qmd_ge5: float = None,
-        rng=None
+        rng=None,
+        top_height: float = None
     ) -> None:
         """Generic large tree growth for non-topographic variants (LS, NE, CS).
 
@@ -669,8 +670,8 @@ class Tree:
         # and relative height modifiers, not the simple H-D snapshot blend.
         # This ensures site-index-driven height growth dynamics.
         # Calculate RELHT (relative height)
-        if hasattr(self, '_top_height') and self._top_height is not None and self._top_height > 0:
-            relht = min(1.5, self.height / self._top_height)
+        if top_height is not None and top_height > 0:
+            relht = min(1.5, self.height / top_height)
         else:
             relht = 1.0
 
@@ -715,7 +716,8 @@ class Tree:
         aspect: float = 0.0,
         time_step: float = 10.0,
         elevation: float = None,
-        rng=None
+        rng=None,
+        top_height: float = None
     ) -> None:
         """Generic large tree growth for topographic variants (PN, WC, CA, OC, WS).
 
@@ -771,11 +773,11 @@ class Tree:
         bark_model = create_bark_ratio_model(self.species, variant=variant)
         bark_ratio = bark_model.calculate_bark_ratio(self.dbh)
 
-        # Calculate RELHT (relative height) - tree height / average stand height
-        if hasattr(self, '_top_height') and self._top_height is not None and self._top_height > 0:
-            relht = min(1.5, self.height / self._top_height)
+        # Calculate RELHT (relative height) - tree height / top stand height
+        if top_height is not None and top_height > 0:
+            relht = min(1.5, self.height / top_height)
         else:
-            relht = getattr(self, '_relht', 1.0)
+            relht = 1.0
 
         # Estimate PCCF from BA (rough approximation)
         pccf = ba * 1.5 if variant == 'CA' else 100.0
@@ -835,8 +837,8 @@ class Tree:
         self.dbh = self.dbh + max(0.0, diameter_increment)
 
         # Update height using POTHTG model (matching Fortran htgf.f)
-        if hasattr(self, '_top_height') and self._top_height is not None and self._top_height > 0:
-            relht = min(1.5, self.height / self._top_height)
+        if top_height is not None and top_height > 0:
+            relht = min(1.5, self.height / top_height)
         else:
             relht = 1.0
 
@@ -891,7 +893,7 @@ class Tree:
         # Update height using height-diameter relationship for OP
         self._update_height_large_tree_variant('OP', site_index)
 
-    def _grow_large_tree_sn(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, rng=None):
+    def _grow_large_tree_sn(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, rng=None, top_height=None):
         """Implement large tree diameter growth model for SN (Southern) variant.
 
         Uses the SN variant ln(DDS) equation:
@@ -919,8 +921,8 @@ class Tree:
         bark_ratio = bark_model.calculate_bark_ratio(self.dbh)
 
         # Calculate RELHT (relative height)
-        if hasattr(self, '_top_height') and self._top_height is not None and self._top_height > 0:
-            relht = min(1.5, self.height / self._top_height)
+        if top_height is not None and top_height > 0:
+            relht = min(1.5, self.height / top_height)
         else:
             relht = 1.0
 
