@@ -49,7 +49,7 @@ Thumbs.db
 htmlcov/
 
 # Test outputs
-test_output/**/*.log
+test_output/
 tests/test_output/
 
 # Generated data files (root level)

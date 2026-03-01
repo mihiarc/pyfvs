@@ -1,9 +1,0 @@
-Species,Region,Site_Index,Expected_LEV_Age,Actual_MAI_Max_Age,MAI_Max_Value,Age_Difference
-LP,north,55,23,40,3.63,17
-LP,south,65,18,40,4.51,22
-SA,north,55,28,50,3.49,22
-SA,south,65,22,40,4.31,18
-SP,north,55,26,50,4.33,24
-SP,south,65,21,50,5.34,29
-LL,north,55,32,50,3.29,18
-LL,south,65,26,50,4.28,24

@@ -1,4 +1,0 @@
-Age: 30 years
-Trees/acre: 451
-Volume: 1097 ft³/acre
-Mean DBH: 5.2 inches

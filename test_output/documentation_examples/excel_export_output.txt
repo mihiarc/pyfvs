@@ -1,3 +1,0 @@
-Excel export successful: simulation_results.xlsx
-  - Yield Table: 11 rows
-  - Tree List: 414 rows
