@@ -1,0 +1,29 @@
+{
+    "description": "LS variant mortality defaults from morts.f — species groups, SDI maximums, shade tolerance.",
+    "species_mortality_group": {
+        "JP": 1, "RN": 1, "RP": 1, "WS": 1, "NS": 1, "BF": 1,
+        "BS": 1, "TA": 1, "WC": 1, "EH": 1, "GA": 1, "SV": 1,
+        "RM": 1, "AE": 1, "RL": 1, "RE": 1, "BW": 1, "SM": 1,
+        "BM": 1, "AB": 1, "HH": 1, "BK": 1, "AH": 1, "DW": 1,
+        "BG": 1, "WI": 1, "BL": 1, "SS": 1,
+        "SC": 3, "WP": 3, "OS": 3, "RC": 3,
+        "BA": 4, "EC": 4, "BC": 4, "YB": 4, "WA": 4, "WO": 4,
+        "SW": 4, "BR": 4, "CK": 4, "RO": 4, "BO": 4, "NP": 4,
+        "BH": 4, "PH": 4, "SH": 4, "BT": 4, "QA": 4, "BP": 4,
+        "PB": 4, "BN": 4, "WN": 4, "OH": 4, "BE": 4, "ST": 4,
+        "MM": 4, "AC": 4, "HK": 4, "HT": 4, "AP": 4, "SY": 4,
+        "PR": 4, "CC": 4, "PL": 4, "DM": 4, "MA": 4
+    },
+    "sdi_maximums": {
+        "JP": 400, "SC": 400, "RN": 500, "RP": 500, "WP": 450,
+        "WS": 500, "NS": 500, "BF": 400, "BS": 400, "TA": 350,
+        "WC": 400, "EH": 500, "SM": 450, "RM": 400, "QA": 350,
+        "PB": 350, "RO": 400, "WO": 400, "YB": 400, "AB": 450
+    },
+    "default_sdi_max": 400,
+    "shade_tolerance": {
+        "JP": 0.30, "RN": 0.30, "WP": 0.50, "BF": 0.90,
+        "SM": 0.90, "RM": 0.85, "QA": 0.10, "PB": 0.30,
+        "RO": 0.50, "WO": 0.50
+    }
+}

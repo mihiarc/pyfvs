@@ -70,10 +70,10 @@ class MortalityModel:
     LOWER_THRESHOLD = 0.55  # 55% of max TPA - density-related mortality begins
     UPPER_THRESHOLD = 0.85  # 85% of max TPA - asymptotic maximum density
 
-    # SN VARADJ shade tolerance from varmrt.f (90 species)
+    # Fallback SN VARADJ shade tolerance from varmrt.f (90 species)
     # Higher value = shade INTOLERANT = higher mortality efficiency
     # Lower value = shade TOLERANT = survives better under competition
-    SN_VARADJ = {
+    _FALLBACK_SN_VARADJ = {
         'FR': 0.1, 'JU': 0.7, 'PI': 0.3, 'PU': 0.7, 'SP': 0.7,
         'SA': 0.7, 'SR': 0.1, 'LL': 0.7, 'TM': 0.7, 'PP': 0.7,
         'PD': 0.7, 'WP': 0.5, 'LP': 0.7, 'VP': 0.7, 'BY': 0.5,
@@ -94,6 +94,9 @@ class MortalityModel:
         'AE': 0.5, 'RL': 0.3, 'OS': 0.5, 'OH': 0.5, 'OT': 0.5,
     }
 
+    # Loaded from JSON (populated in __init__)
+    SN_VARADJ = None
+
     # Minimum DBH for density calculations (Fortran DBHSTAGE)
     DBHSTAGE = 1.0
 
@@ -113,9 +116,23 @@ class MortalityModel:
         self._cepmrt = 0.0
         self._prev_tpa = 0.0  # TPAMRT in Fortran: for trajectory change detection
 
+        # Load VARADJ from JSON if not already loaded at class level
+        if MortalityModel.SN_VARADJ is None:
+            MortalityModel._load_sn_varadj()
+
         # Load coefficients if not already loaded
         if not MortalityModel._coefficients_loaded:
             self._load_mortality_coefficients()
+
+    @classmethod
+    def _load_sn_varadj(cls) -> None:
+        """Load SN VARADJ shade tolerance from JSON config, with fallback."""
+        try:
+            from .config_loader import load_coefficient_file
+            data = load_coefficient_file('sn/sn_mortality_defaults.json', variant='SN')
+            cls.SN_VARADJ = data.get('varadj', dict(cls._FALLBACK_SN_VARADJ))
+        except (FileNotFoundError, KeyError, ValueError):
+            cls.SN_VARADJ = dict(cls._FALLBACK_SN_VARADJ)
 
     @classmethod
     def _load_mortality_coefficients(cls) -> None:
@@ -705,17 +722,14 @@ class LSMortalityModel:
         4: {'P0': 5.9617, 'P1': -0.03401},
     }
 
-    # Species-to-mortality-group mapping from IMAPLS in morts.f (68 species)
-    SPECIES_MORTALITY_GROUP = {
-        # Group 1 (28 species)
+    # Fallback species-to-mortality-group mapping from IMAPLS in morts.f
+    _FALLBACK_SPECIES_MORTALITY_GROUP = {
         'JP': 1, 'RN': 1, 'RP': 1, 'WS': 1, 'NS': 1, 'BF': 1,
         'BS': 1, 'TA': 1, 'WC': 1, 'EH': 1, 'GA': 1, 'SV': 1,
         'RM': 1, 'AE': 1, 'RL': 1, 'RE': 1, 'BW': 1, 'SM': 1,
         'BM': 1, 'AB': 1, 'HH': 1, 'BK': 1, 'AH': 1, 'DW': 1,
         'BG': 1, 'WI': 1, 'BL': 1, 'SS': 1,
-        # Group 3 (4 species)
         'SC': 3, 'WP': 3, 'OS': 3, 'RC': 3,
-        # Group 4 (35 species)
         'BA': 4, 'EC': 4, 'BC': 4, 'YB': 4, 'WA': 4, 'WO': 4,
         'SW': 4, 'BR': 4, 'CK': 4, 'RO': 4, 'BO': 4, 'NP': 4,
         'BH': 4, 'PH': 4, 'SH': 4, 'BT': 4, 'QA': 4, 'BP': 4,
@@ -724,8 +738,8 @@ class LSMortalityModel:
         'PR': 4, 'CC': 4, 'PL': 4, 'DM': 4, 'MA': 4,
     }
 
-    # Default SDI maximums (overridden by subclasses)
-    _SDI_MAXIMUMS = {
+    # Fallback SDI maximums (overridden by subclasses)
+    _FALLBACK_SDI_MAXIMUMS = {
         'JP': 400, 'SC': 400, 'RN': 500, 'RP': 500, 'WP': 450,
         'WS': 500, 'NS': 500, 'BF': 400, 'BS': 400, 'TA': 350,
         'WC': 400, 'EH': 500, 'SM': 450, 'RM': 400, 'QA': 350,
@@ -740,6 +754,13 @@ class LSMortalityModel:
         'RO': 0.50, 'WO': 0.50,
     }
 
+    # Instance-level loaded data (populated from JSON in __init__)
+    SPECIES_MORTALITY_GROUP = None
+    _SDI_MAXIMUMS = None
+
+    # JSON config file for this variant's mortality defaults
+    _DEFAULTS_FILE = 'ls/ls_mortality_defaults.json'
+
     def __init__(self, default_species: str = 'RN', max_sdi: Optional[float] = None,
                  variant: str = 'LS'):
         """Initialize the LS mortality model.
@@ -753,7 +774,22 @@ class LSMortalityModel:
         self.max_sdi = max_sdi
         self.variant = variant
         self._shade_tolerance = {}
+        self._load_defaults()
         self._load_shade_tolerance()
+
+    def _load_defaults(self):
+        """Load species groups, SDI maximums, and shade tolerance from JSON config."""
+        try:
+            from .config_loader import load_coefficient_file
+            data = load_coefficient_file(self._DEFAULTS_FILE, variant=self.variant)
+            # Convert JSON string keys to int for species_mortality_group values
+            raw_groups = data.get('species_mortality_group', {})
+            self.SPECIES_MORTALITY_GROUP = {k: int(v) for k, v in raw_groups.items()}
+            self._SDI_MAXIMUMS = data.get('sdi_maximums', dict(self._FALLBACK_SDI_MAXIMUMS))
+            self.DEFAULT_SDI_MAX = data.get('default_sdi_max', 400)
+        except (FileNotFoundError, KeyError, ValueError):
+            self.SPECIES_MORTALITY_GROUP = dict(self._FALLBACK_SPECIES_MORTALITY_GROUP)
+            self._SDI_MAXIMUMS = dict(self._FALLBACK_SDI_MAXIMUMS)
 
     def _load_shade_tolerance(self):
         """Load shade tolerance (VARADJ) from mortality coefficients."""
