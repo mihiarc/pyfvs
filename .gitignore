@@ -75,9 +75,10 @@ docs/FVSsn_Overview_chunks.json
 # Claude Code local settings
 .claude/
 
-# External source code and vendor binaries
+# External source code, vendor binaries, and reference docs
 fvs-source/
 VolLibDll*/
+source_docs/
 
 # FVS output files (produced by native FVS library)
 FVSOut.db
