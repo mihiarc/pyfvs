@@ -23,16 +23,16 @@ from pyfvs.cs_diameter_growth import create_cs_diameter_growth_model
 
 
 def _run_stand_deterministic(tpa, si, species, variant, years, global_seed=0):
-    """Run a deterministic stand, seeding global random for mortality reproducibility."""
-    random.seed(global_seed)
-    stand = Stand.initialize_planted(tpa, si, species, variant=variant)
+    """Run a deterministic stand with reproducible mortality via random_seed."""
+    stand = Stand.initialize_planted(
+        tpa, si, species, variant=variant, stochastic=False, random_seed=global_seed
+    )
     stand.grow(years)
     return stand.get_metrics()
 
 
 def _run_stand_stochastic(tpa, si, species, variant, years, seed, global_seed=0):
-    """Run a stochastic stand, seeding global random for mortality reproducibility."""
-    random.seed(global_seed)
+    """Run a stochastic stand with reproducible mortality via random_seed."""
     stand = Stand.initialize_planted(
         tpa, si, species, variant=variant, stochastic=True, random_seed=seed
     )
@@ -260,17 +260,11 @@ class TestUnaffectedVariants:
     def test_ne_stochastic_same_as_deterministic(self):
         """NE variant: stochastic flag has no effect on diameter growth.
 
-        Note: mortality uses global random, so we seed it identically for
-        both runs to isolate the diameter growth comparison.
+        Both runs use the same random_seed so mortality is identical.
+        NE doesn't use rng for diameter growth, so results should match.
         """
         m_det = _run_stand_deterministic(400, 60, 'RM', 'NE', 20, global_seed=500)
-        # For stochastic run, also seed global random to same value
-        random.seed(500)
-        stand_sto = Stand.initialize_planted(
-            400, 60, 'RM', variant='NE', stochastic=True, random_seed=42
-        )
-        stand_sto.grow(20)
-        m_sto = stand_sto.get_metrics()
+        m_sto = _run_stand_stochastic(400, 60, 'RM', 'NE', 20, seed=500, global_seed=500)
 
         # NE doesn't use rng for diameter growth, so with same mortality
         # seed, results should be identical
@@ -279,19 +273,19 @@ class TestUnaffectedVariants:
 
     def test_op_stochastic_same_as_deterministic(self):
         """OP variant: stochastic flag has no effect on diameter growth."""
-        random.seed(600)
+        seed = 600
         trees_det = [Tree(dbh=5.0, height=30.0, species='DF', age=15, variant='OP')
                      for _ in range(100)]
-        stand_det = Stand(trees_det, site_index=110, species='DF', variant='OP')
+        stand_det = Stand(trees_det, site_index=110, species='DF', variant='OP',
+                          random_seed=seed)
         stand_det.age = 15
         stand_det.grow(10)
         m_det = stand_det.get_metrics()
 
-        random.seed(600)
         trees_sto = [Tree(dbh=5.0, height=30.0, species='DF', age=15, variant='OP')
                      for _ in range(100)]
         stand_sto = Stand(trees_sto, site_index=110, species='DF', variant='OP',
-                          stochastic=True, random_seed=42)
+                          stochastic=True, random_seed=seed)
         stand_sto.age = 15
         stand_sto.grow(10)
         m_sto = stand_sto.get_metrics()

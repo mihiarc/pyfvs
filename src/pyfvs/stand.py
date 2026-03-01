@@ -101,7 +101,9 @@ class Stand:
 
         # Stochastic diameter growth mode
         self.stochastic = stochastic
-        self._rng = random.Random(random_seed) if stochastic else None
+        # Create RNG when a seed is provided (for reproducible mortality) or
+        # when stochastic mode is enabled (for diameter growth draws).
+        self._rng = random.Random(random_seed) if (stochastic or random_seed is not None) else None
 
         # Set variant (default based on global setting)
         self.variant = (variant or get_default_variant()).upper()
@@ -779,7 +781,7 @@ class Stand:
                 ecounit=self.ecounit,
                 forest_type=self._forest_type,  # Pass raw value; None → UPHD default in tree
                 qmd_ge5=qmd_ge5,  # For LS variant RELDBH calculation
-                rng=self._rng,
+                rng=self._rng if self.stochastic else None,
                 top_height=top_height,
                 avg_height=avg_height
             )
@@ -817,10 +819,14 @@ class Stand:
             return 0
 
         max_sdi = self.get_max_sdi()
+        # Derive a mortality seed from the stand's RNG for reproducibility.
+        # If no stand RNG, pass None so mortality uses an unseeded local RNG.
+        mort_seed = self._rng.randint(0, 2**31) if self._rng is not None else None
         result = self._mortality.apply_mortality(
             self.trees,
             cycle_length=cycle_length,
             max_sdi=max_sdi,
+            random_seed=mort_seed,
             pre_growth_qmd=pre_growth_qmd,
             pre_growth_tpa=pre_growth_tpa
         )

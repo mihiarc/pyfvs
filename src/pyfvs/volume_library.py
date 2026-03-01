@@ -156,7 +156,8 @@ VOLUME_COEFFICIENTS_OUTSIDE_BARK: Dict[str, Dict[str, float]] = {
     'AI': {'a': 0.08000, 'b': 0.00220},   # Ailanthus
     'SE': {'a': 0.06000, 'b': 0.00200},   # Serviceberry (small tree)
     'EL': {'a': 0.08000, 'b': 0.00220},   # Other Elm
-    'WB': {'a': 0.08000, 'b': 0.00225},   # White Basswood
+    # Note: 'WB' (White Basswood, NE idx 94) collides with 'WB' (Whitebark Pine,
+    # PNW idx 31) defined above. White Basswood falls back to DEFAULT_HARDWOOD.
     # CS-unique species - from Clark et al. (1991), Miles & Smith (2009)
     'BY': {'a': 0.12000, 'b': 0.00250},   # Bald Cypress (excellent form)
     'TL': {'a': 0.10000, 'b': 0.00230},   # Tupelo (Black Tupelo)
@@ -268,7 +269,7 @@ VOLUME_COEFFICIENTS_INSIDE_BARK: Dict[str, Dict[str, float]] = {
     'AI': {'a': -0.06000, 'b': 0.00185},  # Ailanthus
     'SE': {'a': -0.05000, 'b': 0.00168},  # Serviceberry
     'EL': {'a': -0.06000, 'b': 0.00185},  # Other Elm
-    'WB': {'a': -0.06000, 'b': 0.00190},  # White Basswood
+    # Note: 'WB' (White Basswood) omitted — collides with Whitebark Pine above.
     # CS-unique species (inside bark)
     'BY': {'a': -0.08000, 'b': 0.00215},  # Bald Cypress
     'TL': {'a': -0.07000, 'b': 0.00195},  # Tupelo (Black Tupelo)

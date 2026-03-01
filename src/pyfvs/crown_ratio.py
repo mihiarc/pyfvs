@@ -822,22 +822,28 @@ class PNCrownRatioModel:
         return max(0.10, min(0.95, new_cr))
 
 
+_crown_ratio_cache: dict[tuple[str, str], object] = {}
+
+
 def create_crown_ratio_model(species_code: str = "LP", variant: Optional[str] = None):
-    """Factory function to create a crown ratio model for a species and variant.
+    """Factory function to create a cached crown ratio model for a species and variant.
 
     Args:
         species_code: Species code (e.g., "LP", "SP", "RN", etc.)
         variant: FVS variant code (e.g., 'SN', 'LS'). If None, uses default.
 
     Returns:
-        CrownRatioModel or LSCrownRatioModel instance
+        CrownRatioModel or LSCrownRatioModel instance (cached per species+variant)
     """
     if variant is None:
         variant = get_default_variant()
 
-    from .variant_registry import get_variant_config
-    config = get_variant_config(variant)
-    return config.crown_ratio_class(species_code)
+    cache_key = (species_code.upper(), variant.upper())
+    if cache_key not in _crown_ratio_cache:
+        from .variant_registry import get_variant_config
+        config = get_variant_config(variant)
+        _crown_ratio_cache[cache_key] = config.crown_ratio_class(species_code)
+    return _crown_ratio_cache[cache_key]
 
 
 def calculate_average_crown_ratio(species_code: str, relsdi: float,

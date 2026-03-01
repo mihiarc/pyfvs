@@ -208,8 +208,7 @@ class MortalityModel:
         if len(trees) <= 1:
             return MortalityResult(survivors=list(trees), mortality_count=0, trees_died=[])
 
-        if random_seed is not None:
-            random.seed(random_seed)
+        rng = random.Random(random_seed) if random_seed is not None else random.Random()
 
         max_sdi = max_sdi or self.max_sdi or 450
 
@@ -222,7 +221,7 @@ class MortalityModel:
             coefficients = self.get_coefficients()
             tree_data = self._calculate_tree_percentiles(trees)
             return self._apply_background_mortality(
-                tree_data, coefficients, cycle_length
+                tree_data, coefficients, cycle_length, rng=rng
             )
 
         # DQ0: pre-growth QMD of staged trees (from stand.py)
@@ -277,12 +276,12 @@ class MortalityModel:
         if density_active and tokill >= 0.5:
             # Density mortality: distribute TOKILL using VARMRT
             result = self._apply_density_mortality_fortran(
-                tree_data, coefficients, cycle_length, round(tokill)
+                tree_data, coefficients, cycle_length, round(tokill), rng=rng
             )
         else:
             # Background mortality only
             result = self._apply_background_mortality(
-                tree_data, coefficients, cycle_length
+                tree_data, coefficients, cycle_length, rng=rng
             )
 
         # Save staged TPA for next cycle's trajectory change detection
@@ -470,7 +469,9 @@ class MortalityModel:
         self,
         tree_data: List[Tuple['Tree', float]],
         coefficients: Dict[str, Any],
-        cycle_length: int
+        cycle_length: int,
+        *,
+        rng: random.Random = None
     ) -> MortalityResult:
         """Apply background mortality only (below SDI threshold).
 
@@ -480,10 +481,13 @@ class MortalityModel:
             tree_data: List of (tree, percentile) tuples
             coefficients: Mortality coefficients
             cycle_length: Cycle length in years
+            rng: Local random number generator
 
         Returns:
             MortalityResult
         """
+        if rng is None:
+            rng = random.Random()
         survivors = []
         trees_died = []
 
@@ -500,7 +504,7 @@ class MortalityModel:
             rip = 1.0 - ((1.0 - ri) ** cycle_length)
 
             # Apply mortality stochastically
-            if random.random() > rip:
+            if rng.random() > rip:
                 survivors.append(tree)
             else:
                 trees_died.append(tree)
@@ -516,7 +520,9 @@ class MortalityModel:
         tree_data: List[Tuple['Tree', float]],
         coefficients: Dict[str, Any],
         cycle_length: int,
-        tokill: int
+        tokill: int,
+        *,
+        rng: random.Random = None
     ) -> MortalityResult:
         """Apply Fortran-style density mortality (morts.f + varmrt.f).
 
@@ -531,10 +537,13 @@ class MortalityModel:
             coefficients: Mortality coefficients
             cycle_length: Cycle length in years
             tokill: Target number of trees to kill
+            rng: Local random number generator
 
         Returns:
             MortalityResult
         """
+        if rng is None:
+            rng = random.Random()
         tpa = len(tree_data)
         tokill = min(tokill, tpa - 1)  # Keep at least 1 tree
 
@@ -575,7 +584,7 @@ class MortalityModel:
 
         # Apply stochastic mortality weighted by efficiency
         for tree, prob in kill_probs:
-            if random.random() < prob:
+            if rng.random() < prob:
                 trees_died.append(tree)
             else:
                 survivors.append(tree)
@@ -802,8 +811,7 @@ class LSMortalityModel:
         if len(trees) <= 1:
             return MortalityResult(survivors=list(trees), mortality_count=0, trees_died=[])
 
-        if random_seed is not None:
-            random.seed(random_seed)
+        rng = random.Random(random_seed) if random_seed is not None else random.Random()
 
         max_sdi = max_sdi or self.max_sdi or self._SDI_MAXIMUMS.get(
             self.default_species, self.DEFAULT_SDI_MAX
@@ -861,7 +869,7 @@ class LSMortalityModel:
             # than background for shade-tolerant species with low removal fractions).
             total_mort_prob = max(mort, rip)
 
-            if random.random() > total_mort_prob:
+            if rng.random() > total_mort_prob:
                 survivors.append(tree)
             else:
                 trees_died.append(tree)

@@ -73,6 +73,7 @@ class ParameterizedModel(ABC):
         self.species_code = species_code
         self.coefficients: Dict[str, Any] = {}
         self.raw_data: Dict[str, Any] = {}
+        self._sigma: float = 0.0
         self._load_parameters()
 
     def _get_coefficient_data(self) -> Dict[str, Any]:
