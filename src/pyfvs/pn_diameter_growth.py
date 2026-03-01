@@ -54,6 +54,8 @@ class PNDiameterGrowthModel(ParameterizedModel):
     COEFFICIENT_FILE = 'pn/pn_diameter_growth_coefficients.json'
     COEFFICIENT_KEY = 'coefficients'
     DEFAULT_SPECIES = 'DF'  # Douglas-fir is the default site species for PN
+    DEFAULT_ELEVATION = 10.0  # Default elevation in hundreds of feet
+    DEFAULT_IFOR_INDEX = 1  # IFOR=2 (Siuslaw NF) → array index 1
 
     # Fallback parameters for key PN species (from dgf.f)
     FALLBACK_PARAMETERS = {
@@ -150,7 +152,7 @@ class PNDiameterGrowthModel(ParameterizedModel):
 
     # Species mapping from MAPSPC array in dgf.f
     # Maps 39 species to 20 coefficient sets
-    SPECIES_TO_INDEX = {
+    SPECIES_MAP = {
         'SF': '1', 'WF': '2', 'GF': '2', 'AF': '3', 'RF': '4',
         'SS': '17', 'NF': '4', 'YC': '15', 'IC': '11', 'ES': '18',
         'LP': '16', 'JP': '6', 'SP': '5', 'WP': '5', 'PP': '6',
@@ -173,7 +175,7 @@ class PNDiameterGrowthModel(ParameterizedModel):
             coeffs = self.raw_data.get(self.COEFFICIENT_KEY, {})
 
             # Get coefficient index for this species (e.g., 'DF' -> '7')
-            coef_idx = self.SPECIES_TO_INDEX.get(self.species_code.upper(), '7')
+            coef_idx = self.SPECIES_MAP.get(self.species_code.upper(), '7')
 
             if coef_idx in coeffs:
                 self.coefficients = coeffs[coef_idx]
@@ -191,7 +193,7 @@ class PNDiameterGrowthModel(ParameterizedModel):
         bal: float,
         pccf: float = 100.0,
         relht: float = 1.0,
-        elevation: float = 10.0,
+        elevation: float = None,
         slope: float = 0.0,
         aspect: float = 0.0,
         time_step: float = 10.0,
@@ -215,6 +217,10 @@ class PNDiameterGrowthModel(ParameterizedModel):
         Returns:
             Diameter squared increment (DDS) in sq inches
         """
+        # Resolve elevation default from class attribute
+        if elevation is None:
+            elevation = self.DEFAULT_ELEVATION
+
         # Get coefficients
         params = self.coefficients
 
@@ -238,15 +244,13 @@ class PNDiameterGrowthModel(ParameterizedModel):
         dgba = params.get('DGBA', 0.0)
         dgpccf = params.get('DGPCCF', 0.0)
         dghah = params.get('DGHAH', 0.0)
+        ifor_idx = self.DEFAULT_IFOR_INDEX
         dgfor = params.get('DGFOR', -0.7)
         if isinstance(dgfor, list):
-            # PN default IFOR=2 (Siuslaw NF) → MAPLOC(2,JSPC) → location class 2
-            # DGFOR array is 0-indexed, so location class 2 = index 1
-            dgfor = dgfor[1] if len(dgfor) > 1 else dgfor[0]
+            dgfor = dgfor[ifor_idx] if len(dgfor) > ifor_idx else dgfor[-1]
         dgds = params.get('DGDS', -0.0001)
         if isinstance(dgds, list):
-            # Same IFOR=2 mapping for location-dependent DGDS
-            dgds = dgds[1] if len(dgds) > 1 else dgds[0]
+            dgds = dgds[ifor_idx] if len(dgds) > ifor_idx else dgds[-1]
         dgel = params.get('DGEL', 0.0)
         dgel2 = params.get('DGEL2', 0.0)
         dgsasp = params.get('DGSASP', 0.0)
@@ -319,7 +323,7 @@ class PNDiameterGrowthModel(ParameterizedModel):
         bal: float,
         pccf: float = 100.0,
         relht: float = 1.0,
-        elevation: float = 10.0,
+        elevation: float = None,
         slope: float = 0.0,
         aspect: float = 0.0,
         time_step: float = 10.0,
