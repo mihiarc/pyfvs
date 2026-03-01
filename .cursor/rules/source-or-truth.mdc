@@ -1,6 +1,0 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-Never change growth functions or coefficients. See docs folder for source of truth.
