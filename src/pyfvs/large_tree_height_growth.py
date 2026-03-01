@@ -773,16 +773,22 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         }
 
 
+_height_growth_cache: dict[str, LargeTreeHeightGrowthModel] = {}
+
+
 def create_large_tree_height_growth_model(species_code: str = "LP") -> LargeTreeHeightGrowthModel:
-    """Factory function to create a large tree height growth model.
-    
+    """Factory function to create a cached large tree height growth model.
+
     Args:
         species_code: Species code (e.g., "LP", "SP", "SA", etc.)
-        
+
     Returns:
-        LargeTreeHeightGrowthModel instance
+        LargeTreeHeightGrowthModel instance (cached by species)
     """
-    return LargeTreeHeightGrowthModel(species_code)
+    key = species_code.upper()
+    if key not in _height_growth_cache:
+        _height_growth_cache[key] = LargeTreeHeightGrowthModel(species_code)
+    return _height_growth_cache[key]
 
 
 def calculate_large_tree_height_growth(species_code: str, dbh: float, crown_ratio: float,

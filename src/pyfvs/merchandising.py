@@ -299,8 +299,8 @@ def merchandise_tree(
     if rules is None:
         rules = MerchandisingRules()
 
-    dbh = taper_model._dbh
-    height = taper_model._height
+    dbh = taper_model.dbh
+    height = taper_model.height
 
     if dbh is None or height is None or height <= 4.5 or dbh < 1.0:
         return [], 0.0, 0.0

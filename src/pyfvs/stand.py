@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     import polars as pl
 
 from .tree import Tree
-from .config_loader import load_stand_config, get_default_variant, SUPPORTED_VARIANTS
+from .config_loader import get_default_variant, SUPPORTED_VARIANTS
 from .exceptions import FVSError
 from .validation import ParameterValidator
 from .logging_config import get_logger
@@ -135,8 +135,6 @@ class Stand:
         # Set up logging
         self.logger = get_logger(__name__)
 
-        # Load configuration with variant
-        self.params = load_stand_config(species, variant=self.variant)
         self._load_growth_params()
 
         # Initialize component classes (variant-aware)

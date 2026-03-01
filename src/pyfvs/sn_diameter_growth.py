@@ -152,8 +152,8 @@ class SNDiameterGrowthModel(ParameterizedModel):
             plant_effect
         )
 
-        # Apply FVS minimum bound for ln(DDS)
-        ln_dds = max(-9.21, ln_dds)
+        # Apply FVS bounds for ln(DDS) — lower from Fortran, upper defensive
+        ln_dds = max(-9.21, min(11.0, ln_dds))
 
         # Apply stochastic multiplier: Baskerville correction (deterministic)
         # or random draw (stochastic) matching Fortran dgscor.f.

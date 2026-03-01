@@ -67,7 +67,6 @@ from .forest_type import (
 # =============================================================================
 from .config_loader import (
     get_config_loader,
-    load_stand_config,
     load_tree_config,
     set_default_variant,
     get_default_variant,
@@ -293,7 +292,6 @@ __all__ = [
     "get_forest_type_group_info",
     # Configuration
     "get_config_loader",
-    "load_stand_config",
     "load_tree_config",
     "set_default_variant",
     "get_default_variant",

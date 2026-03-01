@@ -201,7 +201,7 @@ class Tree:
         initial_height = self.height
         
         # Get transition parameters from config
-        variant = getattr(self, '_variant', 'SN')
+        variant = self._variant
 
         # PN/WC: species-specific transition zones from regent.f XMIN/XMAX
         if variant in ('PN', 'WC'):
@@ -300,7 +300,7 @@ class Tree:
             pbal: Basal area in larger trees (sq ft/acre), for PN/WC SMHGDG
             avg_height: Average stand height (feet), for PN/WC SMHGDG
         """
-        variant = getattr(self, '_variant', 'SN')
+        variant = self._variant
 
         # PN/WC: use species-specific height-age curves from htcalc.f
         if variant in ('PN', 'WC'):
@@ -310,7 +310,6 @@ class Tree:
         # Get species-specific parameters - prefer variant-specific JSON file
         # which has Fortran LTBHEC-matched coefficients, then fall back to
         # species config YAML (which may have older publication coefficients).
-        variant = getattr(self, '_variant', 'SN')
         p = self._load_variant_small_tree_coefficients(variant)
         if not p:
             p = self.species_params.get('small_tree_height_growth', {})
@@ -502,7 +501,7 @@ class Tree:
         """
         from .pn_small_tree_growth import calculate_small_tree_growth
 
-        variant = getattr(self, '_variant', 'PN')
+        variant = self._variant
 
         # Call SMHGDG in 5-year sub-steps (Fortran base period is 5 years)
         n_steps = max(1, time_step // 5)
@@ -520,32 +519,6 @@ class Tree:
             )
             self.height = max(0.5, self.height + hg5)
             self.dbh = max(0.0, self.dbh + dg5)
-
-    def _apply_dds_to_dbh(self, dds: float, use_bark_ratio: bool = True) -> float:
-        """Apply DDS (diameter squared increment) to DBH with optional bark ratio conversion.
-
-        FVS applies DDS to inside-bark diameter, then converts back to outside-bark.
-        This helper eliminates duplicate bark ratio conversion code across variant
-        growth methods.
-
-        Args:
-            dds: Diameter squared increment (sq inches inside bark)
-            use_bark_ratio: If True, apply bark ratio conversion (default True).
-                           If False, apply DDS directly to DBH².
-
-        Returns:
-            New DBH (outside bark) in inches
-        """
-        if use_bark_ratio:
-            from .bark_ratio import create_bark_ratio_model
-            variant = getattr(self, '_variant', 'SN')
-            bark_model = create_bark_ratio_model(self.species, variant=variant)
-            bark_ratio = bark_model.calculate_bark_ratio(self.dbh)
-            dib_old = self.dbh * bark_ratio
-            dib_new = math.sqrt(dib_old * dib_old + dds)
-            return dib_new / bark_ratio
-        else:
-            return math.sqrt(self.dbh * self.dbh + dds)
 
     def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None, top_height=None):
         """Implement large tree diameter growth model using variant-specific equations.
@@ -568,7 +541,7 @@ class Tree:
             rng: Random number generator for stochastic mode (None = deterministic)
             top_height: Stand top height in feet (for RELHT calculation)
         """
-        variant = getattr(self, '_variant', 'SN')
+        variant = self._variant
 
         # SN variant (default) - special handling for ecounit/forest type effects
         if variant == 'SN':
@@ -971,7 +944,7 @@ class Tree:
         from .crown_ratio import create_crown_ratio_model
 
         # Create crown ratio model for this species and variant
-        variant = getattr(self, '_variant', 'SN')
+        variant = self._variant
         cr_model = create_crown_ratio_model(self.species, variant=variant)
 
         # Calculate CCF from competition factor (rough approximation)
@@ -1026,7 +999,7 @@ class Tree:
         else:
             # Above breast height: use H-D relationship
             from .height_diameter import create_height_diameter_model
-            variant = getattr(self, '_variant', 'SN')
+            variant = self._variant
             hd_model = create_height_diameter_model(self.species, variant=variant)
 
             dbh = hd_model.solve_dbh_from_height(
@@ -1132,7 +1105,7 @@ class Tree:
             dbh=self.dbh,
             height=self.height,
             species_code=self.species,
-            variant=getattr(self, '_variant', 'SN')
+            variant=self._variant
         )
 
         # Return requested volume type
@@ -1166,7 +1139,7 @@ class Tree:
             dbh=self.dbh,
             height=self.height,
             species_code=self.species,
-            variant=getattr(self, '_variant', 'SN')
+            variant=self._variant
         )
 
         return result.to_dict()

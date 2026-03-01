@@ -48,6 +48,16 @@ class TaperModel:
         self._height: Optional[float] = None
         self._initialized = False
 
+    @property
+    def dbh(self) -> Optional[float]:
+        """Diameter at breast height (inches), or None if not initialized."""
+        return self._dbh
+
+    @property
+    def height(self) -> Optional[float]:
+        """Total tree height (feet), or None if not initialized."""
+        return self._height
+
     def initialize_tree(self, dbh: float, height: float,
                         form_class: Optional[float] = None):
         """Prepare the model for a specific tree.

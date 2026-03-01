@@ -1059,6 +1059,9 @@ class CSMortalityModel(LSMortalityModel):
 _default_model: Optional[MortalityModel] = None
 
 
+_mortality_cache: dict[tuple, object] = {}
+
+
 def create_mortality_model(
     default_species: str = 'LP',
     max_sdi: Optional[float] = None,
@@ -1072,7 +1075,7 @@ def create_mortality_model(
         variant: FVS variant code (e.g., 'SN', 'LS')
 
     Returns:
-        MortalityModel or LSMortalityModel instance
+        MortalityModel or LSMortalityModel instance (cached by species/variant/sdi)
     """
     if variant is None:
         from .config_loader import get_default_variant
@@ -1087,11 +1090,12 @@ def create_mortality_model(
         sdi_maximums = config.sdi_maximums
         max_sdi = sdi_maximums.get(default_species, 850)
 
-    mortality_cls = config.mortality_class
-    if mortality_cls is MortalityModel:
-        return mortality_cls(default_species=default_species, max_sdi=max_sdi)
-    else:
-        return mortality_cls(default_species=default_species, max_sdi=max_sdi)
+    cache_key = (default_species, variant, max_sdi)
+    if cache_key not in _mortality_cache:
+        _mortality_cache[cache_key] = config.mortality_class(
+            default_species=default_species, max_sdi=max_sdi
+        )
+    return _mortality_cache[cache_key]
 
 
 def get_mortality_model(species: str = 'LP') -> MortalityModel:

@@ -311,17 +311,23 @@ class CrownCompetitionFactorModel(ParameterizedModel):
         }
 
 
+_ccf_cache: dict[str, CrownCompetitionFactorModel] = {}
+
+
 def create_ccf_model(species_code: str = "LP") -> CrownCompetitionFactorModel:
-    """Factory function to create a CCF model.
+    """Factory function to create a cached CCF model.
 
     Args:
         species_code: Species code (accepted for API consistency but CCF
                      coefficients are not species-specific)
 
     Returns:
-        CrownCompetitionFactorModel instance
+        CrownCompetitionFactorModel instance (cached by species)
     """
-    return CrownCompetitionFactorModel(species_code)
+    key = species_code.upper()
+    if key not in _ccf_cache:
+        _ccf_cache[key] = CrownCompetitionFactorModel(species_code)
+    return _ccf_cache[key]
 
 
 def calculate_individual_ccf(dbh: float, open_crown_width: Optional[float] = None, 

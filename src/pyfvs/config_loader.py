@@ -303,39 +303,6 @@ class ConfigLoader:
                 f"in variant {self.variant}: {str(e)}"
             ) from e
     
-    def get_stand_params(self, species_code: str = 'LP') -> Dict[str, Any]:
-        """Get parameters needed for Stand class in the legacy format.
-
-        Args:
-            species_code: Species code (default: 'LP' for loblolly pine)
-
-        Returns:
-            Dictionary with parameters in the format expected by Stand class
-        """
-        normalized_code = normalize_species_code(species_code)
-        species_params = self.load_species_config(normalized_code)
-
-        # Convert to legacy format expected by Stand class
-        stand_params = {
-            'species': normalized_code.lower() + '_pine',
-            'crown': {
-                # Extract crown width parameters for loblolly pine
-                'a1': 0.7380,  # From README.md species data
-                'a2': 0.2450,
-                'a3': 0.000809
-            },
-            'mortality': {
-                'max_sdi': species_params.get('density', {}).get('sdi_max', 480),
-                'background_rate': 0.005,
-                'competition_threshold': 0.55
-            },
-            'volume': {
-                'form_factor': 0.48
-            }
-        }
-        
-        return stand_params
-    
     def get_tree_params(self, species_code: str = 'LP') -> Dict[str, Any]:
         """Get parameters needed for Tree class.
 
@@ -503,16 +470,6 @@ def get_default_variant() -> str:
         Current default variant code
     """
     return _current_variant
-
-
-def load_stand_config(species_code: str = 'LP', variant: str = None) -> Dict[str, Any]:
-    """Convenience function to load stand configuration.
-
-    Args:
-        species_code: Species code (e.g., 'LP' for SN, 'JP' for LS)
-        variant: FVS variant code. If None, uses current default.
-    """
-    return get_config_loader(variant).get_stand_params(species_code)
 
 
 def load_tree_config(species_code: str = 'LP', variant: str = None) -> Dict[str, Any]:

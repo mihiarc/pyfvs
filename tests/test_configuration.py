@@ -143,21 +143,6 @@ class TestConfigLoader:
         assert '.txt' in str(exc_info.value)
         assert 'Unsupported' in str(exc_info.value)
     
-    def test_get_stand_params(self):
-        """Test getting stand parameters in legacy format."""
-        loader = get_config_loader()
-        
-        # Test default species
-        params = loader.get_stand_params()
-        assert 'species' in params
-        assert 'crown' in params
-        assert 'mortality' in params
-        assert params['species'] == 'lp_pine'
-        
-        # Test specific species
-        params = loader.get_stand_params('SP')
-        assert params['species'] == 'sp_pine'
-    
     def test_yaml_to_toml_conversion(self, temp_config_dir):
         """Test YAML to TOML conversion functionality."""
         # Create test YAML structure

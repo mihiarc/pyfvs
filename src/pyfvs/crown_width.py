@@ -389,16 +389,22 @@ class CrownWidthModel(ParameterizedModel):
         }
 
 
+_crown_width_cache: dict[str, CrownWidthModel] = {}
+
+
 def create_crown_width_model(species_code: str = "LP") -> CrownWidthModel:
-    """Factory function to create a crown width model for a species.
+    """Factory function to create a cached crown width model for a species.
 
     Args:
         species_code: Species code (e.g., "LP", "SP", "SA", etc.)
 
     Returns:
-        CrownWidthModel instance
+        CrownWidthModel instance (cached by species)
     """
-    return CrownWidthModel(species_code)
+    key = species_code.upper()
+    if key not in _crown_width_cache:
+        _crown_width_cache[key] = CrownWidthModel(species_code)
+    return _crown_width_cache[key]
 
 
 def calculate_forest_crown_width(species_code: str, dbh: float, crown_ratio: float = 50.0,
