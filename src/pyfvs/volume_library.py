@@ -19,8 +19,11 @@ References:
     Flewelling & Raynes (1993) - Variable-shape stem-profile predictions
     Amateis & Burkhart (1987) - Cubic-Foot Volume Equations for Loblolly Pine
 """
+import logging
 from dataclasses import dataclass, asdict
 from typing import Dict, Any, Optional, List
+
+logger = logging.getLogger(__name__)
 
 from .config_loader import get_default_variant
 
@@ -405,8 +408,12 @@ class VolumeCalculator:
         if self._taper_model is not None and dbh >= 1.0 and height > 4.5:
             try:
                 return self._calculate_volume_taper(dbh, height)
-            except Exception:
-                pass  # Fall through to combined-variable
+            except (ValueError, ZeroDivisionError, KeyError, AttributeError) as exc:
+                logger.debug(
+                    "Taper volume failed for %s (DBH=%.1f, HT=%.1f): %s; "
+                    "falling back to combined-variable",
+                    self.species_code, dbh, height, exc,
+                )
 
         return self._calculate_volume_combined_variable(dbh, height)
 
@@ -572,8 +579,12 @@ class VolumeCalculator:
                 board_foot_doyle=bf_doyle,
             )
 
-        except Exception:
-            # Ultimate fallback using combined-variable with default coefficients
+        except (ValueError, ZeroDivisionError, KeyError, AttributeError) as exc:
+            logger.warning(
+                "Combined-variable volume failed for %s (DBH=%.1f, HT=%.1f): %s; "
+                "using LP default coefficients",
+                self.species_code, dbh, height, exc,
+            )
             d2h = dbh * dbh * height
             cubic_volume = max(0.0, 0.18658 + 0.00250 * d2h)
             return VolumeResult(total_cubic_volume=cubic_volume)

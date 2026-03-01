@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 
 from .model_base import ParameterizedModel
 from .config_loader import load_coefficient_file
+from .exceptions import FVSError
 
 __all__ = [
     'LargeTreeHeightGrowthModel',
@@ -507,7 +508,7 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
                         return coeffs[self.species_code]
                     elif 'LP' in coeffs:
                         return coeffs['LP']
-            except (FileNotFoundError, Exception):
+            except FVSError:
                 continue
 
         # Fallback coefficients if no file available

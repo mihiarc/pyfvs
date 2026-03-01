@@ -8,10 +8,13 @@ The system uses two coefficient tables:
 - Table 4.7.1.5: For mountain/province-level ecounits (M221, M222, M231, 221, 222, 231T)
 - Table 4.7.1.6: For lowland ecounits (231L, 232, 234, 255, 411)
 """
+import logging
 from typing import Dict, Any, Optional, Set
 from .config_loader import load_coefficient_file
 from .exceptions import ConfigurationError
 from .utils import normalize_species_code, normalize_ecounit
+
+logger = logging.getLogger(__name__)
 
 
 # Define the ecological unit groups for each table
@@ -84,10 +87,12 @@ class EcologicalUnitClassifier:
 
             EcologicalUnitClassifier._tables_loaded = True
 
-        except Exception as e:
-            if isinstance(e, ConfigurationError):
-                raise
-            # Set empty tables to avoid repeated failures
+        except ConfigurationError:
+            raise
+        except (KeyError, ValueError, TypeError) as exc:
+            logger.warning(
+                "Failed to load ecounit coefficient tables: %s; using empty fallbacks", exc,
+            )
             EcologicalUnitClassifier._coefficients_table_5 = self._get_empty_table()
             EcologicalUnitClassifier._coefficients_table_6 = self._get_empty_table()
             EcologicalUnitClassifier._tables_loaded = True

@@ -19,6 +19,7 @@ import math
 from typing import Tuple
 
 from .config_loader import load_coefficient_file
+from .exceptions import FVSError
 
 
 # =============================================================================
@@ -138,7 +139,7 @@ def load_small_tree_coefficients(species: str, variant: str) -> dict:
             coeffs = data.get('nc128_height_growth_coefficients', {})
             if species in coeffs:
                 return coeffs[species]
-        except (FileNotFoundError, Exception):
+        except FVSError:
             continue
     return {}
 

@@ -23,6 +23,7 @@ import math
 from typing import Dict, Optional
 
 from .config_loader import ConfigLoader, get_default_variant, load_coefficient_file
+from .exceptions import FVSError
 
 
 # ============================================================================
@@ -231,7 +232,7 @@ class ClarkTaperModel(TaperModel):
 
         try:
             data = load_coefficient_file(coef_file)
-        except (FileNotFoundError, Exception):
+        except FVSError:
             data = {}
 
         species_coeffs = data.get('species_coefficients', {})
@@ -652,7 +653,7 @@ class FlewellingTaperModel(TaperModel):
         """
         try:
             data = load_coefficient_file(self.COEFFICIENT_FILE)
-        except (FileNotFoundError, Exception):
+        except FVSError:
             return None
 
         species_params = data.get('species_parameters', {})

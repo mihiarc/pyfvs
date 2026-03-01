@@ -14,10 +14,13 @@ Metrics include:
 - Top Height
 - Point Basal Area in Larger trees (PBAL)
 """
+import logging
 import math
 from typing import List, Dict, Optional, TYPE_CHECKING
 
 from .config_loader import load_coefficient_file
+
+logger = logging.getLogger(__name__)
 from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area
 
 if TYPE_CHECKING:
@@ -356,8 +359,11 @@ class StandMetricsCalculator:
                     ocw = model.calculate_open_grown_crown_width(dbh)
                     tree_ccf = CCF_COEFFICIENT * (ocw ** 2)
                     total_ccf += tree_ccf
-                except Exception:
-                    # Fallback: estimate OCW linearly
+                except (ValueError, KeyError, AttributeError) as exc:
+                    logger.debug(
+                        "CrownWidthModel failed for %s (DBH=%.1f): %s; using linear OCW estimate",
+                        species, dbh, exc,
+                    )
                     ocw_estimate = 3.0 + 0.15 * dbh
                     total_ccf += CCF_COEFFICIENT * (ocw_estimate ** 2)
             else:

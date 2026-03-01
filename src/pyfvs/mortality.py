@@ -12,12 +12,16 @@ Implements FVS mortality equations:
 - 5.0.3: Mortality distribution
 - 5.0.4: Final mortality calculation
 """
+import logging
 import math
 import random
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 
+from .exceptions import FVSError
 from .tree_utils import calculate_tree_basal_area, calculate_stand_basal_area
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .tree import Tree
@@ -139,8 +143,10 @@ class MortalityModel:
             cls._coefficients_cache = {'background': background, 'mwt': mwt}
             cls._coefficients_loaded = True
 
-        except Exception:
-            # Return default values if config not available
+        except (FVSError, KeyError, ValueError) as exc:
+            logger.warning(
+                "Failed to load mortality coefficients: %s; using defaults", exc,
+            )
             cls._coefficients_cache = cls._get_default_coefficients()
             cls._coefficients_loaded = True
 

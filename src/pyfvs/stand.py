@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 from .tree import Tree
 from .config_loader import load_stand_config, get_default_variant, SUPPORTED_VARIANTS
+from .exceptions import FVSError
 from .validation import ParameterValidator
 from .logging_config import get_logger
 from .utils import normalize_code
@@ -152,7 +153,10 @@ class Stand:
             loader = get_config_loader()
             growth_params_file = loader.cfg_dir / 'growth_model_parameters.yaml'
             self.growth_params = loader._load_config_file(growth_params_file)
-        except Exception:
+        except (FVSError, KeyError) as exc:
+            self.logger.warning(
+                "Failed to load growth_model_parameters.yaml: %s; using defaults", exc,
+            )
             self.growth_params = {
                 'mortality': {
                     'early_mortality': {'age_threshold': 5, 'base_rate': 0.25},

@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional, Union
 from .validation import ParameterValidator
 from .logging_config import get_logger, log_model_transition
 from .growth_parameters import GrowthParameters
+from .exceptions import FVSError
 
 __all__ = ['Tree']
 
@@ -76,8 +77,10 @@ class Tree:
         try:
             growth_params_file = loader.cfg_dir / 'growth_model_parameters.yaml'
             self.growth_params = loader._load_config_file(growth_params_file)
-        except Exception:
-            # Fallback to defaults if file not found
+        except (FVSError, KeyError) as exc:
+            self.logger.warning(
+                "Failed to load growth_model_parameters.yaml: %s; using defaults", exc,
+            )
             self.growth_params = {
                 'growth_transitions': {'small_to_large_tree': {'xmin': 3.0, 'xmax': 3.0}},
                 'small_tree_growth': {'default': {
@@ -468,7 +471,7 @@ class Tree:
                 coeffs = data.get('nc128_height_growth_coefficients', {})
                 if self.species in coeffs:
                     return coeffs[self.species]
-            except (FileNotFoundError, Exception):
+            except FVSError:
                 continue
         return {}
 
@@ -998,10 +1001,11 @@ class Tree:
 
             # Ensure reasonable bounds
             self.crown_ratio = max(0.15, min(0.95, new_cr))
-        except Exception:
-            # Fallback to simpler update if crown ratio calculation fails
-            # Use gradual reduction rather than replacement
-            # Scale by time_step (2% per 5-year cycle = 0.4% per year)
+        except (ValueError, KeyError, AttributeError) as exc:
+            self.logger.debug(
+                "Crown ratio model failed for %s (DBH=%.1f): %s; using gradual reduction",
+                self.species, self.dbh, exc,
+            )
             reduction = 0.02 * (time_step / 5.0)
             self.crown_ratio = max(0.15, min(0.95,
                 self.crown_ratio * (1.0 - reduction)))
@@ -1212,8 +1216,12 @@ class Tree:
         # Calculate crown width
         try:
             cr_width = calculate_open_crown_width(self.species, self.dbh)
-        except Exception:
-            cr_width = self.dbh * 1.5  # Fallback estimate
+        except (ValueError, KeyError, AttributeError) as exc:
+            self.logger.debug(
+                "Crown width failed for %s (DBH=%.1f): %s; using fallback",
+                self.species, self.dbh, exc,
+            )
+            cr_width = self.dbh * 1.5
 
         # Get volumes
         total_cubic = self.get_volume('total_cubic')
