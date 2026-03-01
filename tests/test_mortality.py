@@ -164,7 +164,7 @@ class TestMortalityModel:
         result = model.apply_mortality(sparse_stand, cycle_length=5, random_seed=42)
 
         # Should have some mortality but not excessive
-        assert result.mortality_count >= 0
+        assert result.mortality_count <= len(sparse_stand)
         assert result.mortality_count < len(sparse_stand) * 0.2  # Less than 20%
         assert len(result.survivors) + result.mortality_count == len(sparse_stand)
 
@@ -219,9 +219,7 @@ class TestMortalityModel:
         result_long = model.apply_mortality(dense_stand[:100], cycle_length=10, random_seed=42)
 
         # Longer cycle should have equal or more mortality
-        # (not strictly more due to randomness)
-        assert result_long.mortality_count >= 0
-        assert result_short.mortality_count >= 0
+        assert result_long.mortality_count >= result_short.mortality_count
 
     def test_max_sdi_parameter(self, model, dense_stand):
         """Test that max_sdi parameter affects mortality."""
@@ -236,9 +234,7 @@ class TestMortalityModel:
         )
 
         # Lower max_sdi should cause higher relative density and more mortality
-        # But due to randomness, just verify both work
-        assert result_low_max.mortality_count >= 0
-        assert result_high_max.mortality_count >= 0
+        assert result_low_max.mortality_count >= result_high_max.mortality_count
 
 
 class TestMortalityCalculations:
@@ -353,7 +349,7 @@ class TestConvenienceFunctions:
         result = apply_stand_mortality(trees, cycle_length=5)
 
         assert isinstance(result, MortalityResult)
-        assert result.mortality_count >= 0
+        assert result.mortality_count <= len(trees)
         assert len(result.survivors) + result.mortality_count == len(trees)
 
 
@@ -458,15 +454,14 @@ class TestSDIThresholds:
         result = model.apply_mortality(trees, cycle_length=5, max_sdi=max_sdi, random_seed=42)
 
         # Verify mortality count is valid
-        assert result.mortality_count >= 0
         assert result.mortality_count <= len(trees)
         assert len(result.survivors) + result.mortality_count == len(trees)
 
         # For high density stands (above upper threshold), expect significant mortality
         if relsdi >= 0.85:
-            mortality_rate = result.mortality_count / len(trees)
-            # High density should trigger noticeable mortality
-            assert mortality_rate >= 0.0  # At minimum, mortality possible
+            assert result.mortality_count > 0, (
+                f"relSDI={relsdi:.2f} should trigger density-dependent mortality"
+            )
 
     @pytest.mark.slow
     @pytest.mark.parametrize("relsdi,_", SDI_THRESHOLD_CASES)
@@ -563,8 +558,9 @@ class TestSpeciesMortality:
 
         # High MWT species should have mortality in dense stands
         if expected_mwt >= 0.7:
-            # Expected higher mortality for shade intolerant species
-            assert mortality_rate >= 0.0  # At minimum can have mortality
+            assert mortality_rate > 0, (
+                f"{species} (MWT={expected_mwt}) should have mortality in dense stand"
+            )
 
         # All results should be valid
         assert len(result.survivors) + result.mortality_count == len(trees)
@@ -603,12 +599,8 @@ class TestStandAgeMortality:
         result = model.apply_mortality(trees, cycle_length=5, random_seed=42)
 
         # Basic validity checks
-        assert result.mortality_count >= 0
+        assert result.mortality_count <= len(trees)
         assert len(result.survivors) + result.mortality_count == len(trees)
-
-        # Young stands (small DBH) may have higher background mortality
-        # Older stands (larger DBH) have lower background mortality
-        # This is built into the logistic equation
 
     @pytest.mark.parametrize("age,description", STAND_AGE_CASES)
     def test_dbh_affects_background_mortality(self, model, age, description):
@@ -687,7 +679,7 @@ class TestCycleLengthMortality:
         result = model.apply_mortality(standard_stand, cycle_length=cycle_length, random_seed=42)
 
         # Results should be valid
-        assert result.mortality_count >= 0
+        assert result.mortality_count <= len(standard_stand)
         assert len(result.survivors) + result.mortality_count == len(standard_stand)
 
 
@@ -789,7 +781,7 @@ class TestCombinedScenarios:
 
         result = model.apply_mortality(trees, cycle_length=cycle_length, random_seed=42)
 
-        assert result.mortality_count >= 0
+        assert result.mortality_count <= len(trees)
         assert len(result.survivors) + result.mortality_count == len(trees)
 
     @pytest.mark.slow
@@ -819,5 +811,5 @@ class TestCombinedScenarios:
         result = model.apply_mortality(trees, cycle_length=5, max_sdi=max_sdi, random_seed=42)
 
         # Verify valid result
-        assert result.mortality_count >= 0
+        assert result.mortality_count <= len(trees)
         assert len(result.survivors) + result.mortality_count == len(trees)
