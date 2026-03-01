@@ -84,5 +84,9 @@ source_docs/
 FVSOut.db
 fort.*
 
+# Validation outputs and reference publications
+validation/reference_data/publications/
+validation/results/
+
 # Build outputs
 site/
