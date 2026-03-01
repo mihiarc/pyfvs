@@ -581,20 +581,22 @@ def test_selection_harvest():
 def test_harvest_history_tracking():
     """Test that multiple harvests are tracked correctly."""
     stand = Stand.initialize_planted(trees_per_acre=HIGH_TPA, site_index=70)
+    # Stand starts at age=cycle_length (5 for SN)
+    initial_age = stand.age
     stand.grow(years=30)
 
-    # First thin at age 30 (trees need to be large enough for BA-based thin)
+    # First thin (age = initial_age + 30)
     stand.thin_from_below(target_tpa=400)
 
     stand.grow(years=10)
 
-    # Second thin at age 40
+    # Second thin (age = initial_age + 40)
     stand.thin_from_below(target_tpa=200)
 
     # Verify harvest history
     assert len(stand.harvest_history) == 2
-    assert stand.harvest_history[0].year == 30
-    assert stand.harvest_history[1].year == 40
+    assert stand.harvest_history[0].year == initial_age + 30
+    assert stand.harvest_history[1].year == initial_age + 40
 
     # Get harvest summary
     summary = stand.get_harvest_summary()

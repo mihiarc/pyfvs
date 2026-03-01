@@ -199,9 +199,11 @@ class TestFullSimulationPipeline:
         )
         
         # Final results should be similar (within 10%)
-        final_5yr = results_5yr[results_5yr['age'] == 20].iloc[0]
-        final_10yr = results_10yr[results_10yr['age'] == 20].iloc[0]
-        
+        # Use last row since age values differ between time steps
+        # (5yr steps: 5,10,15,20,25; 10yr steps: 5,15,25)
+        final_5yr = results_5yr.iloc[-1]
+        final_10yr = results_10yr.iloc[-1]
+
         assert abs(final_5yr['mean_dbh'] - final_10yr['mean_dbh']) / final_5yr['mean_dbh'] < 0.1
         assert abs(final_5yr['volume'] - final_10yr['volume']) / final_5yr['volume'] < 0.1
 
