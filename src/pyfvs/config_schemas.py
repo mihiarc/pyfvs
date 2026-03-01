@@ -293,6 +293,20 @@ class StandardMortalityFile(BaseModel):
     coefficients: Dict[str, Dict[str, Any]]
 
 
+class SNMortalityDefaultsFile(BaseModel):
+    """SN variant VARADJ shade tolerance defaults."""
+    model_config = ConfigDict(extra="allow")
+    varadj: Dict[str, float]
+
+
+class LSMortalityDefaultsFile(BaseModel):
+    """LS variant mortality defaults: species groups, SDI maximums, shade tolerance."""
+    model_config = ConfigDict(extra="allow")
+    species_mortality_group: Dict[str, int]
+    sdi_maximums: Dict[str, float]
+    shade_tolerance: Dict[str, float]
+
+
 # ---------------------------------------------------------------------------
 # Schema registry — maps filename patterns to schema classes
 # ---------------------------------------------------------------------------
@@ -336,6 +350,8 @@ SCHEMA_REGISTRY: List[tuple] = [
 
     # Mortality
     (r"sn_mortality_model\.json$", SNMortalityFile),
+    (r"sn_mortality_defaults\.json$", SNMortalityDefaultsFile),
+    (r"ls_mortality_defaults\.json$", LSMortalityDefaultsFile),
     (r"mortality_coefficients\.json$", StandardMortalityFile),
 ]
 
