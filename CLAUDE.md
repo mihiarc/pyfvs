@@ -54,8 +54,9 @@ Stand.initialize_planted(tpa, si, species, variant) -> Tree objects -> grow() ->
 | **NE** | Northeast | 108 | RM | 10yr | BA growth = B1*SI*(1-exp(-B2*DBH)) |
 | **CS** | Central States | 96 | WO | 10yr | ln(DDS) with RELDBH (shares LS structure) |
 | **OP** | ORGANON PNW | 18 | DF | 5yr | ln(DG) direct diameter growth |
+| **WS** | Western Sierra | 43 | PP | 10yr | ln(DDS) with topo effects (14 eq sets) |
 
-**Not yet implemented**: CA, OC, WS (fall back to SN models)
+**Not yet implemented**: CA, OC (fall back to SN models for bark/crown/mortality)
 
 ## API Patterns
 
@@ -96,7 +97,7 @@ if fvs_library_available('SN'):
 - `Tree()` requires `variant='LS'` for LS species like RN, JP, SM
 - `Tree.grow()` uses `time_step=` (not `cycle_length=`)
 - **Stochastic is default**: `Stand` uses `stochastic=True` by default. Pass `random_seed=N` for reproducibility or `stochastic=False` for deterministic mode.
-- Stochastic applies to SN, LS, PN, WC, CS diameter growth. NE and OP are unaffected (different model forms).
+- Stochastic applies to SN, LS, PN, WC, CS, WS diameter growth. NE and OP are unaffected (different model forms).
 - Factory functions use `create_*_diameter_growth_model()` naming (no `get_*` aliases)
 - SN ecounit effects are large: M231 adds +0.790 to ln(DDS), 232 (base) adds 0.0
 - FVS calibrated for 5yr cycles; `stand.grow()` auto-subdivides longer periods
@@ -108,7 +109,7 @@ if fvs_library_available('SN'):
 ## Known Issues
 
 1. Small trees don't respond to competition until transitioning to large-tree model
-2. CA/OC/WS variants fall back to SN models (not yet variant-specific)
+2. CA/OC variants fall back to SN models for bark/crown/mortality (DG coefficients are variant-specific)
 3. Flewelling inland species (JSP 11-21) not yet implemented
 4. Fort Bragg special equations (IFOR=20) not implemented
 
