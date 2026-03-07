@@ -59,6 +59,14 @@ class ConstantBarkRatioFile(BaseModel):
     species_bark_ratios: Dict[str, float]
 
 
+# --- Bark Ratio (WS: species_bark_ratios with bark1/bark2) ---
+
+class WSBarkRatioFile(BaseModel):
+    """WS bark ratio: species_bark_ratios → {bark1, bark2}."""
+    model_config = ConfigDict(extra="allow")
+    species_bark_ratios: Dict[str, Any]
+
+
 # --- Bark Ratio (PN: group-based with jbark_array) ---
 
 class PNBarkRatioFile(BaseModel):
@@ -307,6 +315,12 @@ class LSMortalityDefaultsFile(BaseModel):
     shade_tolerance: Dict[str, float]
 
 
+class WSMortalityDefaultsFile(BaseModel):
+    """WS variant mortality defaults: background mortality B0/B1 + VARADJ shade tolerance."""
+    model_config = ConfigDict(extra="allow")
+    varadj: Dict[str, float]
+
+
 # ---------------------------------------------------------------------------
 # Schema registry — maps filename patterns to schema classes
 # ---------------------------------------------------------------------------
@@ -317,6 +331,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     # Bark ratio
     (r"sn_bark_ratio_coefficients\.json$", SNBarkRatioFile),
     (r"(ne|ls|cs).+bark_ratio_coefficients\.json$", ConstantBarkRatioFile),
+    (r"ws.+bark_ratio_coefficients\.json$", WSBarkRatioFile),
     (r"pn.+bark_ratio_coefficients\.json$", PNBarkRatioFile),
 
     # Diameter growth
@@ -343,6 +358,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     # Crown ratio
     (r"sn_crown_ratio_coefficients\.json$", SNCrownRatioFile),
     (r"pn.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
+    (r"ws.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
     (r"crown_ratio_coefficients\.json$", StandardCrownRatioFile),
 
     # Large tree height growth
@@ -352,6 +368,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     (r"sn_mortality_model\.json$", SNMortalityFile),
     (r"sn_mortality_defaults\.json$", SNMortalityDefaultsFile),
     (r"ls_mortality_defaults\.json$", LSMortalityDefaultsFile),
+    (r"ws_mortality_defaults\.json$", WSMortalityDefaultsFile),
     (r"mortality_coefficients\.json$", StandardMortalityFile),
 ]
 

@@ -20,6 +20,7 @@ __all__ = [
     'NECrownRatioModel',
     'CSCrownRatioModel',
     'PNCrownRatioModel',
+    'WSCrownRatioModel',
     'create_crown_ratio_model',
     'calculate_average_crown_ratio',
     'predict_tree_crown_ratio',
@@ -818,6 +819,138 @@ class PNCrownRatioModel:
         max_cycle_change = 0.01 * cycle_length
         bounded_change = max(-max_cycle_change, min(max_cycle_change, change))
 
+        new_cr = current_cr + bounded_change
+        return max(0.10, min(0.95, new_cr))
+
+
+class WSCrownRatioModel:
+    """Crown ratio model for the Western Sierra Nevada (WS) variant.
+
+    Uses Weibull distribution with per-species coefficients from crown.f:
+    - Mean CR: ACR = C0 + C1 * SDI (SDI on 0-150 scale per Fortran)
+    - Weibull: CR = A + B * (-ln(1-X))^(1/C), bounded [0.10, 0.95]
+
+    43 species with per-species (not grouped) coefficients.
+    JP (Jeffrey Pine) has WEIBA=2.0 (all others 0.0).
+    GB (Great Basin Bristlecone) has all-zero coefficients (uses default CR).
+    """
+
+    _COEFFICIENT_FILE = 'ws/ws_crown_ratio_coefficients.json'
+
+    _FALLBACK_MEAN_CR = {
+        'SP': (7.12189, -0.02817), 'DF': (5.91609, -0.00943),
+        'WF': (6.86237, -0.03278), 'PP': (6.15172, -0.01994),
+        'JP': (7.33055, -0.01539), 'LP': (4.89032, -0.01884),
+    }
+
+    _FALLBACK_WEIBULL = {
+        'SP': (0.0, 0.32957, 1.03916, -0.83314, 0.91493),
+        'DF': (0.0, 0.39996, 1.03150, -0.98287, 0.88449),
+        'PP': (0.0, 0.20199, 1.07198, 0.75409, 0.52191),
+    }
+
+    DEFAULT_MEAN_CR = (6.48494, -0.02325)
+    DEFAULT_WEIBULL = (0.0, 0.16267, 1.07340, 3.28850, 0.0)
+
+    def __init__(self, species_code: str = "SP"):
+        self.species_code = species_code
+        self._mean_cr_c0 = None
+        self._mean_cr_c1 = None
+        self._weiba = None
+        self._weibb0 = None
+        self._weibb1 = None
+        self._weibc0 = None
+        self._weibc1 = None
+        self._load_parameters()
+
+    def _load_parameters(self):
+        """Load per-species crown ratio parameters from WS coefficient file."""
+        mean_cr = None
+        weibull = None
+
+        try:
+            data = load_coefficient_file(self._COEFFICIENT_FILE)
+            mcr_data = data.get('mean_cr_coefficients', {})
+            if self.species_code in mcr_data:
+                entry = mcr_data[self.species_code]
+                mean_cr = (entry['C0'], entry['C1'])
+
+            weib_data = data.get('weibull_parameters', {})
+            if self.species_code in weib_data:
+                entry = weib_data[self.species_code]
+                weibull = (entry['WEIBA'], entry['WEIBB0'], entry['WEIBB1'],
+                           entry['WEIBC0'], entry['WEIBC1'])
+        except FileNotFoundError:
+            pass
+
+        if mean_cr is None:
+            mean_cr = self._FALLBACK_MEAN_CR.get(self.species_code, self.DEFAULT_MEAN_CR)
+        if weibull is None:
+            weibull = self._FALLBACK_WEIBULL.get(self.species_code, self.DEFAULT_WEIBULL)
+
+        self._mean_cr_c0, self._mean_cr_c1 = mean_cr
+        self._weiba, self._weibb0, self._weibb1, self._weibc0, self._weibc1 = weibull
+
+    def calculate_average_crown_ratio(self, relsdi: float) -> float:
+        """Calculate average crown ratio using WS linear equation.
+
+        Args:
+            relsdi: Relative stand density index (1.0-12.0 scale from StandMetrics)
+
+        Returns:
+            Average crown ratio as proportion (0.05-0.95)
+        """
+        if self._mean_cr_c0 == 0.0 and self._mean_cr_c1 == 0.0:
+            return 0.50  # GB default
+
+        relsdi_fortran = relsdi / 10.0
+        relsdi_fortran = max(0.0, min(1.5, relsdi_fortran))
+        acr = self._mean_cr_c0 + self._mean_cr_c1 * relsdi_fortran * 100.0
+        acr_proportion = acr / 10.0
+        return max(0.05, min(0.95, acr_proportion))
+
+    def predict_individual_crown_ratio(self, tree_rank: float, relsdi: float,
+                                       ccf: float = 100.0, dbh: float = 5.0,
+                                       ba: float = 100.0, height: float = 50.0,
+                                       qmd: float = 8.0) -> float:
+        """Predict individual tree crown ratio using WS Weibull distribution.
+
+        Args:
+            tree_rank: Tree's rank in diameter distribution (0-1)
+            relsdi: Relative stand density index (1.0-12.0)
+
+        Returns:
+            Crown ratio as proportion (0.10-0.95)
+        """
+        if self._weibb0 == 0.0 and self._weibb1 == 0.0:
+            return 0.50  # GB default
+
+        acr = self.calculate_average_crown_ratio(relsdi)
+        acr_ten = acr * 10.0
+
+        weib_a = self._weiba
+        weib_b = self._weibb0 + self._weibb1 * acr_ten
+        weib_c = self._weibc0 + self._weibc1 * acr_ten
+
+        weib_b = max(3.0, weib_b)
+        weib_c = max(2.0, weib_c)
+
+        x = max(0.05, min(0.95, tree_rank))
+
+        try:
+            cr = weib_a + weib_b * ((-math.log(1 - x)) ** (1.0 / weib_c))
+            cr = cr / 10.0
+        except (ValueError, OverflowError, ZeroDivisionError):
+            cr = acr
+
+        return max(0.10, min(0.95, cr))
+
+    def update_crown_ratio_change(self, current_cr: float, predicted_cr: float,
+                                  height_growth: float, cycle_length: int = 5) -> float:
+        """Calculate crown ratio change with bounds checking."""
+        change = predicted_cr - current_cr
+        max_cycle_change = 0.01 * cycle_length
+        bounded_change = max(-max_cycle_change, min(max_cycle_change, change))
         new_cr = current_cr + bounded_change
         return max(0.10, min(0.95, new_cr))
 

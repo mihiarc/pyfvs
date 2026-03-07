@@ -87,6 +87,19 @@ class WSDiameterGrowthModel(ParameterizedModel):
         }
     }
 
+    # SIGMAR values from blkdat.f for stochastic diameter growth (43 species)
+    _SIGMA = {
+        'SP': 0.347, 'DF': 0.407, 'WF': 0.347, 'GS': 0.4408, 'IC': 0.433,
+        'JP': 0.289, 'RF': 0.4182, 'PP': 0.371, 'LP': 0.4169, 'WB': 0.4169,
+        'WP': 0.347, 'PM': 0.4392, 'SF': 0.347, 'KP': 0.4392, 'FP': 0.4392,
+        'CP': 0.4392, 'LM': 0.4392, 'MP': 0.371, 'GP': 0.4392, 'WE': 0.4392,
+        'GB': 0.2, 'BD': 0.407, 'RW': 0.4408, 'MH': 0.347, 'WJ': 0.4392,
+        'UJ': 0.4392, 'CJ': 0.4392, 'LO': 0.4721, 'CY': 0.4721, 'BL': 0.4721,
+        'BO': 0.4721, 'VO': 0.4721, 'IO': 0.4721, 'TO': 0.4744, 'GC': 0.4744,
+        'AS': 0.4744, 'CL': 0.4744, 'MA': 0.4744, 'DG': 0.4744, 'BM': 0.4721,
+        'MC': 0.5357, 'OS': 0.313, 'OH': 0.4721,
+    }
+
     def __init__(self, species_code: str = 'SP'):
         """Initialize WS diameter growth model for a species.
 
@@ -125,7 +138,8 @@ class WSDiameterGrowthModel(ParameterizedModel):
         slope: float = 0.0,
         aspect: float = 0.0,
         location_class: int = 0,
-        time_step: float = 10.0
+        time_step: float = 10.0,
+        rng=None
     ) -> float:
         """Calculate change in squared diameter (DDS).
 
@@ -205,6 +219,17 @@ class WSDiameterGrowthModel(ParameterizedModel):
         ln_dds += c.get('DGCASP', 0.0) * slope * math.cos(aspect)
         ln_dds += c.get('DGSASP', 0.0) * slope * math.sin(aspect)
 
+        # Stochastic or Baskerville correction
+        sigma = self._SIGMA.get(self.species_code.upper(), 0.4)
+        if rng is not None:
+            z = rng.gauss(0, sigma)
+            z = max(-2 * sigma, min(2 * sigma, z))
+            if ln_dds + z > 4.0:
+                z *= max(0.0, 1.0 - (ln_dds + z - 4.0) / 2.0)
+            ln_dds += z
+        else:
+            ln_dds += 0.88 * sigma * sigma / 2.0
+
         # Convert from ln(DDS) to DDS
         dds = math.exp(ln_dds)
 
@@ -247,7 +272,8 @@ class WSDiameterGrowthModel(ParameterizedModel):
         slope: float = 0.0,
         aspect: float = 0.0,
         location_class: int = 0,
-        time_step: float = 10.0
+        time_step: float = 10.0,
+        rng=None
     ) -> float:
         """Calculate diameter growth from DDS.
 
@@ -263,7 +289,7 @@ class WSDiameterGrowthModel(ParameterizedModel):
         dds = self.calculate_dds(
             dbh, crown_ratio, site_index, ba, bal,
             pccf, relht, elevation, slope, aspect,
-            location_class, time_step
+            location_class, time_step, rng=rng
         )
 
         # Convert DDS to diameter increment

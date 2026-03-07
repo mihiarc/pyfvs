@@ -13,11 +13,11 @@ from typing import Dict, Optional, Type, Any
 
 from .bark_ratio import (
     BarkRatioModel, LSBarkRatioModel, NEBarkRatioModel,
-    CSBarkRatioModel, PNBarkRatioModel,
+    CSBarkRatioModel, PNBarkRatioModel, WSBarkRatioModel,
 )
 from .crown_ratio import (
     CrownRatioModel, LSCrownRatioModel, NECrownRatioModel,
-    CSCrownRatioModel, PNCrownRatioModel,
+    CSCrownRatioModel, PNCrownRatioModel, WSCrownRatioModel,
 )
 from .mortality import (
     MortalityModel, LSMortalityModel, NEMortalityModel, CSMortalityModel,
@@ -81,6 +81,7 @@ from .establishment import (
     _NE_HHTMAX, _NE_HHTMAX_DEFAULT,
     _CS_HHTMAX, _CS_HHTMAX_DEFAULT,
     _LS_HHTMAX, _LS_HHTMAX_DEFAULT,
+    _WS_HHTMAX, _WS_HHTMAX_DEFAULT,
 )
 
 # =============================================================================
@@ -250,14 +251,19 @@ REGISTRY: Dict[str, VariantConfig] = {
         code='WS',
         name='Sierra Nevada',
         cycle_length=10,
-        default_species='DF',
+        default_species='PP',
         growth_category='topographic',
-        bark_ratio_class=BarkRatioModel,
-        crown_ratio_class=CrownRatioModel,
+        bark_ratio_class=WSBarkRatioModel,
+        crown_ratio_class=WSCrownRatioModel,
         mortality_class=MortalityModel,
-        taper_class=None,
+        mortality_needs_sdi_lookup=True,
+        taper_class=FlewellingTaperModel,
         dg_module='ws_diameter_growth',
         dg_factory='create_ws_diameter_growth_model',
+        default_elevation=45.0,
+        hhtmax=_WS_HHTMAX,
+        hhtmax_default=_WS_HHTMAX_DEFAULT,
+        sdi_maximums=StandMetricsCalculator.WS_SDI_MAXIMUMS,
     ),
 }
 

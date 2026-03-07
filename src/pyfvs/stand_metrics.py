@@ -168,6 +168,19 @@ class StandMetricsCalculator:
         'WO': 450, 'BO': 500, 'RA': 650, 'PD': 300, 'WI': 300,
     }
 
+    # WS SDI maximums for Western Sierra Nevada variant from sitset.f SDICON array
+    WS_SDI_MAXIMUMS = {
+        'SP': 647, 'DF': 547, 'WF': 759, 'GS': 588, 'IC': 706,
+        'JP': 571, 'RF': 800, 'PP': 571, 'LP': 622, 'WB': 675,
+        'WP': 297, 'PM': 358, 'SF': 889, 'KP': 430, 'FP': 430,
+        'CP': 430, 'LM': 493, 'MP': 571, 'GP': 259, 'WE': 430,
+        'GB': 470, 'BD': 547, 'RW': 1120, 'MH': 817, 'WJ': 290,
+        'UJ': 498, 'CJ': 430, 'LO': 382, 'CY': 382, 'BL': 382,
+        'BO': 382, 'VO': 382, 'IO': 382, 'TO': 759, 'GC': 759,
+        'AS': 759, 'CL': 759, 'MA': 759, 'DG': 759, 'BM': 382,
+        'MC': 353, 'OS': 624, 'OH': 382,
+    }
+
     # WC SDI maximums for West Cascades variant (interior Cascades, generally
     # lower than coastal PN due to drier conditions)
     WC_SDI_MAXIMUMS = {

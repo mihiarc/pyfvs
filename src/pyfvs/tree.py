@@ -736,8 +736,8 @@ class Tree:
                 forest_class=1,
                 time_step=time_step
             )
-        elif variant in ('OC', 'WS'):
-            # OC/WS have location_class parameter
+        elif variant == 'OC':
+            # OC has location_class parameter (no stochastic support)
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
@@ -751,6 +751,23 @@ class Tree:
                 aspect=aspect,
                 location_class=0,
                 time_step=time_step
+            )
+        elif variant == 'WS':
+            # WS has location_class parameter + stochastic support
+            diameter_increment = dg_model.calculate_diameter_growth(
+                dbh=self.dbh,
+                crown_ratio=self.crown_ratio,
+                site_index=site_index,
+                ba=ba,
+                bal=pbal,
+                pccf=pccf,
+                relht=relht,
+                elevation=elev,
+                slope=slope,
+                aspect=aspect,
+                location_class=0,
+                time_step=time_step,
+                rng=rng
             )
         else:  # PN, WC
             diameter_increment = dg_model.calculate_diameter_growth(

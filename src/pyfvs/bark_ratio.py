@@ -18,6 +18,7 @@ __all__ = [
     'NEBarkRatioModel',
     'CSBarkRatioModel',
     'PNBarkRatioModel',
+    'WSBarkRatioModel',
     'create_bark_ratio_model',
     'calculate_dib_from_dob',
     'calculate_bark_ratio',
@@ -674,6 +675,100 @@ class PNBarkRatioModel:
         Returns:
             True if bark ratio is within bounds
         """
+        return 0.80 <= bark_ratio <= 0.99
+
+
+class WSBarkRatioModel:
+    """Bark ratio model for the Western Sierra Nevada (WS) variant.
+
+    WS uses constant bark ratios per species from bratio.f:
+        BRATIO = BARK1 + BARK2 / D
+    Most species have BARK2=0 (constant ratio). GB has diameter-dependent ratio.
+    Bounded [0.80, 0.99] per FVS specification.
+    """
+
+    _COEFFICIENT_FILE = 'ws/ws_bark_ratio_coefficients.json'
+
+    FALLBACK_RATIOS = {
+        'SP': 0.8863, 'DF': 0.8839, 'WF': 0.8911, 'GS': 0.8863,
+        'IC': 0.8374, 'JP': 0.8967, 'RF': 0.8911, 'PP': 0.8967,
+        'LP': 0.9000, 'WB': 0.9000, 'WP': 0.8863, 'PM': 0.9329,
+        'SF': 0.8911, 'MH': 0.8863, 'RW': 0.8863, 'BD': 0.8839,
+        'MC': 0.9000, 'OS': 0.8967,
+    }
+
+    DEFAULT_SOFTWOOD = 0.9000
+    DEFAULT_HARDWOOD = 0.8374
+
+    _HARDWOOD_SET = {
+        'LO', 'CY', 'BL', 'BO', 'VO', 'IO', 'TO', 'GC', 'AS', 'CL',
+        'MA', 'DG', 'BM', 'OH',
+    }
+
+    def __init__(self, species_code: str = "SP"):
+        self.species_code = species_code
+        self._bark1 = None
+        self._bark2 = None
+        self._load_parameters()
+
+    def _load_parameters(self):
+        """Load bark ratio parameters from WS coefficient file."""
+        try:
+            data = load_coefficient_file(self._COEFFICIENT_FILE)
+            ratios = data.get('species_bark_ratios', {})
+            if self.species_code in ratios:
+                entry = ratios[self.species_code]
+                self._bark1 = entry['bark1']
+                self._bark2 = entry['bark2']
+            else:
+                self._use_fallback()
+        except FileNotFoundError:
+            self._use_fallback()
+
+    def _use_fallback(self):
+        if self.species_code in self.FALLBACK_RATIOS:
+            self._bark1 = self.FALLBACK_RATIOS[self.species_code]
+        elif self.species_code in self._HARDWOOD_SET:
+            self._bark1 = self.DEFAULT_HARDWOOD
+        else:
+            self._bark1 = self.DEFAULT_SOFTWOOD
+        self._bark2 = 0.0
+
+    def calculate_bark_ratio(self, dob: float) -> float:
+        """Calculate bark ratio bounded [0.80, 0.99]."""
+        if dob <= 0:
+            return 1.0
+        ratio = self._bark1 + self._bark2 / dob if dob > 0.1 else self._bark1
+        return max(0.80, min(0.99, ratio))
+
+    def calculate_dib_from_dob(self, dob: float) -> float:
+        if dob <= 0:
+            return 0.0
+        return max(0.0, min(dob, dob * self.calculate_bark_ratio(dob)))
+
+    def calculate_dob_from_dib(self, dib: float) -> float:
+        if dib <= 0:
+            return 0.0
+        ratio = self._bark1
+        if ratio <= 0:
+            return dib
+        return max(dib, dib / ratio)
+
+    def calculate_bark_thickness(self, dob: float) -> float:
+        if dob <= 0:
+            return 0.0
+        return max(0.0, (dob - self.calculate_dib_from_dob(dob)) / 2.0)
+
+    def apply_bark_ratio_to_dbh(self, dbh_ob: float) -> float:
+        return self.calculate_dib_from_dob(dbh_ob)
+
+    def convert_dbh_ib_to_ob(self, dbh_ib: float) -> float:
+        return self.calculate_dob_from_dib(dbh_ib)
+
+    def get_species_coefficients(self) -> Dict[str, Any]:
+        return {'bark1': self._bark1, 'bark2': self._bark2}
+
+    def validate_bark_ratio(self, bark_ratio: float) -> bool:
         return 0.80 <= bark_ratio <= 0.99
 
 

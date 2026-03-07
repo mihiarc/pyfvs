@@ -94,6 +94,20 @@ _LS_HHTMAX = {
 }
 _LS_HHTMAX_DEFAULT = 20.0
 
+# WS HHTMAX values from blkdat.f DATA (HHTMAX(I),I=1,43) — 43 species
+_WS_HHTMAX = {
+    'SP': 27.0, 'DF': 21.0, 'WF': 21.0, 'GS': 22.0, 'IC': 20.0,
+    'JP': 18.0, 'RF': 18.0, 'PP': 17.0, 'LP': 20.0, 'WB': 20.0,
+    'WP': 27.0, 'PM': 20.0, 'SF': 21.0, 'KP': 20.0, 'FP': 20.0,
+    'CP': 20.0, 'LM': 20.0, 'MP': 17.0, 'GP': 20.0, 'WE': 20.0,
+    'GB': 9.0, 'BD': 21.0, 'RW': 22.0, 'MH': 27.0, 'WJ': 20.0,
+    'UJ': 20.0, 'CJ': 20.0, 'LO': 24.0, 'CY': 24.0, 'BL': 24.0,
+    'BO': 24.0, 'VO': 24.0, 'IO': 24.0, 'TO': 22.0, 'GC': 22.0,
+    'AS': 22.0, 'CL': 22.0, 'MA': 22.0, 'DG': 22.0, 'BM': 24.0,
+    'MC': 20.0, 'OS': 23.0, 'OH': 24.0,
+}
+_WS_HHTMAX_DEFAULT = 20.0
+
 
 def get_hhtmax(species: str, variant: str) -> float:
     """Get the maximum establishment height for a species.
