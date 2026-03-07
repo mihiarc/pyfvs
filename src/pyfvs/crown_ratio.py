@@ -22,6 +22,7 @@ __all__ = [
     'PNCrownRatioModel',
     'WSCrownRatioModel',
     'CACrownRatioModel',
+    'OCCrownRatioModel',
     'create_crown_ratio_model',
     'calculate_average_crown_ratio',
     'predict_tree_crown_ratio',
@@ -1088,6 +1089,168 @@ class CACrownRatioModel:
         Returns:
             Crown ratio as proportion (0.10-0.95)
         """
+        acr = self.calculate_average_crown_ratio(relsdi)
+        acr_ten = acr * 10.0
+
+        weib_a = self._weiba
+        weib_b = self._weibb0 + self._weibb1 * acr_ten
+        weib_c = self._weibc0 + self._weibc1 * acr_ten
+
+        weib_b = max(3.0, weib_b)
+        weib_c = max(2.0, weib_c)
+
+        x = max(0.05, min(0.95, tree_rank))
+
+        try:
+            cr = weib_a + weib_b * ((-math.log(1 - x)) ** (1.0 / weib_c))
+            cr = cr / 10.0
+        except (ValueError, OverflowError, ZeroDivisionError):
+            cr = acr
+
+        return max(0.10, min(0.95, cr))
+
+    def update_crown_ratio_change(self, current_cr: float, predicted_cr: float,
+                                  height_growth: float, cycle_length: int = 5) -> float:
+        """Calculate crown ratio change with bounds checking."""
+        change = predicted_cr - current_cr
+        max_cycle_change = 0.01 * cycle_length
+        bounded_change = max(-max_cycle_change, min(max_cycle_change, change))
+        new_cr = current_cr + bounded_change
+        return max(0.10, min(0.95, new_cr))
+
+
+class OCCrownRatioModel:
+    """Crown ratio model for the Southwest Oregon (OC) variant.
+
+    Uses per-species Weibull distribution from crown.f with 33 species:
+    - Mean CR: ACR = C0 + C1 * RELSDI * 100
+    - Weibull: CR = A + B * (-ln(1-X))^(1/C), bounded [0.10, 0.95]
+
+    Species with WEIBA > 0: WP, SP, DF, MH, IC, ES, AF, WB, RA, OS (shifted Weibull).
+    """
+
+    _COEFFICIENT_FILE = 'oc/oc_crown_ratio_coefficients.json'
+
+    # Fallback per-species mean CR coefficients from crown.f
+    _FALLBACK_MEAN_CR = {
+        'WP': (7.16846, -0.02375), 'SP': (6.59700, -0.01954),
+        'DF': (5.52653, 0.0), 'WF': (6.61291, -0.02182),
+        'MH': (7.45097, -0.02406), 'IC': (6.17373, -0.01795),
+        'LP': (5.50719, -0.01833), 'ES': (6.77400, 0.0),
+        'SH': (6.14578, -0.02781), 'PP': (6.41166, -0.02041),
+        'WJ': (7.23800, 0.0), 'GF': (6.61291, -0.02182),
+        'AF': (6.12779, -0.01269), 'SF': (4.79981, -0.00653),
+        'NF': (5.56886, -0.02129), 'WB': (6.19911, -0.02216),
+        'WL': (4.98675, -0.02466), 'RC': (5.74915, -0.01090),
+        'WH': (5.48853, -0.00717), 'PY': (5.41743, -0.01161),
+        'WA': (4.62512, -0.01604), 'RA': (4.12048, -0.00636),
+        'BM': (4.62512, -0.01604), 'AS': (4.01678, -0.01516),
+        'CW': (4.62512, -0.01604), 'CH': (4.62512, -0.01604),
+        'WO': (6.82187, -0.02247), 'WI': (4.62512, -0.01604),
+        'GC': (4.62512, -0.01604), 'MC': (4.62512, -0.01604),
+        'MB': (4.62512, -0.01604), 'OS': (5.52653, 0.0),
+        'OH': (4.62512, -0.01604),
+    }
+
+    # Fallback per-species Weibull parameters (WEIBA, WEIBB0, WEIBB1, WEIBC0, WEIBC1)
+    _FALLBACK_WEIBULL = {
+        'WP': (2.0, -2.12713, 1.10526, 2.77, 0.0),
+        'SP': (2.0, -2.27296, 1.12434, 3.34, 0.0),
+        'DF': (1.0, -1.19297, 1.12928, 3.42, 0.0),
+        'WF': (0.0, 0.06593, 1.09624, 3.71, 0.0),
+        'MH': (1.0, -0.94138, 1.08256, 3.47, 0.0),
+        'IC': (1.0, -1.38636, 1.16801, 3.02, 0.0),
+        'LP': (0.0, 0.07609, 1.10184, 3.01, 0.0),
+        'ES': (1.0, -0.91567, 1.06469, 3.50, 0.0),
+        'SH': (0.0, 0.16601, 1.08150, 0.9142, 0.45768),
+        'PP': (0.0, 0.24916, 1.04831, 4.36, 0.0),
+        'WJ': (0.0, 0.07609, 1.10184, 3.01, 0.0),
+        'GF': (0.0, 0.06593, 1.09624, 3.71, 0.0),
+        'AF': (1.0, -0.91567, 1.06469, 3.50, 0.0),
+        'SF': (0.0, -0.09734, 1.14675, 2.716, 0.0),
+        'NF': (0.0, -0.13581, 1.14771, 3.02, 0.0),
+        'WB': (1.0, -0.82631, 1.06217, 3.31429, 0.0),
+        'WL': (0.0, 0.00603, 1.12276, 2.734, 0.0),
+        'RC': (0.0, -0.01129, 1.11665, 3.355, 0.0),
+        'WH': (0.0, 0.49085, 1.01414, 3.16, 0.0),
+        'PY': (0.0, 0.19605, 1.07391, 0.35, 0.62015),
+        'WA': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+        'RA': (1.0, -1.11274, 1.12314, 2.53, 0.0),
+        'BM': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+        'AS': (0.0, -0.08414, 1.14765, 2.775, 0.0),
+        'CW': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+        'CH': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+        'WO': (0.0, 0.06607, 1.10705, 2.04714, 0.15070),
+        'WI': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+        'GC': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+        'MC': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+        'MB': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+        'OS': (1.0, -1.19297, 1.12928, 3.42, 0.0),
+        'OH': (0.0, -0.23830, 1.18016, 3.04, 0.0),
+    }
+
+    DEFAULT_MEAN_CR = (5.52653, 0.0)  # DF default
+    DEFAULT_WEIBULL = (1.0, -1.19297, 1.12928, 3.42, 0.0)  # DF default
+
+    def __init__(self, species_code: str = "DF"):
+        self.species_code = species_code
+        self._mean_cr_c0 = None
+        self._mean_cr_c1 = None
+        self._weiba = None
+        self._weibb0 = None
+        self._weibb1 = None
+        self._weibc0 = None
+        self._weibc1 = None
+        self._load_parameters()
+
+    def _load_parameters(self):
+        """Load per-species crown ratio parameters from OC coefficient file."""
+        mean_cr = None
+        weibull = None
+
+        try:
+            data = load_coefficient_file(self._COEFFICIENT_FILE)
+            mcr_data = data.get('mean_cr_coefficients', {})
+            if self.species_code in mcr_data:
+                entry = mcr_data[self.species_code]
+                mean_cr = (entry['C0'], entry['C1'])
+
+            weib_data = data.get('weibull_parameters', {})
+            if self.species_code in weib_data:
+                entry = weib_data[self.species_code]
+                weibull = (entry['WEIBA'], entry['WEIBB0'], entry['WEIBB1'],
+                           entry['WEIBC0'], entry['WEIBC1'])
+        except FileNotFoundError:
+            pass
+
+        if mean_cr is None:
+            mean_cr = self._FALLBACK_MEAN_CR.get(self.species_code, self.DEFAULT_MEAN_CR)
+        if weibull is None:
+            weibull = self._FALLBACK_WEIBULL.get(self.species_code, self.DEFAULT_WEIBULL)
+
+        self._mean_cr_c0, self._mean_cr_c1 = mean_cr
+        self._weiba, self._weibb0, self._weibb1, self._weibc0, self._weibc1 = weibull
+
+    def calculate_average_crown_ratio(self, relsdi: float) -> float:
+        """Calculate average crown ratio using OC linear equation.
+
+        Args:
+            relsdi: Relative stand density index (1.0-12.0 scale from StandMetrics)
+
+        Returns:
+            Average crown ratio as proportion (0.05-0.95)
+        """
+        relsdi_fortran = relsdi / 10.0
+        relsdi_fortran = max(0.0, min(1.5, relsdi_fortran))
+        acr = self._mean_cr_c0 + self._mean_cr_c1 * relsdi_fortran * 100.0
+        acr_proportion = acr / 10.0
+        return max(0.05, min(0.95, acr_proportion))
+
+    def predict_individual_crown_ratio(self, tree_rank: float, relsdi: float,
+                                       ccf: float = 100.0, dbh: float = 5.0,
+                                       ba: float = 100.0, height: float = 50.0,
+                                       qmd: float = 8.0) -> float:
+        """Predict individual tree crown ratio using OC Weibull distribution."""
         acr = self.calculate_average_crown_ratio(relsdi)
         acr_ten = acr * 10.0
 

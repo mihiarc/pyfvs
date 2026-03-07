@@ -112,6 +112,18 @@ _WS_HHTMAX_DEFAULT = 20.0
 _CA_HHTMAX = {}  # Empty dict = all species use the default
 _CA_HHTMAX_DEFAULT = 20.0
 
+# OC HHTMAX values from blkdat.f DATA (HHTMAX(I),I=1,33) — 33 species
+_OC_HHTMAX = {
+    'WP': 23.0, 'SP': 27.0, 'DF': 21.0, 'WF': 21.0, 'MH': 22.0,
+    'IC': 20.0, 'LP': 20.0, 'ES': 18.0, 'SH': 20.0, 'PP': 17.0,
+    'WJ': 6.0, 'GF': 21.0, 'AF': 20.0, 'SF': 21.0, 'NF': 20.0,
+    'WB': 23.0, 'WL': 27.0, 'RC': 22.0, 'WH': 20.0, 'PY': 20.0,
+    'WA': 20.0, 'RA': 50.0, 'BM': 20.0, 'AS': 16.0, 'CW': 20.0,
+    'CH': 20.0, 'WO': 20.0, 'WI': 20.0, 'GC': 20.0, 'MC': 20.0,
+    'MB': 20.0, 'OS': 21.0, 'OH': 20.0,
+}
+_OC_HHTMAX_DEFAULT = 20.0
+
 
 def get_hhtmax(species: str, variant: str) -> float:
     """Get the maximum establishment height for a species.
@@ -192,7 +204,7 @@ def compute_establishment_height(species: str, site_index: float,
     if variant == 'SN':
         height = max(0.5, raw_height)
     else:
-        base_age = 50 if variant in ('LS', 'PN', 'WC', 'NE', 'CS', 'CA', 'OP') else 25
+        base_age = 50 if variant in ('LS', 'PN', 'WC', 'NE', 'CS', 'CA', 'OC', 'OP') else 25
         raw_at_base = bh + p['c1'] * (site_index ** p['c2']) * \
             (1.0 - math.exp(p['c3'] * base_age)) ** (p['c4'] * (site_index ** p['c5']))
         scale = site_index / raw_at_base if raw_at_base > 0 else 1.0

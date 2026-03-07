@@ -194,6 +194,18 @@ class StandMetricsCalculator:
         'OH': 550,
     }
 
+    # OC SDI maximums for Southwest Oregon variant from sitset.f C5 array
+    # For R6 forests, SDI is scaled by C6 ratio; C5 is non-R6 default
+    OC_SDI_MAXIMUMS = {
+        'WP': 272, 'SP': 561, 'DF': 570, 'WF': 800, 'MH': 687,
+        'IC': 576, 'LP': 679, 'ES': 620, 'SH': 1000, 'PP': 365,
+        'WJ': 272, 'GF': 800, 'AF': 602, 'SF': 790, 'NF': 1000,
+        'WB': 621, 'WL': 423, 'RC': 762, 'WH': 682, 'PY': 576,
+        'WA': 441, 'RA': 441, 'BM': 629, 'AS': 562, 'CW': 452,
+        'CH': 441, 'WO': 440, 'WI': 447, 'GC': 785, 'MC': 501,
+        'MB': 501, 'OS': 365, 'OH': 441,
+    }
+
     # WC SDI maximums for West Cascades variant (interior Cascades, generally
     # lower than coastal PN due to drier conditions)
     WC_SDI_MAXIMUMS = {

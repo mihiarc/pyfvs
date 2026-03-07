@@ -43,6 +43,17 @@ __all__ = [
     'calculate_oc_dds',
 ]
 
+# SIGMAR stochastic sigma values from SO blkdat.f for 33 species
+_SIGMA = {
+    'WP': 0.26248, 'SP': 0.26795, 'DF': 0.27398, 'WF': 0.26064, 'MH': 0.28256,
+    'IC': 0.26601, 'LP': 0.34451, 'ES': 0.51620, 'SH': 0.41120, 'PP': 0.29512,
+    'WJ': 0.34663, 'GF': 0.26064, 'AF': 0.25900, 'SF': 0.34663, 'NF': 0.42750,
+    'WB': 0.34663, 'WL': 0.34663, 'RC': 0.34663, 'WH': 0.41040, 'PY': 0.48420,
+    'WA': 0.53570, 'RA': 0.74870, 'BM': 0.51070, 'AS': 0.34663, 'CW': 0.53570,
+    'CH': 0.53570, 'WO': 0.59980, 'WI': 0.53570, 'GC': 0.53570, 'MC': 0.53570,
+    'MB': 0.53570, 'OS': 0.27398, 'OH': 0.53570,
+}
+
 # Module-level cache for model instances
 _model_cache: Dict[str, 'OCDiameterGrowthModel'] = {}
 
@@ -127,7 +138,8 @@ class OCDiameterGrowthModel(ParameterizedModel):
         slope: float = 0.0,
         aspect: float = 0.0,
         location_class: int = 0,
-        time_step: float = 5.0
+        time_step: float = 5.0,
+        rng=None
     ) -> float:
         """Calculate change in squared diameter (DDS).
 
@@ -150,7 +162,7 @@ class OCDiameterGrowthModel(ParameterizedModel):
         """
         # Check for Giant Sequoia/Redwood special equation
         if self.equation_index == '12':
-            return self._calculate_dds_gs_rw(dbh, crown_ratio, bal, slope, aspect, time_step)
+            return self._calculate_dds_gs_rw(dbh, crown_ratio, bal, slope, aspect, time_step, rng=rng)
 
         # Ensure valid inputs
         dbh = max(0.1, dbh)
@@ -203,6 +215,17 @@ class OCDiameterGrowthModel(ParameterizedModel):
         ln_dds += c.get('DGCASP', 0.0) * slope * math.cos(aspect)
         ln_dds += c.get('DGSASP', 0.0) * slope * math.sin(aspect)
 
+        # Stochastic / Baskerville correction
+        sigma = _SIGMA.get(self.species_code.upper() if self.species_code else 'DF', 0.35)
+        if rng is not None:
+            z = rng.gauss(0, sigma)
+            z = max(-2 * sigma, min(2 * sigma, z))
+            if ln_dds + z > 4.0:
+                z *= max(0.0, 1.0 - (ln_dds + z - 4.0) / 2.0)
+            ln_dds += z
+        else:
+            ln_dds += 0.88 * sigma * sigma / 2.0
+
         # Convert from ln(DDS) to DDS
         dds = math.exp(ln_dds)
 
@@ -218,7 +241,8 @@ class OCDiameterGrowthModel(ParameterizedModel):
         pbal: float,
         slope: float,
         aspect: float,
-        time_step: float
+        time_step: float,
+        rng=None
     ) -> float:
         """Special equation for Giant Sequoia and Redwood.
 
@@ -241,6 +265,17 @@ class OCDiameterGrowthModel(ParameterizedModel):
         ln_dds += -0.000926 * slope * 100
         ln_dds += -0.002203 * slope * 100 * math.cos(aspect)
 
+        # Stochastic / Baskerville correction for GS/RW
+        sigma = _SIGMA.get(self.species_code.upper() if self.species_code else 'DF', 0.35)
+        if rng is not None:
+            z = rng.gauss(0, sigma)
+            z = max(-2 * sigma, min(2 * sigma, z))
+            if ln_dds + z > 4.0:
+                z *= max(0.0, 1.0 - (ln_dds + z - 4.0) / 2.0)
+            ln_dds += z
+        else:
+            ln_dds += 0.88 * sigma * sigma / 2.0
+
         dds = math.exp(ln_dds)
 
         # Scale for time step
@@ -261,7 +296,8 @@ class OCDiameterGrowthModel(ParameterizedModel):
         slope: float = 0.0,
         aspect: float = 0.0,
         location_class: int = 0,
-        time_step: float = 5.0
+        time_step: float = 5.0,
+        rng=None
     ) -> float:
         """Calculate diameter growth from DDS.
 
@@ -277,7 +313,7 @@ class OCDiameterGrowthModel(ParameterizedModel):
         dds = self.calculate_dds(
             dbh, crown_ratio, site_index, ba, bal,
             pccf, relht, elevation, slope, aspect,
-            location_class, time_step
+            location_class, time_step, rng=rng
         )
 
         # Convert DDS to diameter increment

@@ -334,6 +334,18 @@ class CAMortalityDefaultsFile(BaseModel):
     varadj: Dict[str, float]
 
 
+class OCBarkRatioFile(BaseModel):
+    """OC bark ratio: species_bark_ratios with per-species type/brdat/a/b."""
+    model_config = ConfigDict(extra="allow")
+    species_bark_ratios: Dict[str, Any]
+
+
+class OCMortalityDefaultsFile(BaseModel):
+    """OC variant mortality defaults: VARADJ shade tolerance + background mortality."""
+    model_config = ConfigDict(extra="allow")
+    varadj: Dict[str, float]
+
+
 # ---------------------------------------------------------------------------
 # Schema registry — maps filename patterns to schema classes
 # ---------------------------------------------------------------------------
@@ -346,6 +358,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     (r"(ne|ls|cs).+bark_ratio_coefficients\.json$", ConstantBarkRatioFile),
     (r"ws.+bark_ratio_coefficients\.json$", WSBarkRatioFile),
     (r"ca.+bark_ratio_coefficients\.json$", CABarkRatioFile),
+    (r"oc.+bark_ratio_coefficients\.json$", OCBarkRatioFile),
     (r"pn.+bark_ratio_coefficients\.json$", PNBarkRatioFile),
 
     # Diameter growth
@@ -374,6 +387,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     (r"pn.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
     (r"ws.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
     (r"ca.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
+    (r"oc.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
     (r"crown_ratio_coefficients\.json$", StandardCrownRatioFile),
 
     # Large tree height growth
@@ -385,6 +399,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     (r"ls_mortality_defaults\.json$", LSMortalityDefaultsFile),
     (r"ws_mortality_defaults\.json$", WSMortalityDefaultsFile),
     (r"ca_mortality_defaults\.json$", CAMortalityDefaultsFile),
+    (r"oc_mortality_defaults\.json$", OCMortalityDefaultsFile),
     (r"mortality_coefficients\.json$", StandardMortalityFile),
 ]
 

@@ -20,6 +20,7 @@ __all__ = [
     'PNBarkRatioModel',
     'WSBarkRatioModel',
     'CABarkRatioModel',
+    'OCBarkRatioModel',
     'create_bark_ratio_model',
     'calculate_dib_from_dob',
     'calculate_bark_ratio',
@@ -913,6 +914,175 @@ class CABarkRatioModel:
 
     def get_species_coefficients(self) -> Dict[str, Any]:
         return {'type': self._eq_type, 'a': self._a, 'b': self._b}
+
+    def validate_bark_ratio(self, bark_ratio: float) -> bool:
+        return 0.80 <= bark_ratio <= 0.99
+
+
+class OCBarkRatioModel:
+    """Bark ratio model for the Southwest Oregon (OC) variant.
+
+    OC uses per-species bark ratios with 4 equation types from bratio.f:
+    - constant: BRATIO = BRDAT(IS) (most conifers)
+    - Type 1: DIB = a * DOB^b (power — NF, WH, PY, MC, MB, OH)
+    - Type 2: DIB = a + b * DOB (linear — SH, WA, RA, BM, CW, CH, WO, WI, GC)
+    - WJ special: BRATIO = 0.9002 - 0.3089/D (from UT variant)
+
+    All bounded [0.80, 0.99] per FVS specification.
+    """
+
+    _COEFFICIENT_FILE = 'oc/oc_bark_ratio_coefficients.json'
+
+    # Fallback per-species bark ratios from bratio.f
+    _FALLBACK_SPECIES = {
+        'WP':  {'type': 'constant', 'brdat': 0.964},
+        'SP':  {'type': 'constant', 'brdat': 0.851},
+        'DF':  {'type': 'constant', 'brdat': 0.867},
+        'WF':  {'type': 'constant', 'brdat': 0.915},
+        'MH':  {'type': 'constant', 'brdat': 0.934},
+        'IC':  {'type': 'constant', 'brdat': 0.950},
+        'LP':  {'type': 'constant', 'brdat': 0.969},
+        'ES':  {'type': 'constant', 'brdat': 0.956},
+        'SH':  {'type': 'barkb', 'a': -0.1593, 'b': 0.8911, 'eq_type': 2},
+        'PP':  {'type': 'constant', 'brdat': 0.890},
+        'WJ':  {'type': 'wj_special', 'a': 0.9002, 'b': -0.3089},
+        'GF':  {'type': 'constant', 'brdat': 0.915},
+        'AF':  {'type': 'constant', 'brdat': 0.937},
+        'SF':  {'type': 'constant', 'brdat': 0.903},
+        'NF':  {'type': 'barkb', 'a': 0.904973, 'b': 1.0, 'eq_type': 1},
+        'WB':  {'type': 'constant', 'brdat': 0.969},
+        'WL':  {'type': 'constant', 'brdat': 0.851},
+        'RC':  {'type': 'constant', 'brdat': 0.950},
+        'WH':  {'type': 'barkb', 'a': 0.933710, 'b': 1.0, 'eq_type': 1},
+        'PY':  {'type': 'barkb', 'a': 0.933290, 'b': 1.0, 'eq_type': 1},
+        'WA':  {'type': 'barkb', 'a': 0.075256, 'b': 0.949670, 'eq_type': 2},
+        'RA':  {'type': 'barkb', 'a': 0.075256, 'b': 0.949670, 'eq_type': 2},
+        'BM':  {'type': 'barkb', 'a': 0.083600, 'b': 0.947820, 'eq_type': 2},
+        'AS':  {'type': 'constant', 'brdat': 0.950},
+        'CW':  {'type': 'barkb', 'a': 0.075256, 'b': 0.949670, 'eq_type': 2},
+        'CH':  {'type': 'barkb', 'a': 0.075256, 'b': 0.949670, 'eq_type': 2},
+        'WO':  {'type': 'barkb', 'a': -0.30722, 'b': 0.95956, 'eq_type': 2},
+        'WI':  {'type': 'barkb', 'a': 0.075256, 'b': 0.949670, 'eq_type': 2},
+        'GC':  {'type': 'barkb', 'a': 0.075256, 'b': 0.949670, 'eq_type': 2},
+        'MC':  {'type': 'barkb', 'a': 0.900000, 'b': 1.0, 'eq_type': 1},
+        'MB':  {'type': 'barkb', 'a': 0.900000, 'b': 1.0, 'eq_type': 1},
+        'OS':  {'type': 'constant', 'brdat': 0.867},
+        'OH':  {'type': 'barkb', 'a': 0.900000, 'b': 1.0, 'eq_type': 1},
+    }
+
+    DEFAULT_CONSTANT = 0.90
+
+    def __init__(self, species_code: str = "DF"):
+        self.species_code = species_code
+        self._bark_type = None
+        self._brdat = None
+        self._a = None
+        self._b = None
+        self._eq_type = None
+        self._load_parameters()
+
+    def _load_parameters(self):
+        """Load bark ratio parameters from OC coefficient file."""
+        species_data = self._FALLBACK_SPECIES
+
+        try:
+            data = load_coefficient_file(self._COEFFICIENT_FILE)
+            loaded = data.get('species_bark_ratios', {})
+            if loaded:
+                species_data = loaded
+        except FileNotFoundError:
+            pass
+
+        entry = species_data.get(self.species_code)
+        if entry is None:
+            # Fall back to DF-like constant
+            self._bark_type = 'constant'
+            self._brdat = self.DEFAULT_CONSTANT
+            return
+
+        self._bark_type = entry.get('type', 'constant')
+        self._brdat = entry.get('brdat', self.DEFAULT_CONSTANT)
+        self._a = entry.get('a')
+        self._b = entry.get('b')
+        self._eq_type = entry.get('eq_type')
+
+    def calculate_dib_from_dob(self, dob: float) -> float:
+        if dob <= 0:
+            return 0.0
+
+        if self._bark_type == 'constant':
+            dib = self._brdat * dob
+        elif self._bark_type == 'wj_special':
+            # BRATIO = 0.9002 - 0.3089/D, D bounded [1, 19]
+            temd = max(1.0, min(19.0, dob))
+            bratio = self._a + self._b / temd
+            bratio = max(0.80, min(0.99, bratio))
+            dib = bratio * dob
+        elif self._bark_type == 'barkb':
+            if self._eq_type == 1:
+                dib = self._a * (dob ** self._b)
+            elif self._eq_type == 2:
+                dib = self._a + self._b * dob
+            else:
+                dib = 0.9 * dob
+        else:
+            dib = 0.9 * dob
+
+        return max(0.0, min(dib, dob))
+
+    def calculate_dob_from_dib(self, dib: float) -> float:
+        if dib <= 0:
+            return 0.0
+
+        if self._bark_type == 'constant':
+            if self._brdat > 0:
+                dob = dib / self._brdat
+            else:
+                dob = dib
+        elif self._bark_type == 'wj_special':
+            # Approximate inverse: iterate or use constant ratio
+            if self._brdat:
+                dob = dib / 0.87  # approximate WJ ratio
+            else:
+                dob = dib
+        elif self._bark_type == 'barkb':
+            if self._eq_type == 1:
+                if self._a > 0 and self._b != 0:
+                    dob = (dib / self._a) ** (1.0 / self._b)
+                else:
+                    dob = dib
+            elif self._eq_type == 2:
+                if self._b != 0:
+                    dob = (dib - self._a) / self._b
+                else:
+                    dob = dib
+            else:
+                dob = dib / 0.9
+        else:
+            dob = dib / 0.9
+
+        return max(dib, dob)
+
+    def calculate_bark_ratio(self, dob: float) -> float:
+        if dob <= 0:
+            return 1.0
+        dib = self.calculate_dib_from_dob(dob)
+        return max(0.80, min(0.99, dib / dob))
+
+    def calculate_bark_thickness(self, dob: float) -> float:
+        if dob <= 0:
+            return 0.0
+        return max(0.0, (dob - self.calculate_dib_from_dob(dob)) / 2.0)
+
+    def apply_bark_ratio_to_dbh(self, dbh_ob: float) -> float:
+        return self.calculate_dib_from_dob(dbh_ob)
+
+    def convert_dbh_ib_to_ob(self, dbh_ib: float) -> float:
+        return self.calculate_dob_from_dib(dbh_ib)
+
+    def get_species_coefficients(self) -> Dict[str, Any]:
+        return {'type': self._bark_type, 'brdat': self._brdat,
+                'a': self._a, 'b': self._b, 'eq_type': self._eq_type}
 
     def validate_bark_ratio(self, bark_ratio: float) -> bool:
         return 0.80 <= bark_ratio <= 0.99

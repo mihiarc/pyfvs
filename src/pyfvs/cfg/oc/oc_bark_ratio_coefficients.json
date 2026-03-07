@@ -1,0 +1,49 @@
+{
+  "_metadata": {
+    "variant": "OC",
+    "variant_name": "Southwest Oregon",
+    "source": "FVS SO variant bratio.f",
+    "num_species": 33,
+    "equation_types": {
+      "constant": "BRATIO = BRDAT(IS), bounded [0.80, 0.99]",
+      "power_linear": "Type 1: DIB = a*DOB^b; Type 2: DIB = a + b*DOB",
+      "wj_special": "BRATIO = 0.9002 - 0.3089/D, from UT variant"
+    },
+    "species_order": "1=WP, 2=SP, 3=DF, 4=WF, 5=MH, 6=IC, 7=LP, 8=ES, 9=SH, 10=PP, 11=WJ, 12=GF, 13=AF, 14=SF, 15=NF, 16=WB, 17=WL, 18=RC, 19=WH, 20=PY, 21=WA, 22=RA, 23=BM, 24=AS, 25=CW, 26=CH, 27=WO, 28=WI, 29=GC, 30=MC, 31=MB, 32=OS, 33=OH"
+  },
+  "species_bark_ratios": {
+    "WP": {"type": "constant", "brdat": 0.964},
+    "SP": {"type": "constant", "brdat": 0.851},
+    "DF": {"type": "constant", "brdat": 0.867},
+    "WF": {"type": "constant", "brdat": 0.915},
+    "MH": {"type": "constant", "brdat": 0.934},
+    "IC": {"type": "constant", "brdat": 0.950},
+    "LP": {"type": "constant", "brdat": 0.969},
+    "ES": {"type": "constant", "brdat": 0.956},
+    "SH": {"type": "barkb", "a": -0.1593, "b": 0.8911, "eq_type": 2},
+    "PP": {"type": "constant", "brdat": 0.890},
+    "WJ": {"type": "wj_special", "a": 0.9002, "b": -0.3089},
+    "GF": {"type": "constant", "brdat": 0.915},
+    "AF": {"type": "constant", "brdat": 0.937},
+    "SF": {"type": "constant", "brdat": 0.903},
+    "NF": {"type": "barkb", "a": 0.904973, "b": 1.0, "eq_type": 1},
+    "WB": {"type": "constant", "brdat": 0.969},
+    "WL": {"type": "constant", "brdat": 0.851},
+    "RC": {"type": "constant", "brdat": 0.950},
+    "WH": {"type": "barkb", "a": 0.933710, "b": 1.0, "eq_type": 1},
+    "PY": {"type": "barkb", "a": 0.933290, "b": 1.0, "eq_type": 1},
+    "WA": {"type": "barkb", "a": 0.075256, "b": 0.949670, "eq_type": 2},
+    "RA": {"type": "barkb", "a": 0.075256, "b": 0.949670, "eq_type": 2},
+    "BM": {"type": "barkb", "a": 0.083600, "b": 0.947820, "eq_type": 2},
+    "AS": {"type": "constant", "brdat": 0.950},
+    "CW": {"type": "barkb", "a": 0.075256, "b": 0.949670, "eq_type": 2},
+    "CH": {"type": "barkb", "a": 0.075256, "b": 0.949670, "eq_type": 2},
+    "WO": {"type": "barkb", "a": -0.30722, "b": 0.95956, "eq_type": 2},
+    "WI": {"type": "barkb", "a": 0.075256, "b": 0.949670, "eq_type": 2},
+    "GC": {"type": "barkb", "a": 0.075256, "b": 0.949670, "eq_type": 2},
+    "MC": {"type": "barkb", "a": 0.900000, "b": 1.0, "eq_type": 1},
+    "MB": {"type": "barkb", "a": 0.900000, "b": 1.0, "eq_type": 1},
+    "OS": {"type": "constant", "brdat": 0.867},
+    "OH": {"type": "barkb", "a": 0.900000, "b": 1.0, "eq_type": 1}
+  }
+}
