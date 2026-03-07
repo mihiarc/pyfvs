@@ -21,6 +21,7 @@ __all__ = [
     'CSCrownRatioModel',
     'PNCrownRatioModel',
     'WSCrownRatioModel',
+    'CACrownRatioModel',
     'create_crown_ratio_model',
     'calculate_average_crown_ratio',
     'predict_tree_crown_ratio',
@@ -925,6 +926,168 @@ class WSCrownRatioModel:
         if self._weibb0 == 0.0 and self._weibb1 == 0.0:
             return 0.50  # GB default
 
+        acr = self.calculate_average_crown_ratio(relsdi)
+        acr_ten = acr * 10.0
+
+        weib_a = self._weiba
+        weib_b = self._weibb0 + self._weibb1 * acr_ten
+        weib_c = self._weibc0 + self._weibc1 * acr_ten
+
+        weib_b = max(3.0, weib_b)
+        weib_c = max(2.0, weib_c)
+
+        x = max(0.05, min(0.95, tree_rank))
+
+        try:
+            cr = weib_a + weib_b * ((-math.log(1 - x)) ** (1.0 / weib_c))
+            cr = cr / 10.0
+        except (ValueError, OverflowError, ZeroDivisionError):
+            cr = acr
+
+        return max(0.10, min(0.95, cr))
+
+    def update_crown_ratio_change(self, current_cr: float, predicted_cr: float,
+                                  height_growth: float, cycle_length: int = 5) -> float:
+        """Calculate crown ratio change with bounds checking."""
+        change = predicted_cr - current_cr
+        max_cycle_change = 0.01 * cycle_length
+        bounded_change = max(-max_cycle_change, min(max_cycle_change, change))
+        new_cr = current_cr + bounded_change
+        return max(0.10, min(0.95, new_cr))
+
+
+class CACrownRatioModel:
+    """Crown ratio model for the Inland California (CA) variant.
+
+    Uses Weibull distribution with 17 species groups from crown.f:
+    - Mean CR: ACR = C0 + C1 * RELSDI * 100
+    - Weibull: CR = A + B * (-ln(1-X))^(1/C), bounded [0.10, 0.95]
+
+    Groups 14-15 have WEIBA=1.0 (BM, RA), all others WEIBA=0.0.
+    """
+
+    _COEFFICIENT_FILE = 'ca/ca_crown_ratio_coefficients.json'
+
+    _SPECIES_TO_GROUP = {
+        'PC': 6, 'IC': 6, 'RC': 6, 'WF': 4, 'RF': 9, 'SH': 9, 'DF': 3,
+        'WH': 12, 'MH': 12, 'WB': 13, 'KP': 13, 'LP': 17, 'CP': 13, 'LM': 13,
+        'JP': 10, 'SP': 2, 'WP': 2, 'PP': 10, 'MP': 10, 'GP': 10,
+        'WJ': 1, 'BR': 1, 'GS': 1, 'PY': 1, 'OS': 3, 'LO': 7,
+        'CY': 7, 'BL': 7, 'EO': 7, 'WO': 7, 'BO': 7, 'VO': 7,
+        'IO': 7, 'BM': 14, 'BU': 16, 'RA': 15, 'MA': 5, 'GC': 16,
+        'DG': 16, 'FL': 16, 'WN': 16, 'TO': 8, 'SY': 16, 'AS': 16,
+        'CW': 16, 'WI': 16, 'CN': 16, 'CL': 16, 'OH': 16,
+    }
+
+    _FALLBACK_MEAN_CR = {
+        1:  (7.48846, -0.02899), 2:  (6.92893, -0.04053),
+        3:  (7.48846, -0.02899), 4:  (7.44422, -0.04779),
+        5:  (3.64292, -0.00317), 6:  (5.12357, -0.01042),
+        7:  (6.82187, -0.02247), 8:  (5.95912, -0.01812),
+        9:  (6.14578, -0.02781), 10: (6.04928, -0.01091),
+        11: (5.95912, -0.01812), 12: (5.48853, -0.00717),
+        13: (6.48494, -0.02325), 14: (4.42000, -0.01066),
+        15: (4.12048, -0.00636), 16: (4.62512, -0.01604),
+        17: (4.89032, -0.01884),
+    }
+
+    _FALLBACK_WEIBULL = {
+        1:  (0.0, 0.52909, 1.00677, -3.48211, 1.38780),
+        2:  (0.0, 0.25115, 1.05987, 0.33383, 0.63833),
+        3:  (0.0, 0.52909, 1.00677, -3.48211, 1.38780),
+        4:  (0.0, 0.48464, 1.01272, -2.78353, 1.27283),
+        5:  (0.0, 0.08402, 1.10297, 0.91078, 0.45819),
+        6:  (0.0, 0.29964, 1.05398, -1.09270, 0.80687),
+        7:  (0.0, 0.06607, 1.10705, 2.04714, 0.15070),
+        8:  (0.0, 0.25667, 1.06474, 0.11729, 0.61681),
+        9:  (0.0, 0.16601, 1.08150, 0.91420, 0.45768),
+        10: (0.0, 0.03685, 1.09499, 4.01340, 0.04946),
+        11: (0.0, 0.25667, 1.06474, 0.11729, 0.61681),
+        12: (0.0, 0.49085, 1.01414, 3.16456, 0.0),
+        13: (0.0, 0.16267, 1.07340, 3.28850, 0.0),
+        14: (1.0, -0.81881, 1.05418, -2.36611, 1.20241),
+        15: (1.0, -1.11274, 1.12314, 2.53316, 0.0),
+        16: (0.0, -0.23830, 1.18016, 3.04413, 0.0),
+        17: (0.0, -0.13121, 1.15976, 2.59824, 0.0),
+    }
+
+    DEFAULT_GROUP = 16  # Misc hardwoods
+
+    def __init__(self, species_code: str = "PP"):
+        self.species_code = species_code
+        self._group = None
+        self._mean_cr_c0 = None
+        self._mean_cr_c1 = None
+        self._weiba = None
+        self._weibb0 = None
+        self._weibb1 = None
+        self._weibc0 = None
+        self._weibc1 = None
+        self._load_parameters()
+
+    def _load_parameters(self):
+        """Load crown ratio parameters from CA coefficient file."""
+        species_to_group = self._SPECIES_TO_GROUP
+        mean_cr_groups = self._FALLBACK_MEAN_CR
+        weibull_groups = self._FALLBACK_WEIBULL
+
+        try:
+            data = load_coefficient_file(self._COEFFICIENT_FILE)
+            species_to_group = data.get('species_to_group', species_to_group)
+
+            mcr_data = data.get('mean_cr_coefficients', {}).get('groups', {})
+            if mcr_data:
+                mean_cr_groups = {}
+                for k, v in mcr_data.items():
+                    mean_cr_groups[int(k)] = (v['C0'], v['C1'])
+
+            weib_data = data.get('weibull_parameters', {}).get('groups', {})
+            if weib_data:
+                weibull_groups = {}
+                for k, v in weib_data.items():
+                    weibull_groups[int(k)] = (
+                        v['WEIBA'], v['WEIBB0'], v['WEIBB1'],
+                        v['WEIBC0'], v['WEIBC1']
+                    )
+        except FileNotFoundError:
+            pass
+
+        self._group = species_to_group.get(self.species_code, self.DEFAULT_GROUP)
+        c0, c1 = mean_cr_groups.get(self._group, mean_cr_groups[self.DEFAULT_GROUP])
+        self._mean_cr_c0 = c0
+        self._mean_cr_c1 = c1
+
+        weib = weibull_groups.get(self._group, weibull_groups[self.DEFAULT_GROUP])
+        self._weiba, self._weibb0, self._weibb1, self._weibc0, self._weibc1 = weib
+
+    def calculate_average_crown_ratio(self, relsdi: float) -> float:
+        """Calculate average crown ratio using CA linear equation.
+
+        Args:
+            relsdi: Relative stand density index (1.0-12.0 scale from StandMetrics)
+
+        Returns:
+            Average crown ratio as proportion (0.05-0.95)
+        """
+        relsdi_fortran = relsdi / 10.0
+        relsdi_fortran = max(0.0, min(1.5, relsdi_fortran))
+        acr = self._mean_cr_c0 + self._mean_cr_c1 * relsdi_fortran * 100.0
+        acr_proportion = acr / 10.0
+        return max(0.05, min(0.95, acr_proportion))
+
+    def predict_individual_crown_ratio(self, tree_rank: float, relsdi: float,
+                                       ccf: float = 100.0, dbh: float = 5.0,
+                                       ba: float = 100.0, height: float = 50.0,
+                                       qmd: float = 8.0) -> float:
+        """Predict individual tree crown ratio using CA Weibull distribution.
+
+        Args:
+            tree_rank: Tree's rank in diameter distribution (0-1)
+            relsdi: Relative stand density index (1.0-12.0)
+
+        Returns:
+            Crown ratio as proportion (0.10-0.95)
+        """
         acr = self.calculate_average_crown_ratio(relsdi)
         acr_ten = acr * 10.0
 

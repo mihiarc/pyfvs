@@ -181,6 +181,19 @@ class StandMetricsCalculator:
         'MC': 353, 'OS': 624, 'OH': 382,
     }
 
+    # CA SDI maximums for Inland California variant from sitset.f R5SDI array
+    CA_SDI_MAXIMUMS = {
+        'PC': 570, 'IC': 570, 'RC': 570, 'WF': 760, 'RF': 800, 'SH': 800,
+        'DF': 600, 'WH': 580, 'MH': 580, 'WB': 460, 'KP': 430, 'LP': 580,
+        'CP': 430, 'LM': 460, 'JP': 430, 'SP': 430, 'WP': 460, 'PP': 430,
+        'MP': 430, 'GP': 430, 'WJ': 330, 'BR': 580, 'GS': 570, 'PY': 570,
+        'OS': 430, 'LO': 550, 'CY': 550, 'BL': 550, 'EO': 550, 'WO': 550,
+        'BO': 550, 'VO': 550, 'IO': 550, 'BM': 550, 'BU': 550, 'RA': 550,
+        'MA': 550, 'GC': 550, 'DG': 550, 'FL': 550, 'WN': 550, 'TO': 550,
+        'SY': 550, 'AS': 550, 'CW': 550, 'WI': 550, 'CN': 550, 'CL': 550,
+        'OH': 550,
+    }
+
     # WC SDI maximums for West Cascades variant (interior Cascades, generally
     # lower than coastal PN due to drier conditions)
     WC_SDI_MAXIMUMS = {

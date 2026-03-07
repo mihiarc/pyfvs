@@ -14,10 +14,12 @@ from typing import Dict, Optional, Type, Any
 from .bark_ratio import (
     BarkRatioModel, LSBarkRatioModel, NEBarkRatioModel,
     CSBarkRatioModel, PNBarkRatioModel, WSBarkRatioModel,
+    CABarkRatioModel,
 )
 from .crown_ratio import (
     CrownRatioModel, LSCrownRatioModel, NECrownRatioModel,
     CSCrownRatioModel, PNCrownRatioModel, WSCrownRatioModel,
+    CACrownRatioModel,
 )
 from .mortality import (
     MortalityModel, LSMortalityModel, NEMortalityModel, CSMortalityModel,
@@ -82,6 +84,7 @@ from .establishment import (
     _CS_HHTMAX, _CS_HHTMAX_DEFAULT,
     _LS_HHTMAX, _LS_HHTMAX_DEFAULT,
     _WS_HHTMAX, _WS_HHTMAX_DEFAULT,
+    _CA_HHTMAX, _CA_HHTMAX_DEFAULT,
 )
 
 # =============================================================================
@@ -224,15 +227,19 @@ REGISTRY: Dict[str, VariantConfig] = {
         code='CA',
         name='Inland California',
         cycle_length=10,
-        default_species='DF',
+        default_species='PP',
         growth_category='topographic',
-        bark_ratio_class=BarkRatioModel,
-        crown_ratio_class=CrownRatioModel,
+        bark_ratio_class=CABarkRatioModel,
+        crown_ratio_class=CACrownRatioModel,
         mortality_class=MortalityModel,
-        taper_class=None,
+        mortality_needs_sdi_lookup=True,
+        taper_class=FlewellingTaperModel,
         dg_module='ca_diameter_growth',
         dg_factory='create_ca_diameter_growth_model',
-        default_elevation=3000.0,
+        default_elevation=30.0,
+        hhtmax=_CA_HHTMAX,
+        hhtmax_default=_CA_HHTMAX_DEFAULT,
+        sdi_maximums=StandMetricsCalculator.CA_SDI_MAXIMUMS,
     ),
     'OC': VariantConfig(
         code='OC',

@@ -39,6 +39,12 @@ from typing import Dict, Any
 from .model_base import ParameterizedModel
 from .config_loader import load_coefficient_file
 
+__all__ = [
+    'CADiameterGrowthModel',
+    'create_ca_diameter_growth_model',
+    'calculate_ca_diameter_growth',
+]
+
 
 class CADiameterGrowthModel(ParameterizedModel):
     """Inland California variant diameter growth model.
@@ -57,6 +63,20 @@ class CADiameterGrowthModel(ParameterizedModel):
     DEFAULT_SPECIES = 'PP'  # Ponderosa Pine is common in CA
 
     # Fallback parameters for key CA species
+    # SIGMAR values from blkdat.f for stochastic diameter growth (49 species)
+    _SIGMA = {
+        'PC': 0.4936, 'IC': 0.4936, 'RC': 0.4936, 'WF': 0.4391, 'RF': 0.4112,
+        'SH': 0.4112, 'DF': 0.4791, 'WH': 0.4687, 'MH': 0.4687, 'WB': 0.4169,
+        'KP': 0.4392, 'LP': 0.4169, 'CP': 0.4392, 'LM': 0.4392, 'JP': 0.4458,
+        'SP': 0.4687, 'WP': 0.4745, 'PP': 0.4458, 'MP': 0.4458, 'GP': 0.4392,
+        'WJ': 0.4392, 'BR': 0.4391, 'GS': 0.4408, 'PY': 0.4392, 'OS': 0.4458,
+        'LO': 0.5998, 'CY': 0.5998, 'BL': 0.5998, 'EO': 0.5998, 'WO': 0.5998,
+        'BO': 0.5998, 'VO': 0.5998, 'IO': 0.5998, 'BM': 0.5998, 'BU': 0.5998,
+        'RA': 0.5998, 'MA': 0.6608, 'GC': 0.6608, 'DG': 0.6608, 'FL': 0.5998,
+        'WN': 0.5998, 'TO': 0.5166, 'SY': 0.5998, 'AS': 0.5998, 'CW': 0.5998,
+        'WI': 0.5998, 'CN': 0.4392, 'CL': 0.5998, 'OH': 0.5998,
+    }
+
     FALLBACK_PARAMETERS = {
         'PP': {  # Ponderosa Pine - equation 9
             'equation': 9,
@@ -165,7 +185,8 @@ class CADiameterGrowthModel(ParameterizedModel):
         slope: float = 0.0,
         aspect: float = 0.0,
         forest_class: int = 1,
-        time_step: float = 10.0
+        time_step: float = 10.0,
+        rng=None
     ) -> float:
         """Calculate diameter squared increment (DDS).
 
@@ -285,6 +306,19 @@ class CADiameterGrowthModel(ParameterizedModel):
         if dgsasp != 0:
             ln_dds += dgsasp * slope_pct * math.sin(aspect)
 
+        # Stochastic or Baskerville correction
+        sigma = self._SIGMA.get(
+            self.species_code.upper() if self.species_code else 'PP', 0.45
+        )
+        if rng is not None:
+            z = rng.gauss(0, sigma)
+            z = max(-2 * sigma, min(2 * sigma, z))
+            if ln_dds + z > 4.0:
+                z *= max(0.0, 1.0 - (ln_dds + z - 4.0) / 2.0)
+            ln_dds += z
+        else:
+            ln_dds += 0.88 * sigma * sigma / 2.0
+
         # Apply bounds on ln(DDS)
         ln_dds = max(-5.0, min(5.0, ln_dds))
 
@@ -345,7 +379,8 @@ class CADiameterGrowthModel(ParameterizedModel):
         slope: float = 0.0,
         aspect: float = 0.0,
         forest_class: int = 1,
-        time_step: float = 10.0
+        time_step: float = 10.0,
+        rng=None
     ) -> float:
         """Calculate diameter growth in inches.
 
@@ -383,7 +418,8 @@ class CADiameterGrowthModel(ParameterizedModel):
             slope=slope,
             aspect=aspect,
             forest_class=forest_class,
-            time_step=time_step
+            time_step=time_step,
+            rng=rng
         )
 
         # Convert to inside-bark diameter

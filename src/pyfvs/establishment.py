@@ -108,6 +108,10 @@ _WS_HHTMAX = {
 }
 _WS_HHTMAX_DEFAULT = 20.0
 
+# CA HHTMAX values from blkdat.f — all 49 CA species use 20.0 ft
+_CA_HHTMAX = {}  # Empty dict = all species use the default
+_CA_HHTMAX_DEFAULT = 20.0
+
 
 def get_hhtmax(species: str, variant: str) -> float:
     """Get the maximum establishment height for a species.

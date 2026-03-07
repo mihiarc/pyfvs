@@ -19,6 +19,7 @@ __all__ = [
     'CSBarkRatioModel',
     'PNBarkRatioModel',
     'WSBarkRatioModel',
+    'CABarkRatioModel',
     'create_bark_ratio_model',
     'calculate_dib_from_dob',
     'calculate_bark_ratio',
@@ -767,6 +768,151 @@ class WSBarkRatioModel:
 
     def get_species_coefficients(self) -> Dict[str, Any]:
         return {'bark1': self._bark1, 'bark2': self._bark2}
+
+    def validate_bark_ratio(self, bark_ratio: float) -> bool:
+        return 0.80 <= bark_ratio <= 0.99
+
+
+class CABarkRatioModel:
+    """Bark ratio model for the Inland California (CA) variant.
+
+    CA uses 3 equation types from bratio.f with 28 species groups:
+    - Type 1: DIB = a * DOB^b (power equation)
+    - Type 2: DIB = a + b * DOB (linear)
+    - Type 3: DIB = a * DOB (constant ratio)
+
+    Species are mapped to groups via the JBARK array (49 species -> 28 groups).
+    """
+
+    _COEFFICIENT_FILE = 'ca/ca_bark_ratio_coefficients.json'
+
+    # Fallback species-to-group mapping from bratio.f JBARK array
+    _SPECIES_TO_GROUP = {
+        'PC': 12, 'IC': 5, 'RC': 12, 'WF': 2, 'RF': 2, 'SH': 2, 'DF': 1,
+        'WH': 13, 'MH': 13, 'WB': 10, 'KP': 27, 'LP': 10, 'CP': 3, 'LM': 10,
+        'JP': 4, 'SP': 25, 'WP': 25, 'PP': 3, 'MP': 3, 'GP': 26,
+        'WJ': 12, 'BR': 9, 'GS': 12, 'PY': 10, 'OS': 3, 'LO': 19,
+        'CY': 18, 'BL': 17, 'EO': 20, 'WO': 8, 'BO': 16, 'VO': 24,
+        'IO': 21, 'BM': 6, 'BU': 16, 'RA': 14, 'MA': 23, 'GC': 7,
+        'DG': 16, 'FL': 16, 'WN': 16, 'TO': 28, 'SY': 16, 'AS': 14,
+        'CW': 16, 'WI': 16, 'CN': 16, 'CL': 22, 'OH': 16,
+    }
+
+    _FALLBACK_GROUPS = {
+        1:  {'type': 1, 'a': 0.903563, 'b': 0.989388},
+        2:  {'type': 2, 'a': -0.1593, 'b': 0.8911},
+        3:  {'type': 2, 'a': -0.4448, 'b': 0.8967},
+        4:  {'type': 2, 'a': -0.4448, 'b': 0.8967},
+        5:  {'type': 2, 'a': -0.0549, 'b': 0.8374},
+        6:  {'type': 2, 'a': 0.08360, 'b': 0.94782},
+        7:  {'type': 2, 'a': 0.15565, 'b': 0.90182},
+        8:  {'type': 2, 'a': -0.30722, 'b': 0.95956},
+        9:  {'type': 3, 'a': 0.9, 'b': None},
+        10: {'type': 3, 'a': 0.9, 'b': None},
+        11: {'type': 1, 'a': 0.958330, 'b': 1.0},
+        12: {'type': 1, 'a': 0.949670, 'b': 1.0},
+        13: {'type': 1, 'a': 0.933710, 'b': 1.0},
+        14: {'type': 2, 'a': 0.075256, 'b': 0.94373},
+        15: {'type': 1, 'a': 0.933290, 'b': 1.0},
+        16: {'type': 2, 'a': -0.26824, 'b': 0.95767},
+        17: {'type': 2, 'a': -0.17324, 'b': 0.94403},
+        18: {'type': 2, 'a': -0.19128, 'b': 0.96147},
+        19: {'type': 2, 'a': -0.75739, 'b': 0.93475},
+        20: {'type': 2, 'a': -0.78572, 'b': 0.92472},
+        21: {'type': 2, 'a': 0.04817, 'b': 0.92953},
+        22: {'type': 2, 'a': -0.12791, 'b': 0.96579},
+        23: {'type': 2, 'a': -0.013484, 'b': 0.98155},
+        24: {'type': 2, 'a': -0.38289, 'b': 0.93545},
+        25: {'type': 2, 'a': -0.1429, 'b': 0.8863},
+        26: {'type': 3, 'a': 0.9329, 'b': None},
+        27: {'type': 3, 'a': 0.9329, 'b': None},
+        28: {'type': 2, 'a': -0.26824, 'b': 0.95354},
+    }
+
+    DEFAULT_GROUP = 15  # OT (other species) group
+
+    def __init__(self, species_code: str = "PP"):
+        self.species_code = species_code
+        self._eq_type = None
+        self._a = None
+        self._b = None
+        self._load_parameters()
+
+    def _load_parameters(self):
+        """Load bark ratio parameters from CA coefficient file."""
+        species_to_group = self._SPECIES_TO_GROUP
+        groups = self._FALLBACK_GROUPS
+
+        try:
+            data = load_coefficient_file(self._COEFFICIENT_FILE)
+            species_to_group = data.get('species_to_group', species_to_group)
+            groups_raw = data.get('species_groups', {})
+            if groups_raw:
+                groups = {int(k): v for k, v in groups_raw.items()}
+        except FileNotFoundError:
+            pass
+
+        group_num = species_to_group.get(self.species_code, self.DEFAULT_GROUP)
+        group = groups.get(group_num, self._FALLBACK_GROUPS[self.DEFAULT_GROUP])
+
+        self._eq_type = group['type']
+        self._a = group['a']
+        self._b = group.get('b')
+
+    def calculate_dib_from_dob(self, dob: float) -> float:
+        if dob <= 0:
+            return 0.0
+        if self._eq_type == 1:
+            dib = self._a * (dob ** self._b)
+        elif self._eq_type == 2:
+            dib = self._a + self._b * dob
+        elif self._eq_type == 3:
+            dib = self._a * dob
+        else:
+            dib = 0.9 * dob
+        return max(0.0, min(dib, dob))
+
+    def calculate_dob_from_dib(self, dib: float) -> float:
+        if dib <= 0:
+            return 0.0
+        if self._eq_type == 1:
+            if self._a > 0 and self._b != 0:
+                dob = (dib / self._a) ** (1.0 / self._b)
+            else:
+                dob = dib
+        elif self._eq_type == 2:
+            if self._b != 0:
+                dob = (dib - self._a) / self._b
+            else:
+                dob = dib
+        elif self._eq_type == 3:
+            if self._a > 0:
+                dob = dib / self._a
+            else:
+                dob = dib
+        else:
+            dob = dib / 0.9
+        return max(dib, dob)
+
+    def calculate_bark_ratio(self, dob: float) -> float:
+        if dob <= 0:
+            return 1.0
+        dib = self.calculate_dib_from_dob(dob)
+        return max(0.80, min(0.99, dib / dob))
+
+    def calculate_bark_thickness(self, dob: float) -> float:
+        if dob <= 0:
+            return 0.0
+        return max(0.0, (dob - self.calculate_dib_from_dob(dob)) / 2.0)
+
+    def apply_bark_ratio_to_dbh(self, dbh_ob: float) -> float:
+        return self.calculate_dib_from_dob(dbh_ob)
+
+    def convert_dbh_ib_to_ob(self, dbh_ib: float) -> float:
+        return self.calculate_dob_from_dib(dbh_ib)
+
+    def get_species_coefficients(self) -> Dict[str, Any]:
+        return {'type': self._eq_type, 'a': self._a, 'b': self._b}
 
     def validate_bark_ratio(self, bark_ratio: float) -> bool:
         return 0.80 <= bark_ratio <= 0.99

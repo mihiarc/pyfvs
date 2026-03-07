@@ -720,7 +720,7 @@ class Tree:
 
         # Calculate diameter growth using variant-specific parameters
         if variant == 'CA':
-            # CA model has special interface with forest_class
+            # CA model has special interface with forest_class + stochastic support
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
@@ -734,7 +734,8 @@ class Tree:
                 slope=slope,
                 aspect=aspect,
                 forest_class=1,
-                time_step=time_step
+                time_step=time_step,
+                rng=rng
             )
         elif variant == 'OC':
             # OC has location_class parameter (no stochastic support)

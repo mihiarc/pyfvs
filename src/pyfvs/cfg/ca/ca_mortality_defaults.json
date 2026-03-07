@@ -1,0 +1,26 @@
+{
+    "description": "CA (Inland California) mortality defaults from varmrt.f and morts.f",
+    "source": "FVS CA variant varmrt.f (VARADJ), morts.f (background mortality)",
+    "varadj": {
+        "PC": 0.60, "IC": 0.60, "RC": 0.60, "WF": 0.55, "RF": 0.50,
+        "SH": 0.50, "DF": 0.65, "WH": 0.65, "MH": 0.75, "WB": 0.90,
+        "KP": 0.90, "LP": 0.90, "CP": 1.10, "LM": 0.90, "JP": 0.85,
+        "SP": 0.70, "WP": 0.75, "PP": 0.85, "MP": 0.85, "GP": 1.10,
+        "WJ": 1.10, "BR": 0.65, "GS": 0.80, "PY": 0.55, "OS": 0.65,
+        "LO": 1.00, "CY": 1.00, "BL": 1.00, "EO": 1.00, "WO": 1.00,
+        "BO": 1.00, "VO": 1.00, "IO": 1.00, "BM": 0.80, "BU": 0.80,
+        "RA": 1.00, "MA": 0.80, "GC": 0.80, "DG": 0.80, "FL": 0.80,
+        "WN": 0.80, "TO": 0.55, "SY": 0.80, "AS": 0.80, "CW": 0.80,
+        "WI": 1.00, "CN": 1.00, "CL": 1.00, "OH": 1.00
+    },
+    "background_mortality": {
+        "groups": {
+            "1": {"PMSC": 6.5112, "PMD": -0.0052485, "species": ["WB", "KP", "CP", "LM", "SP", "WP", "GP"]},
+            "2": {"PMSC": 7.2985, "PMD": -0.0129121, "species": ["DF"]},
+            "3": {"PMSC": 5.1677, "PMD": -0.0077681, "species": ["PC", "IC", "RC", "WF", "RF", "SH", "WJ", "BR", "GS", "PY", "OS", "LO", "CY", "BL", "EO", "WO", "BO", "VO", "IO", "BU", "RA", "GC", "DG", "FL", "WN", "SY", "AS", "CW", "WI", "CN", "CL", "OH"]},
+            "4": {"PMSC": 9.6943, "PMD": -0.0127328, "species": ["WH", "MH"]},
+            "5": {"PMSC": 5.9617, "PMD": -0.0340128, "species": ["LP"]},
+            "6": {"PMSC": 5.5877, "PMD": -0.005348, "species": ["JP", "PP", "MP"]}
+        }
+    }
+}
