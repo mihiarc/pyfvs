@@ -307,6 +307,11 @@ class Tree:
             self._grow_small_tree_pnwc(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
             return
 
+        # OC: 5-group SMHTGF model from oc/smhtgf.f
+        if variant == 'OC':
+            self._grow_small_tree_oc(site_index, time_step, bal=pbal, avg_height=avg_height)
+            return
+
         # Get species-specific parameters - prefer variant-specific JSON file
         # which has Fortran LTBHEC-matched coefficients, then fall back to
         # species config YAML (which may have older publication coefficients).
@@ -519,6 +524,44 @@ class Tree:
             )
             self.height = max(0.5, self.height + hg5)
             self.dbh = max(0.0, self.dbh + dg5)
+
+    def _grow_small_tree_oc(
+        self,
+        site_index: float,
+        time_step: float = 5.0,
+        bal: float = 0.0,
+        avg_height: float = 0.0,
+    ) -> None:
+        """Small-tree height growth for OC using SMHTGF (oc/smhtgf.f).
+
+        Five species groups (pines, firs+DF, black oak, tanoak, redwood) each
+        with their own functional form. Computes a 5-year height increment,
+        applies it, then re-derives DBH from the new height via the height-
+        diameter inverse (matching Fortran small-tree behavior where DBH is
+        recomputed from height for trees below the small/large transition).
+
+        Args:
+            site_index: Site index (feet, base age 50, R6).
+            time_step: Cycle length in years.
+            bal: Basal area in larger trees (sq ft/acre).
+            avg_height: Average stand height (feet) for relative-height calc.
+        """
+        from .oc_height_growth import calculate_oc_small_tree_height_growth
+
+        relht = (self.height / avg_height) if avg_height > 0 else 1.0
+
+        htgr = calculate_oc_small_tree_height_growth(
+            species_code=self.species,
+            height=self.height,
+            crown_ratio=self.crown_ratio,
+            site_index=site_index,
+            bal=bal,
+            relative_height=relht,
+            time_step=time_step,
+        )
+
+        self.height = max(0.5, self.height + htgr)
+        self._update_dbh_from_height()
 
     def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None, top_height=None):
         """Implement large tree diameter growth model using variant-specific equations.
@@ -797,14 +840,25 @@ class Tree:
         else:
             relht = 1.0
 
-        self._update_height_large_tree(
-            site_index=site_index,
-            ba=ba,
-            pbal=pbal,
-            relht=relht,
-            time_step=time_step,
-            variant=variant
-        )
+        if variant == 'OC':
+            # OC uses site-curve based HTGF (oc/htgf.f) — distinct from the
+            # SN regression used by _update_height_large_tree.
+            self._update_height_large_tree_oc(
+                site_index=site_index,
+                relht=relht,
+                diameter_increment=max(0.0, diameter_increment),
+                bark_ratio=bark_ratio,
+                time_step=time_step,
+            )
+        else:
+            self._update_height_large_tree(
+                site_index=site_index,
+                ba=ba,
+                pbal=pbal,
+                relht=relht,
+                time_step=time_step,
+                variant=variant
+            )
 
     def _grow_large_tree_op(self, site_index, ba, pbal, time_step=5):
         """Implement large tree diameter growth model for OP (ORGANON Pacific Northwest) variant.
@@ -1101,7 +1155,51 @@ class Tree:
 
         # Update height with bounds checking
         self.height = max(4.5, self.height + htg)
-    
+
+    def _update_height_large_tree_oc(
+        self,
+        site_index: float,
+        relht: float,
+        diameter_increment: float,
+        bark_ratio: float,
+        time_step: float = 5.0,
+    ) -> None:
+        """OC variant large-tree height update (oc/htgf.f).
+
+        Uses the OC site-curve / FINDAG approach instead of the SN-style
+        ln(DDS) regression. RW (50) and GS (23) take a special direct
+        equation that depends on inside-bark diameter growth.
+
+        Args:
+            site_index: Site index (feet, base age 50, R6).
+            relht: Relative height (tree height / top height), bounded 0-1
+                inside HTGF.
+            diameter_increment: Outside-bark DBH growth this cycle (inches).
+                Converted to inside-bark via bark_ratio for the RW/GS path.
+            bark_ratio: Inside-bark / outside-bark ratio (DIB/DOB).
+            time_step: Cycle length in years.
+        """
+        from .oc_height_growth import calculate_oc_large_tree_height_growth
+
+        # Convert OB increment to IB to match Fortran HTGF semantics where
+        # DG(I) is stored as inside-bark.
+        dg_inside_bark = diameter_increment * bark_ratio if bark_ratio > 0 else diameter_increment
+
+        htg = calculate_oc_large_tree_height_growth(
+            species_code=self.species,
+            dbh=self.dbh,
+            height=self.height,
+            crown_ratio=self.crown_ratio,
+            relative_height=relht,
+            site_index=site_index,
+            diameter_growth_inside_bark=dg_inside_bark,
+            bark_ratio=bark_ratio,
+            time_step=time_step,
+            jfor=6,  # SW Oregon is R6
+        )
+
+        self.height = max(4.5, self.height + htg)
+
     def get_volume(self, volume_type: str = 'total_cubic') -> float:
         """Calculate tree volume using USFS Volume Estimator Library.
         

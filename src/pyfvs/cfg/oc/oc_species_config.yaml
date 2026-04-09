@@ -1,13 +1,19 @@
-# ORGANON Southwest Oregon (OC) Variant Species Configuration
-# 50 species recognized in the OC variant
-# Source: FVS OC variant blkdat.f
+# FVS Southwest Oregon (OC) Variant Species Configuration
+# 50 species recognized in the OC variant — taken verbatim from
+# ForestVegetationSimulator/oc/blkdat.f (JSP, FIAJSP, PLNJSP arrays).
+#
+# IMPORTANT: OC is the standard FVS Southwest Oregon variant. It is NOT the
+# ORGANON Southwest Oregon model — that's a different model used by the OP
+# variant. OC uses Fortran routines htgf.f, smhtgf.f, morts.f, dgf.f from
+# the Forest Service public source tree, which are shared at build time
+# with the CA (Inland California) variant.
 
 metadata:
   variant: OC
-  variant_name: "ORGANON Southwest Oregon"
-  description: "FVS variant based on ORGANON growth model for Southwest Oregon"
-  region: "Southwest Oregon"
-  source: "Hann and Hanus (2002), Oregon State University FIRS data"
+  variant_name: "FVS Southwest Oregon"
+  description: "FVS Southwest Oregon variant — 5-year cycle, 50 species, shares htcalc/findag/smhtgf with CA"
+  region: "Southwest Oregon (R6)"
+  source: "ForestVegetationSimulator/oc/blkdat.f (JSP/FIAJSP/PLNJSP arrays)"
   default_site_species: DF
   default_site_index: 100
   base_cycle: 5
@@ -15,16 +21,10 @@ metadata:
 coefficient_files:
   diameter_growth: "oc_diameter_growth_coefficients.json"
   height_diameter: "oc_height_diameter_coefficients.json"
+  mortality_defaults: "oc_mortality_defaults.json"
+  mortality_coefficients: "oc_mortality_coefficients.json"
 
 functional_forms_file: "functional_forms.yaml"
-
-# The "Big 6" ORGANON species (at least one required for ORGANON routines)
-big_six_species:
-  - GF  # Grand Fir
-  - IC  # Incense Cedar
-  - SP  # Sugar Pine
-  - PP  # Ponderosa Pine
-  - DF  # Douglas-fir
 
 species:
   # Softwoods

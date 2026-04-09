@@ -1,53 +1,55 @@
 {
-  "_metadata": {
-    "variant": "OC",
-    "variant_name": "Southwest Oregon",
-    "source": "FVS SO variant scomrt.f (VARADJ) and morts.f (PMSC/PMD)",
-    "num_species": 33,
-    "species_order": "1=WP, 2=SP, 3=DF, 4=WF, 5=MH, 6=IC, 7=LP, 8=ES, 9=SH, 10=PP, 11=WJ, 12=GF, 13=AF, 14=SF, 15=NF, 16=WB, 17=WL, 18=RC, 19=WH, 20=PY, 21=WA, 22=RA, 23=BM, 24=AS, 25=CW, 26=CH, 27=WO, 28=WI, 29=GC, 30=MC, 31=MB, 32=OS, 33=OH"
-  },
-  "varadj": {
-    "WP": 0.70, "SP": 0.75, "DF": 0.70, "WF": 0.55, "MH": 0.50,
-    "IC": 0.65, "LP": 0.90, "ES": 0.60, "SH": 0.60, "PP": 0.85,
-    "WJ": 1.10, "GF": 0.55, "AF": 0.55, "SF": 0.50, "NF": 0.70,
-    "WB": 0.80, "WL": 1.00, "RC": 0.50, "WH": 0.50, "PY": 0.50,
-    "WA": 1.00, "RA": 0.90, "BM": 0.70, "AS": 1.30, "CW": 0.85,
-    "CH": 1.10, "WO": 1.00, "WI": 1.30, "GC": 0.80, "MC": 1.10,
-    "MB": 1.10, "OS": 0.70, "OH": 1.00
-  },
-  "background_mortality": {
-    "WP":  {"PMSC": 6.5112, "PMD": -0.0052485},
-    "SP":  {"PMSC": 6.5112, "PMD": -0.0052485},
-    "DF":  {"PMSC": 7.2985, "PMD": -0.0129121},
-    "WF":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "MH":  {"PMSC": 9.6943, "PMD": -0.0127328},
-    "IC":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "LP":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "ES":  {"PMSC": 9.6943, "PMD": -0.0127328},
-    "SH":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "PP":  {"PMSC": 5.5877, "PMD": -0.005348},
-    "WJ":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "GF":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "AF":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "SF":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "NF":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "WB":  {"PMSC": 6.5112, "PMD": -0.0052485},
-    "WL":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "RC":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "WH":  {"PMSC": 7.2985, "PMD": -0.0129121},
-    "PY":  {"PMSC": 5.5877, "PMD": -0.005348},
-    "WA":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "RA":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "BM":  {"PMSC": 5.5877, "PMD": -0.005348},
-    "AS":  {"PMSC": 5.1677, "PMD": -0.0077681},
-    "CW":  {"PMSC": 5.5877, "PMD": -0.005348},
-    "CH":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "WO":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "WI":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "GC":  {"PMSC": 5.5877, "PMD": -0.005348},
-    "MC":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "MB":  {"PMSC": 5.9617, "PMD": -0.0340128},
-    "OS":  {"PMSC": 7.2985, "PMD": -0.0129121},
-    "OH":  {"PMSC": 5.9617, "PMD": -0.0340128}
-  }
+    "_metadata": {
+        "variant": "OC",
+        "variant_name": "Southwest Oregon",
+        "description": "OC variant mortality defaults — 50-species coverage from Fortran oc/morts.f, oc/varmrt.f, oc/sitset.f.",
+        "source_files": {
+            "background_groups": "oc/morts.f IBGMAP (50 species -> 7 groups), PMSC/PMD coefficients",
+            "varadj_shade_tolerance": "oc/varmrt.f VARADJ array (50 species)",
+            "sdi_maximums": "oc/sitset.f R5SDI array (50 species)"
+        },
+        "num_species": 50,
+        "num_mortality_groups": 7,
+        "group_descriptions": {
+            "1": "WP/SP-style: white/sugar/western pine + minor pines",
+            "2": "DF: Douglas-fir",
+            "3": "WF/IC/RF/Other: white fir, incense cedar, hardwoods",
+            "4": "MH/ES: mountain hemlock, Engelmann spruce",
+            "5": "LP: lodgepole pine",
+            "6": "PP: ponderosa, Jeffrey, Monterey, foothill pine",
+            "7": "RW/GS: redwood / giant sequoia (constraint group)"
+        }
+    },
+    "species_mortality_group": {
+        "PC": 3, "IC": 3, "RC": 3, "GF": 3, "RF": 3, "SH": 3, "DF": 2, "WH": 4, "MH": 4,
+        "WB": 1, "KP": 1, "LP": 5, "CP": 1, "LM": 1, "JP": 6, "SP": 1, "WP": 1, "PP": 6,
+        "MP": 6, "GP": 6, "WJ": 3, "BR": 4, "GS": 7, "PY": 3, "OS": 3,
+        "LO": 3, "CY": 3, "BL": 3, "EO": 3, "WO": 3, "BO": 3, "VO": 3, "IO": 3,
+        "BM": 3, "BU": 3, "RA": 3, "MA": 3, "GC": 3, "DG": 3, "FL": 3, "WN": 3,
+        "TO": 3, "SY": 3, "AS": 3, "CW": 3, "WI": 3, "CN": 3, "CL": 3, "OH": 3,
+        "RW": 7
+    },
+    "sdi_maximums": {
+        "PC": 570, "IC": 570, "RC": 570, "GF": 760, "RF": 800, "SH": 800,
+        "DF": 600, "WH": 580, "MH": 580, "WB": 460, "KP": 430, "LP": 580,
+        "CP": 430, "LM": 460, "JP": 430, "SP": 430, "WP": 460, "PP": 430,
+        "MP": 430, "GP": 430, "WJ": 330, "BR": 580, "GS": 1052, "PY": 570,
+        "OS": 430, "LO": 550, "CY": 550, "BL": 550, "EO": 550, "WO": 550,
+        "BO": 550, "VO": 550, "IO": 550, "BM": 550, "BU": 550, "RA": 550,
+        "MA": 550, "GC": 550, "DG": 550, "FL": 550, "WN": 550, "TO": 550,
+        "SY": 550, "AS": 550, "CW": 550, "WI": 550, "CN": 550, "CL": 550,
+        "OH": 550, "RW": 1052
+    },
+    "default_sdi_max": 550,
+    "shade_tolerance": {
+        "PC": 0.60, "IC": 0.60, "RC": 0.60, "GF": 0.55, "RF": 0.50, "SH": 0.50,
+        "DF": 0.65, "WH": 0.65, "MH": 0.75, "WB": 0.90, "KP": 0.90, "LP": 0.90,
+        "CP": 1.10, "LM": 0.90, "JP": 0.85, "SP": 0.70, "WP": 0.75, "PP": 0.85,
+        "MP": 0.85, "GP": 1.10, "WJ": 1.10, "BR": 0.65, "GS": 0.80, "PY": 0.55,
+        "OS": 0.65, "LO": 1.00, "CY": 1.00, "BL": 1.00, "EO": 1.00, "WO": 1.00,
+        "BO": 1.00, "VO": 1.00, "IO": 1.00, "BM": 0.80, "BU": 0.80, "RA": 1.00,
+        "MA": 0.80, "GC": 0.80, "DG": 0.80, "FL": 0.80, "WN": 0.80, "TO": 0.55,
+        "SY": 0.80, "AS": 0.80, "CW": 0.80, "WI": 1.00, "CN": 1.00, "CL": 1.00,
+        "OH": 1.00, "RW": 0.80
+    }
 }

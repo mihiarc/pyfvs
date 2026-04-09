@@ -360,7 +360,11 @@ class TestOCVariantConfig:
         config = get_variant_config('OC')
         assert config.bark_ratio_class.__name__ == 'OCBarkRatioModel'
         assert config.crown_ratio_class.__name__ == 'OCCrownRatioModel'
-        assert config.mortality_needs_sdi_lookup is True
+        # OCMortalityModel handles its own SDI lookup from the variant's
+        # JSON config (sdi_maximums in oc_mortality_defaults.json), so the
+        # registry doesn't need to inject one at construction time.
+        assert config.mortality_class.__name__ == 'OCMortalityModel'
+        assert config.mortality_needs_sdi_lookup is False
 
     def test_oc_taper_model(self):
         """OC uses Flewelling taper model."""

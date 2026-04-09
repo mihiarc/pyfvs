@@ -341,9 +341,16 @@ class OCBarkRatioFile(BaseModel):
 
 
 class OCMortalityDefaultsFile(BaseModel):
-    """OC variant mortality defaults: VARADJ shade tolerance + background mortality."""
+    """OC variant mortality defaults: 50-species mortality groups, SDI maximums, shade tolerance.
+
+    Mirrors the LS layout (species_mortality_group + sdi_maximums + shade_tolerance) since
+    OCMortalityModel is implemented as an LSMortalityModel subclass with 7 background groups
+    instead of 4.
+    """
     model_config = ConfigDict(extra="allow")
-    varadj: Dict[str, float]
+    species_mortality_group: Dict[str, int]
+    sdi_maximums: Dict[str, float]
+    shade_tolerance: Dict[str, float]
 
 
 # ---------------------------------------------------------------------------

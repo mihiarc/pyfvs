@@ -1091,6 +1091,121 @@ class CSMortalityModel(LSMortalityModel):
         super().__init__(default_species=default_species, max_sdi=max_sdi, variant=variant)
 
 
+class OCMortalityModel(LSMortalityModel):
+    """FVS Southwest Oregon mortality model.
+
+    Direct port of subroutine MORTS (oc/morts.f). Like LS, OC uses a per-species
+    background mortality logistic plus an SDI-based density mortality, with the
+    background rate halved per morts.f line 520. Two structural differences vs LS:
+
+    1. Seven background-mortality groups instead of four. Group 7 is a special
+       constraint group for redwood (RW, ispc 50) and giant sequoia (GS, ispc 23)
+       with positive PMD (DECREASING mortality with diameter) and a floor of
+       0.0001 enforced for the two species (morts.f:512-516).
+    2. Species-to-group mapping is read from oc_mortality_defaults.json rather
+       than hard-coded in Python; this is the IBGMAP array from oc/morts.f:122-124.
+
+    Coefficients PMSC/PMD are taken verbatim from oc/morts.f:118-121:
+
+        PMSC = [6.5112, 7.2985, 5.1677, 9.6943, 5.9617, 5.5877, 2.596805]
+        PMD  = [-0.0052485, -0.0129121, -0.0077681, -0.0127328,
+                -0.0340128, -0.005348,   0.512610]
+
+    Density-mortality distribution shares the same SDI-based logic as LS;
+    OC's varmrt.f follows the same Reineke approach with VARADJ shade-tolerance
+    factors.
+    """
+
+    _COEFFICIENT_FILE = 'oc/oc_mortality_coefficients.json'
+    _DEFAULTS_FILE = 'oc/oc_mortality_defaults.json'
+
+    # 7-group background mortality coefficients (PMSC, PMD) from oc/morts.f:118-121.
+    # Group 7 has positive PMD (decreasing mortality with diameter) and is used
+    # only for redwood and giant sequoia, where larger trees have very low
+    # background mortality.
+    MORTALITY_GROUPS = {
+        1: {'P0': 6.5112,    'P1': -0.0052485},
+        2: {'P0': 7.2985,    'P1': -0.0129121},
+        3: {'P0': 5.1677,    'P1': -0.0077681},
+        4: {'P0': 9.6943,    'P1': -0.0127328},
+        5: {'P0': 5.9617,    'P1': -0.0340128},
+        6: {'P0': 5.5877,    'P1': -0.005348},
+        7: {'P0': 2.596805,  'P1': 0.512610},
+    }
+
+    # Default fallback species → group mapping (oc/morts.f IBGMAP) — used only
+    # if oc_mortality_defaults.json is missing. Mirrors the JSON.
+    _FALLBACK_SPECIES_MORTALITY_GROUP = {
+        'PC': 3, 'IC': 3, 'RC': 3, 'GF': 3, 'RF': 3, 'SH': 3,
+        'DF': 2, 'WH': 4, 'MH': 4, 'WB': 1, 'KP': 1, 'LP': 5,
+        'CP': 1, 'LM': 1, 'JP': 6, 'SP': 1, 'WP': 1, 'PP': 6,
+        'MP': 6, 'GP': 6, 'WJ': 3, 'BR': 4, 'GS': 7, 'PY': 3,
+        'OS': 3, 'LO': 3, 'CY': 3, 'BL': 3, 'EO': 3, 'WO': 3,
+        'BO': 3, 'VO': 3, 'IO': 3, 'BM': 3, 'BU': 3, 'RA': 3,
+        'MA': 3, 'GC': 3, 'DG': 3, 'FL': 3, 'WN': 3, 'TO': 3,
+        'SY': 3, 'AS': 3, 'CW': 3, 'WI': 3, 'CN': 3, 'CL': 3,
+        'OH': 3, 'RW': 7,
+    }
+
+    _FALLBACK_SDI_MAXIMUMS = {
+        'PC': 570, 'IC': 570, 'RC': 570, 'GF': 760, 'RF': 800, 'SH': 800,
+        'DF': 600, 'WH': 580, 'MH': 580, 'WB': 460, 'KP': 430, 'LP': 580,
+        'CP': 430, 'LM': 460, 'JP': 430, 'SP': 430, 'WP': 460, 'PP': 430,
+        'MP': 430, 'GP': 430, 'WJ': 330, 'BR': 580, 'GS': 1052, 'PY': 570,
+        'OS': 430, 'LO': 550, 'CY': 550, 'BL': 550, 'EO': 550, 'WO': 550,
+        'BO': 550, 'VO': 550, 'IO': 550, 'BM': 550, 'BU': 550, 'RA': 550,
+        'MA': 550, 'GC': 550, 'DG': 550, 'FL': 550, 'WN': 550, 'TO': 550,
+        'SY': 550, 'AS': 550, 'CW': 550, 'WI': 550, 'CN': 550, 'CL': 550,
+        'OH': 550, 'RW': 1052,
+    }
+    DEFAULT_SDI_MAX = 550
+
+    _FALLBACK_SHADE_TOLERANCE = {
+        'PC': 0.60, 'IC': 0.60, 'RC': 0.60, 'GF': 0.55, 'RF': 0.50, 'SH': 0.50,
+        'DF': 0.65, 'WH': 0.65, 'MH': 0.75, 'WB': 0.90, 'KP': 0.90, 'LP': 0.90,
+        'CP': 1.10, 'LM': 0.90, 'JP': 0.85, 'SP': 0.70, 'WP': 0.75, 'PP': 0.85,
+        'MP': 0.85, 'GP': 1.10, 'WJ': 1.10, 'BR': 0.65, 'GS': 0.80, 'PY': 0.55,
+        'OS': 0.65, 'LO': 1.00, 'CY': 1.00, 'BL': 1.00, 'EO': 1.00, 'WO': 1.00,
+        'BO': 1.00, 'VO': 1.00, 'IO': 1.00, 'BM': 0.80, 'BU': 0.80, 'RA': 1.00,
+        'MA': 0.80, 'GC': 0.80, 'DG': 0.80, 'FL': 0.80, 'WN': 0.80, 'TO': 0.55,
+        'SY': 0.80, 'AS': 0.80, 'CW': 0.80, 'WI': 1.00, 'CN': 1.00, 'CL': 1.00,
+        'OH': 1.00, 'RW': 0.80,
+    }
+
+    def __init__(self, default_species: str = 'DF', max_sdi: Optional[float] = None,
+                 variant: str = 'OC'):
+        super().__init__(default_species=default_species, max_sdi=max_sdi, variant=variant)
+
+    def _get_background_rate(self, tree: 'Tree', cycle_length: int) -> float:
+        """OC 7-group background mortality with RW/GS constraint floor.
+
+        Direct port of oc/morts.f:509-520. Like LS, the rate is halved compared
+        to the raw logistic. Redwood (RW) and giant sequoia (GS) get a 0.0001
+        annual floor (morts.f:512-516).
+        """
+        # Default to group 3 for unknown species (matches majority of OC species)
+        group = self.SPECIES_MORTALITY_GROUP.get(tree.species, 3)
+        group_coeffs = self.MORTALITY_GROUPS[group]
+        p0 = group_coeffs['P0']
+        p1 = group_coeffs['P1']
+
+        # Base annual mortality rate (logistic) — morts.f:509
+        ri = 1.0 / (1.0 + math.exp(p0 + p1 * tree.dbh))
+
+        # RW/GS constraint: enforce a 0.0001 floor before the halving step
+        # (morts.f:512-516)
+        if tree.species in ('RW', 'GS') and ri < 0.0001:
+            ri = 0.0001
+
+        # OC halves the background rate (morts.f:520 — "test runs show
+        # background mortality rate is high, cut it in half")
+        ri *= 0.5
+
+        # Adjust for cycle length
+        rip = 1.0 - ((1.0 - ri) ** cycle_length)
+        return rip
+
+
 # Module-level convenience functions
 _default_model: Optional[MortalityModel] = None
 
