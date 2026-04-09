@@ -183,6 +183,11 @@ class HeightDiameterModel(ParameterizedModel):
                 'p3': _get('P3', 'p3', 4.28460566),
                 'p4': _get('P4', 'p4', -0.47130185),
                 'dbw': _get('Dbw', 'dbw', 0.5),
+                # Dbreak = linear/exponential breakpoint diameter. SN/LS/etc.
+                # hardcode 3.0 in Fortran htdbh.f (SN) and derivatives; OC/CA
+                # variants use a per-species SPLINE value (2, 3, 5, or 6) from
+                # FVSoc htdbh.f. Default 3.0 preserves non-OC behavior.
+                'dbreak': _get('Dbreak', 'dbreak', 3.0),
             },
             'wykoff': {
                 'b1': flat_coeffs.get('Wykoff_B1', 4.6897),
@@ -216,7 +221,9 @@ class HeightDiameterModel(ParameterizedModel):
         The Curtis-Arney equation is:
         Height = 4.5 + P2 * exp(-P3 * DBH^P4)
 
-        For small trees (DBH < 3.0), uses linear interpolation.
+        For small trees (DBH < Dbreak), uses linear interpolation from
+        (Dbw, 4.51) to (Dbreak, H(Dbreak)). For most variants Dbreak=3.0
+        (matching SN htdbh.f); OC uses per-species SPLINE values.
 
         Args:
             dbh: Diameter at breast height (inches)
@@ -228,15 +235,16 @@ class HeightDiameterModel(ParameterizedModel):
         p2 = params['p2']
         p3 = params['p3']
         p4 = params['p4']
-        dbw = params['dbw']  # Diameter breakpoint for small trees
+        dbw = params['dbw']          # Lower bound for small-tree linear interp
+        dbreak = params['dbreak']    # Upper bound of small-tree linear interp
 
         if dbh <= dbw:
             return 4.51
-        elif dbh < 3.0:
+        elif dbh < dbreak:
             # Linear interpolation for small trees (Fortran htdbh.f)
-            # H = ((H3 - 4.51) * (D - DB) / (3 - DB)) + 4.51
-            h3 = 4.5 + p2 * math.exp(-p3 * 3.0**p4)
-            return ((h3 - 4.51) * (dbh - dbw) / (3.0 - dbw)) + 4.51
+            # H = ((H(Dbreak) - 4.51) * (D - DB) / (Dbreak - DB)) + 4.51
+            h_at_break = 4.5 + p2 * math.exp(-p3 * dbreak**p4)
+            return ((h_at_break - 4.51) * (dbh - dbw) / (dbreak - dbw)) + 4.51
         else:
             # Standard Curtis-Arney equation for larger trees
             return 4.5 + p2 * math.exp(-p3 * dbh**p4)
@@ -269,8 +277,11 @@ class HeightDiameterModel(ParameterizedModel):
 
         Uses the closed-form inverse of the Curtis-Arney H-D model,
         matching the Fortran FVS HTDBH subroutine (MODE=1):
-        - For H >= HAT3: D = exp(log((log(H-4.5) - log(P2)) / (-P3)) / P4)
-        - For H < HAT3: Linear interpolation from budwidth to 3.0"
+        - For H >= H(Dbreak): D = exp(log((log(H-4.5) - log(P2)) / (-P3)) / P4)
+        - For H <  H(Dbreak): Linear interpolation from Dbw to Dbreak
+
+        Dbreak is 3.0" for SN/LS/NE/etc. (hardcoded in SN htdbh.f) and a
+        per-species SPLINE value for OC (2, 3, 5, or 6 from OC htdbh.f).
 
         Args:
             target_height: Target height (feet)
@@ -286,16 +297,17 @@ class HeightDiameterModel(ParameterizedModel):
         p2 = params['p2']
         p3 = params['p3']
         p4 = params['p4']
-        db = params['dbw']  # Budwidth (SNDBAL in Fortran)
+        db = params['dbw']           # Lower bound for linear interp (SNDBAL in SN)
+        dbreak = params['dbreak']    # Upper bound of linear interp
 
         if target_height <= 4.5:
             return db
 
-        # Height at 3" DBH (transition point between linear and exponential)
-        hat3 = 4.5 + p2 * math.exp(-p3 * 3.0**p4)
+        # Height at the Dbreak diameter (transition between linear and exponential)
+        h_at_break = 4.5 + p2 * math.exp(-p3 * dbreak**p4)
 
-        if target_height >= hat3:
-            # Analytical inversion of Curtis-Arney for D >= 3"
+        if target_height >= h_at_break:
+            # Analytical inversion of Curtis-Arney for D >= Dbreak
             # H = 4.5 + P2 * exp(-P3 * D^P4)
             # => D = exp(log((log(H-4.5) - log(P2)) / (-P3)) / P4)
             h_above_bh = target_height - 4.5
@@ -307,12 +319,12 @@ class HeightDiameterModel(ParameterizedModel):
                 return 30.0
             return math.exp(math.log(ratio) / p4)
         else:
-            # Linear interpolation for D < 3" (Fortran: regent.f small-tree region)
-            # D = ((H - 4.51) * (3 - DB)) / (HAT3 - 4.51) + DB
-            denom = hat3 - 4.51
+            # Linear interpolation for D < Dbreak (Fortran: htdbh.f)
+            # D = ((H - 4.51) * (Dbreak - DB)) / (H(Dbreak) - 4.51) + DB
+            denom = h_at_break - 4.51
             if denom <= 0:
                 return db
-            return ((target_height - 4.51) * (3.0 - db)) / denom + db
+            return ((target_height - 4.51) * (dbreak - db)) / denom + db
 
     def get_model_parameters(self, model: str = None) -> Dict[str, Any]:
         """Get parameters for a specific model.
@@ -359,7 +371,8 @@ def create_height_diameter_model(species_code: str = "LP", variant: str = None) 
     return _height_diameter_model_cache[cache_key]
 
 
-def curtis_arney_height(dbh: float, p2: float, p3: float, p4: float, dbw: float = 0.1) -> float:
+def curtis_arney_height(dbh: float, p2: float, p3: float, p4: float,
+                        dbw: float = 0.1, dbreak: float = 3.0) -> float:
     """Standalone Curtis-Arney height function.
 
     Args:
@@ -367,17 +380,20 @@ def curtis_arney_height(dbh: float, p2: float, p3: float, p4: float, dbw: float 
         p2: Curtis-Arney parameter P2
         p3: Curtis-Arney parameter P3
         p4: Curtis-Arney parameter P4
-        dbw: Diameter breakpoint for small trees (inches)
+        dbw: Lower bound for the small-tree linear interpolation (inches)
+        dbreak: Breakpoint between linear interp and the exponential form
+                (inches). Default 3.0 matches SN htdbh.f; OC variants use
+                per-species SPLINE values.
 
     Returns:
         Predicted height (feet)
     """
     if dbh <= dbw:
         return 4.5
-    elif dbh < 3.0:
+    elif dbh < dbreak:
         # Linear interpolation for small trees
-        h3 = 4.5 + p2 * math.exp(-p3 * 3.0**p4)
-        return 4.5 + (h3 - 4.5) * (dbh - dbw) / (3.0 - dbw)
+        h_at_break = 4.5 + p2 * math.exp(-p3 * dbreak**p4)
+        return 4.5 + (h_at_break - 4.5) * (dbh - dbw) / (dbreak - dbw)
     else:
         # Standard Curtis-Arney equation
         return 4.5 + p2 * math.exp(-p3 * dbh**p4)
