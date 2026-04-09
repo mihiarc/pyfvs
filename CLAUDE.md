@@ -56,7 +56,7 @@ Stand.initialize_planted(tpa, si, species, variant) -> Tree objects -> grow() ->
 | **OP** | ORGANON PNW | 18 | DF | 5yr | ln(DG) direct diameter growth |
 | **WS** | Western Sierra | 43 | PP | 10yr | ln(DDS) with topo effects (14 eq sets) |
 | **CA** | Inland California | 49 | PP | 10yr | ln(DDS) with topo effects (13 eq sets) |
-| **OC** | Southwest Oregon | 33 | DF | 10yr | ln(DDS) with topo effects (13 eq sets) |
+| **OC** | Southwest Oregon | 33 | DF | 5yr | ln(DDS) with topo effects (13 eq sets) — coefficients are 10yr, runtime applies -ln(2) conversion (except tanoak) |
 
 ## API Patterns
 

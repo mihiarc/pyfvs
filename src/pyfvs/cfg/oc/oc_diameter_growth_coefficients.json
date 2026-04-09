@@ -1,12 +1,14 @@
 {
   "_metadata": {
     "variant": "OC",
-    "variant_name": "ORGANON Southwest Oregon",
-    "equation_form": "ln(DDS) = DGFOR + DGLD*ln(D) + DGCR*CR + DGCRSQ*CR^2 + DGDS*D^2 + DGSITE*ln(SI) + DGDBAL*BAL/ln(D+1) + DGLBA*ln(BA) + DGBAL*BAL + DGPCCF*PCCF + DGHAH*RELHT + topographic",
-    "source": "FVS OC variant dgf.f, Hann and Hanus 2002",
+    "variant_name": "FVS Southwest Oregon",
+    "equation_form": "ln(DDS_10) = DGFOR + DGLD*ln(D) + DGCR*CR + DGCRSQ*CR^2 + DGDS*D^2 + DGSITE*ln(SI) + DGDBAL*BAL/ln(D+1) + DGLBA*ln(BA) + DGBAL*BAL + DGPCCF*PCCF + DGHAH*RELHT + topographic; then ln(DDS_5) = ln(DDS_10) - ln(2) per oc/dgf.f:402-403",
+    "source": "FVS OC variant dgf.f and blkdat.f (ForestVegetationSimulator/oc/)",
     "num_equations": 13,
     "num_species": 50,
-    "base_cycle": 5
+    "coefficient_cycle": 10,
+    "native_variant_cycle": 5,
+    "cycle_conversion": "Coefficients are raw 10-year values; runtime subtracts ln(2) from ln(DDS) to convert to 5-year, except for tanoak (TO) which is already 5-year"
   },
   "species_to_equation": {
     "PC": "1", "IC": "1", "RC": "1",

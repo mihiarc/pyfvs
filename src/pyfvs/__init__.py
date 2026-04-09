@@ -254,6 +254,11 @@ from .ws_diameter_growth import (
     calculate_ws_dds,
 )
 
+from .ec_diameter_growth import (
+    ECDiameterGrowthModel,
+    create_ec_diameter_growth_model,
+)
+
 # =============================================================================
 # Entry Point
 # =============================================================================
@@ -398,6 +403,9 @@ __all__ = [
     "WSDiameterGrowthModel",
     "create_ws_diameter_growth_model",
     "calculate_ws_dds",
+    # EC (East Cascades) Variant
+    "ECDiameterGrowthModel",
+    "create_ec_diameter_growth_model",
     # Entry Point
     "main",
 ]

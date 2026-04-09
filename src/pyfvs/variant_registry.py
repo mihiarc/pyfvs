@@ -246,7 +246,7 @@ REGISTRY: Dict[str, VariantConfig] = {
     'OC': VariantConfig(
         code='OC',
         name='Southwest Oregon',
-        cycle_length=10,
+        cycle_length=5,
         default_species='DF',
         growth_category='topographic',
         bark_ratio_class=OCBarkRatioModel,
@@ -260,6 +260,29 @@ REGISTRY: Dict[str, VariantConfig] = {
         hhtmax=_OC_HHTMAX,
         hhtmax_default=_OC_HHTMAX_DEFAULT,
         sdi_maximums=StandMetricsCalculator.OC_SDI_MAXIMUMS,
+    ),
+    'EC': VariantConfig(
+        code='EC',
+        name='East Cascades',
+        cycle_length=10,
+        default_species='DF',
+        growth_category='topographic',
+        # PHASE 1 EC port: only diameter growth is variant-specific.
+        # Bark/crown/mortality/taper currently fall back to PN-equivalent
+        # models (PN was chosen because EC is geographically adjacent and
+        # WC-derived equations dominate ~half of EC's species). Track in
+        # the EC parity tests as known divergences until ec/htgf.f,
+        # ec/morts.f, ec/bratio.f, and ec/crown.f are also ported.
+        bark_ratio_class=PNBarkRatioModel,
+        crown_ratio_class=PNCrownRatioModel,
+        mortality_class=MortalityModel,
+        mortality_needs_sdi_lookup=True,
+        taper_class=FlewellingTaperModel,
+        dg_module='ec_diameter_growth',
+        dg_factory='create_ec_diameter_growth_model',
+        default_elevation=20.0,  # East Cascades typical: ~2000ft = 20 (hundreds)
+        hhtmax_default=20.0,
+        sdi_maximums=StandMetricsCalculator.PN_SDI_MAXIMUMS,
     ),
     'WS': VariantConfig(
         code='WS',

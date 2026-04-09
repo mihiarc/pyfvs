@@ -348,10 +348,15 @@ class TestOCVariantConfig:
         assert config.code == 'OC'
 
     def test_oc_properties(self):
-        """OC has correct basic properties."""
+        """OC has correct basic properties.
+
+        cycle_length is 5, not 10: Fortran oc/blkdat.f sets DATA YR / 5.0 /,
+        and oc/dgf.f converts the underlying 10-year coefficients to 5-year
+        at lines 402-403 (TDDS=EXP(DDS); DDS=ALOG(TDDS/2.0)).
+        """
         config = get_variant_config('OC')
         assert config.name == 'Southwest Oregon'
-        assert config.cycle_length == 10
+        assert config.cycle_length == 5
         assert config.default_species == 'DF'
         assert config.growth_category == 'topographic'
 

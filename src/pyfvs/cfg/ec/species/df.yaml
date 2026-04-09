@@ -1,0 +1,41 @@
+# Douglas-fir (Pseudotsuga menziesii) — generic EC defaults
+# East Cascades is dominated by Douglas-fir; this file provides the
+# base species parameters that all 32 EC species fall back to until
+# the per-species YAMLs are extracted from ec/blkdat.f.
+
+species_code: DF
+common_name: Douglas-fir
+scientific_name: Pseudotsuga menziesii
+fia_code: 202
+type: softwood
+
+# Growth model parameters
+diameter_growth:
+  equation_set: 3   # EC fortran_index for DF
+  min_dbh: 0.1
+  max_dbh: 100.0
+
+# Height-diameter parameters (Wykoff form, generic DF coefficients —
+# these are placeholders until ec/htdbh.f is ported)
+height_diameter:
+  model: wykoff
+  b1: 5.3076
+  b2: -14.4740
+
+# Site index (base age 50)
+site_index:
+  base_age: 50
+  min: 40
+  max: 180
+  typical: 100
+
+# Crown ratio
+crown_ratio:
+  initial: 0.50
+  min: 0.10
+  max: 0.90
+
+# Volume parameters
+volume:
+  form_factor: 0.42
+  bark_ratio: 0.91

@@ -146,6 +146,24 @@ class CADGFile(BaseModel):
     species: Dict[str, Any]
 
 
+# --- EC Diameter Growth (species_coefficients with DGLD/DGCR/...) ---
+
+class ECDGFile(BaseModel):
+    """EC diameter growth: species_coefficients keyed by species code.
+
+    Each species coefficients dict has DGLD, DGCR, DGCRSQ, DGSITE,
+    DGDBAL, DGDUM, DGHCCF, DGPCCF, DGCCFA, DGCASP, DGSASP, DGSLOP,
+    DGSLSQ, DGEL, DGEL2, SL0DUM, DGBA, DGFOR (list), DGDS (list),
+    fortran_index, and equation_class. Schema is intentionally
+    permissive to avoid coupling to every numeric key; exact structure
+    is asserted via the ec_diameter_growth unit tests.
+    """
+    model_config = ConfigDict(extra="allow")
+    species_coefficients: Dict[str, Dict[str, Any]]
+    species_to_equation: Dict[str, Any]
+    variance_parameters: Dict[str, float]
+
+
 # --- Height-Diameter (metadata + coefficients with P2/P3/P4) ---
 
 class HDSpeciesCoeffs(BaseModel):
@@ -374,6 +392,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     (r"(ls|cs).+diameter_growth_coefficients\.json$", StandardDGFile),
     (r"wc.+diameter_growth_coefficients\.json$", WCDGFile),
     (r"ca.+diameter_growth_coefficients\.json$", CADGFile),
+    (r"ec.+diameter_growth_coefficients\.json$", ECDGFile),
     (r"(pn|op|oc|ws).+diameter_growth_coefficients\.json$", NumericKeyedDGFile),
 
     # Height-diameter — flat (species as top-level keys) must come before wrapped

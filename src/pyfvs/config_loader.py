@@ -36,8 +36,9 @@ SUPPORTED_VARIANTS = {
     'CS': {'name': 'Central States', 'config_dir': 'cs', 'species_count': 96},
     'CA': {'name': 'Inland California', 'config_dir': 'ca', 'species_count': 50},
     'OP': {'name': 'ORGANON Pacific Northwest', 'config_dir': 'op', 'species_count': 18},
-    'OC': {'name': 'ORGANON Southwest Oregon', 'config_dir': 'oc', 'species_count': 50},
+    'OC': {'name': 'FVS Southwest Oregon', 'config_dir': 'oc', 'species_count': 50},
     'WS': {'name': 'Western Sierra Nevada', 'config_dir': 'ws', 'species_count': 43},
+    'EC': {'name': 'East Cascades', 'config_dir': 'ec', 'species_count': 32},
 }
 
 DEFAULT_VARIANT = 'SN'

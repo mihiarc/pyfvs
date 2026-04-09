@@ -1,0 +1,184 @@
+# FVS East Cascades (EC) Variant Species Configuration
+# 32 species recognized in the EC variant
+# Source: ForestVegetationSimulator/ec/blkdat.f
+
+metadata:
+  variant: EC
+  variant_name: "FVS East Cascades"
+  description: "FVS variant for the eastern slope of the Cascade Range in Oregon and Washington"
+  region: "East Cascades (Oregon and Washington)"
+  source: "ForestVegetationSimulator/ec/blkdat.f"
+  default_site_species: DF
+  default_site_index: 100
+  base_cycle: 10
+
+coefficient_files:
+  diameter_growth: "ec_diameter_growth_coefficients.json"
+
+functional_forms_file: "functional_forms.yaml"
+
+# All 32 species map to the shared df.yaml until per-species YAMLs are
+# extracted. Diameter growth coefficients are species-specific (loaded
+# from ec_diameter_growth_coefficients.json), but height-diameter, crown
+# ratio, and volume parameters are generic DF placeholders.
+species:
+  WP:
+    name: "Western White Pine"
+    file: "species/df.yaml"
+    fvs_index: 1
+    fia_code: 119
+  WL:
+    name: "Western Larch"
+    file: "species/df.yaml"
+    fvs_index: 2
+    fia_code: 73
+  DF:
+    name: "Douglas-fir"
+    file: "species/df.yaml"
+    fvs_index: 3
+    fia_code: 202
+  SF:
+    name: "Pacific Silver Fir"
+    file: "species/df.yaml"
+    fvs_index: 4
+    fia_code: 11
+  RC:
+    name: "Western Redcedar"
+    file: "species/df.yaml"
+    fvs_index: 5
+    fia_code: 242
+  GF:
+    name: "Grand Fir"
+    file: "species/df.yaml"
+    fvs_index: 6
+    fia_code: 17
+  LP:
+    name: "Lodgepole Pine"
+    file: "species/df.yaml"
+    fvs_index: 7
+    fia_code: 108
+  ES:
+    name: "Engelmann Spruce"
+    file: "species/df.yaml"
+    fvs_index: 8
+    fia_code: 93
+  AF:
+    name: "Subalpine Fir"
+    file: "species/df.yaml"
+    fvs_index: 9
+    fia_code: 19
+  PP:
+    name: "Ponderosa Pine"
+    file: "species/df.yaml"
+    fvs_index: 10
+    fia_code: 122
+  WH:
+    name: "Western Hemlock"
+    file: "species/df.yaml"
+    fvs_index: 11
+    fia_code: 263
+  MH:
+    name: "Mountain Hemlock"
+    file: "species/df.yaml"
+    fvs_index: 12
+    fia_code: 264
+  PY:
+    name: "Pacific Yew"
+    file: "species/df.yaml"
+    fvs_index: 13
+    fia_code: 231
+  WB:
+    name: "Whitebark Pine"
+    file: "species/df.yaml"
+    fvs_index: 14
+    fia_code: 101
+  NF:
+    name: "Noble Fir"
+    file: "species/df.yaml"
+    fvs_index: 15
+    fia_code: 22
+  WF:
+    name: "White Fir"
+    file: "species/df.yaml"
+    fvs_index: 16
+    fia_code: 15
+  LL:
+    name: "Subalpine Larch"
+    file: "species/df.yaml"
+    fvs_index: 17
+    fia_code: 72
+  YC:
+    name: "Alaska Cedar"
+    file: "species/df.yaml"
+    fvs_index: 18
+    fia_code: 42
+  WJ:
+    name: "Western Juniper"
+    file: "species/df.yaml"
+    fvs_index: 19
+    fia_code: 64
+  BM:
+    name: "Bigleaf Maple"
+    file: "species/df.yaml"
+    fvs_index: 20
+    fia_code: 312
+  VN:
+    name: "Vine Maple"
+    file: "species/df.yaml"
+    fvs_index: 21
+    fia_code: 324
+  RA:
+    name: "Red Alder"
+    file: "species/df.yaml"
+    fvs_index: 22
+    fia_code: 351
+  PB:
+    name: "Paper Birch"
+    file: "species/df.yaml"
+    fvs_index: 23
+    fia_code: 375
+  GC:
+    name: "Giant Chinquapin"
+    file: "species/df.yaml"
+    fvs_index: 24
+    fia_code: 431
+  DG:
+    name: "Pacific Dogwood"
+    file: "species/df.yaml"
+    fvs_index: 25
+    fia_code: 492
+  AS:
+    name: "Quaking Aspen"
+    file: "species/df.yaml"
+    fvs_index: 26
+    fia_code: 746
+  CW:
+    name: "Black Cottonwood"
+    file: "species/df.yaml"
+    fvs_index: 27
+    fia_code: 747
+  WO:
+    name: "Oregon White Oak"
+    file: "species/df.yaml"
+    fvs_index: 28
+    fia_code: 815
+  PL:
+    name: "Plum"
+    file: "species/df.yaml"
+    fvs_index: 29
+    fia_code: 760
+  WI:
+    name: "Willow"
+    file: "species/df.yaml"
+    fvs_index: 30
+    fia_code: 920
+  OS:
+    name: "Other Softwood"
+    file: "species/df.yaml"
+    fvs_index: 31
+    fia_code: 299
+  OH:
+    name: "Other Hardwood"
+    file: "species/df.yaml"
+    fvs_index: 32
+    fia_code: 998

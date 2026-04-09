@@ -46,11 +46,14 @@ class NativeStand:
             directory is created and cleaned up on close().
     """
 
-    # FVS default cycle lengths per variant (from variant source code)
-    # SN and OP use 5-year cycles; all others use 10-year cycles
+    # FVS default cycle lengths per variant (from each variant's blkdat.f
+    # DATA YR / N.0 / declaration in ForestVegetationSimulator/<variant>/).
+    # SN, OC, OP use 5-year cycles; all others use 10-year cycles.
+    # Note: OC's underlying coefficients are 10-year but Fortran converts
+    # to 5-year in dgf.f:402-403 (TDDS=EXP(DDS); DDS=ALOG(TDDS/2.0)).
     _VARIANT_CYCLE_LENGTHS = {
         "SN": 5, "LS": 10, "PN": 10, "WC": 10,
-        "NE": 10, "CS": 10, "CA": 10, "OC": 10,
+        "NE": 10, "CS": 10, "CA": 10, "OC": 5,
         "WS": 10, "OP": 5,
     }
 

@@ -1,21 +1,30 @@
 """
-ORGANON Southwest Oregon (OC) variant diameter growth model.
+FVS Southwest Oregon (OC) variant diameter growth model.
 
-This module implements the OC variant diameter growth equations based on
-Hann and Hanus (2002) and the FVS-ORGANON integration.
+Port of the Fortran FVS OC variant (ForestVegetationSimulator/oc/dgf.f).
+The OC variant is structurally a 5-year-cycle sister of the CA (Inland
+California / Southern Cascades) variant, sharing 13 equation groups across
+50 species. Mark Castle refit the GS/RW (giant sequoia / coast redwood)
+equations in 2019.
 
-Unlike the OP variant which uses direct diameter growth (ln(DG)),
-the OC variant uses the ln(DDS) equation form similar to CA variant.
+Equation form (per equation group, not per species):
+    ln(DDS_10) = DGFOR + DGLD*ln(D) + DGCR*CR + DGCRSQ*CR^2 + DGDS*D^2
+               + DGSITE*ln(SI) + DGDBAL*BAL/ln(D+1) + DGLBA*ln(BA)
+               + DGBAL*BAL + DGPCCF*PCCF + DGHAH*RELHT
+               + DGEL*ELEV + DGELSQ*ELEV^2 + DGSLOP*SLOPE + DGSLSQ*SLOPE^2
+               + DGCASP*SLOPE*cos(ASP) + DGSASP*SLOPE*sin(ASP)
 
-Equation form:
-    ln(DDS) = DGFOR + DGLD*ln(D) + DGCR*CR + DGCRSQ*CR^2 + DGDS*D^2
-            + DGSITE*ln(SI) + DGDBAL*BAL/ln(D+1) + DGLBA*ln(BA)
-            + DGBAL*BAL + DGPCCF*PCCF + DGHAH*RELHT
-            + DGEL*ELEV + DGELSQ*ELEV^2 + DGSLOP*SLOPE + DGSLSQ*SLOPE^2
-            + DGCASP*SLOPE*cos(ASP) + DGSASP*SLOPE*sin(ASP)
+The underlying coefficients are 10-year. OC runs on 5-year cycles
+(Fortran blkdat.f: DATA YR / 5.0 /), so the Fortran code converts in
+real space at the end of dgf.f:402-403:
+    TDDS = EXP(DDS)        ! 10-year DDS in real space
+    DDS  = ALOG(TDDS/2.0)  ! 5-year DDS in log space (= ln(DDS_10) - ln(2))
+This module applies the same conversion. Tanoak (TO, species 42) is the
+exception: its underlying equation is fit for 5-year, so Fortran multiplies
+by 2 first before the universal /2 (oc/dgf.f:387-393), netting to no change.
 
 Where:
-    DDS = change in squared diameter (inside bark)
+    DDS = change in squared diameter (inside bark) over the 5-year cycle
     D = diameter at breast height (inches)
     CR = crown ratio (0-1)
     SI = site index (feet, base age 50)
@@ -27,10 +36,10 @@ Where:
     SLOPE = slope (proportion 0-1)
     ASP = aspect (radians from north)
 
-References:
-    Hann, D.W. and M.L. Hanus. 2002. Enhanced diameter-growth-rate equations
-    for undamaged and damaged trees in southwest Oregon. Research Contribution 39.
-    Forest Research Laboratory, Oregon State University.
+Note: prior versions of this module described OC as the ORGANON Southwest
+Oregon model (Hann & Hanus 2002). That is a different model — the FVS OC
+variant is its own 5-year FVS cycle variant derived from CA. This module
+is the FVS port, not ORGANON SWO.
 """
 import math
 from typing import Dict, Any, Optional
@@ -215,8 +224,22 @@ class OCDiameterGrowthModel(ParameterizedModel):
         ln_dds += c.get('DGCASP', 0.0) * slope * math.cos(aspect)
         ln_dds += c.get('DGSASP', 0.0) * slope * math.sin(aspect)
 
-        # Stochastic / Baskerville correction
-        sigma = _SIGMA.get(self.species_code.upper() if self.species_code else 'DF', 0.35)
+        # 10-year -> 5-year cycle conversion (Fortran oc/dgf.f:399-403).
+        # The OC equations are calibrated for 10-year diameter growth, but the
+        # OC variant runs on 5-year cycles (blkdat.f: DATA YR / 5.0 /). The
+        # Fortran converts in real space: TDDS=EXP(DDS); DDS=ALOG(TDDS/2.0),
+        # which is equivalent to subtracting ln(2) in log space.
+        # Tanoak (species TO) is the exception: its underlying equation was
+        # fit for 5-year growth, so Fortran multiplies it by 2 before the
+        # universal divide-by-2 (oc/dgf.f:387-393), netting to no change.
+        species_upper = self.species_code.upper() if self.species_code else 'DF'
+        if species_upper != 'TO':
+            ln_dds -= math.log(2.0)
+
+        # Stochastic / Baskerville correction (applied to 5-year ln(DDS) to
+        # match Fortran's dgscor.f, which runs after WK2 holds the converted
+        # 5-year value)
+        sigma = _SIGMA.get(species_upper, 0.35)
         if rng is not None:
             z = rng.gauss(0, sigma)
             z = max(-2 * sigma, min(2 * sigma, z))
@@ -226,11 +249,17 @@ class OCDiameterGrowthModel(ParameterizedModel):
         else:
             ln_dds += 0.88 * sigma * sigma / 2.0
 
-        # Convert from ln(DDS) to DDS
+        # Floor at ln(DDS) = -9.21 to match Fortran oc/dgf.f:404
+        if ln_dds < -9.21:
+            ln_dds = -9.21
+
+        # Convert from ln(DDS) to DDS (now correctly on a 5-year base)
         dds = math.exp(ln_dds)
 
-        # Scale for time step (base equation is 5-year)
-        dds = dds * (time_step / 5.0)
+        # Scale for non-default time steps. OC runs natively on 5-year cycles,
+        # so callers passing time_step=5 get the unscaled value.
+        if time_step != 5.0:
+            dds = dds * (time_step / 5.0)
 
         return max(0.0, dds)
 
@@ -265,6 +294,11 @@ class OCDiameterGrowthModel(ParameterizedModel):
         ln_dds += -0.000926 * slope * 100
         ln_dds += -0.002203 * slope * 100 * math.cos(aspect)
 
+        # 10-year -> 5-year conversion (Fortran oc/dgf.f:402-403). GS/RW
+        # fall through the universal conversion in Fortran the same as
+        # other species.
+        ln_dds -= math.log(2.0)
+
         # Stochastic / Baskerville correction for GS/RW
         sigma = _SIGMA.get(self.species_code.upper() if self.species_code else 'DF', 0.35)
         if rng is not None:
@@ -276,10 +310,15 @@ class OCDiameterGrowthModel(ParameterizedModel):
         else:
             ln_dds += 0.88 * sigma * sigma / 2.0
 
+        # Floor at ln(DDS) = -9.21 to match Fortran oc/dgf.f:404
+        if ln_dds < -9.21:
+            ln_dds = -9.21
+
         dds = math.exp(ln_dds)
 
-        # Scale for time step
-        dds = dds * (time_step / 5.0)
+        # Scale for non-default time steps (5-year is the OC native cycle)
+        if time_step != 5.0:
+            dds = dds * (time_step / 5.0)
 
         return max(0.0, dds)
 
