@@ -186,6 +186,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
+    "-m", "not slow and not parity",
 ]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -197,6 +198,7 @@ markers = [
     "unit: marks tests as unit tests",
     "benchmark: marks tests as performance benchmarks",
     "native: marks tests that require the native FVS shared library (skip with '-m \"not native\"')",
+    "parity: parity test against native FVS Fortran library (requires FVS{variant}.so build; opt-in via '-m parity')",
 ]
 
 # Coverage configuration
