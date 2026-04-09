@@ -224,6 +224,16 @@ class Tree:
                 xmin = transition_params['xmin']
                 xmax = transition_params['xmax']
 
+            # OC: oc/regent.f:347-349 + oc/blkdat.f:70-74 + oc/regent.f:103
+            # override the default 1.5..3.0 blend zone for Giant Sequoia
+            # (GS, ISPC=23) and Coast Redwood (RW, ISPC=50) with the
+            # per-species values XMIN[ISPC]=1.0 and DGMIN[ISPC]=7.0.
+            #     IF(ISPC.EQ.23 .OR. ISPC.EQ.50) THEN
+            #       XDWT=(D-XMN)/(DGMIN(ISPC)-XMN)
+            if variant == 'OC' and self.species in ('GS', 'RW'):
+                xmin = 1.0
+                xmax = 7.0
+
         # Default avg_height to 0.0 for PN/WC SMHGDG if not provided
         if avg_height is None:
             avg_height = 0.0
@@ -235,9 +245,10 @@ class Tree:
             weight = 1.0
         elif xmin >= xmax:
             weight = 1.0
-        elif variant in ('PN', 'WC'):
-            # PN/WC: linear blend matching Fortran regent.f
-            # XWT = (D - XMN) / (XMX - XMN)
+        elif variant in ('PN', 'WC', 'OC'):
+            # PN/WC/OC: linear blend matching Fortran regent.f
+            # PN/WC regent.f: XWT = (D - XMN) / (XMX - XMN)
+            # OC  regent.f:351: XDWT = (D - 1.5) / 1.5
             weight = (initial_dbh - xmin) / (xmax - xmin)
         else:
             # Other variants: smoothstep function 3t^2 - 2t^3

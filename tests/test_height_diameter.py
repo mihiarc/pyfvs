@@ -2,6 +2,7 @@
 Test suite for height-diameter relationship functions.
 Includes unit tests and visualization of model behavior.
 """
+import math
 import pytest
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,6 +19,7 @@ from pyfvs.height_diameter import (
     create_height_diameter_model,
     curtis_arney_height,
     wykoff_height,
+    wykoff_inverse_dbh,
     compare_models
 )
 
@@ -123,10 +125,92 @@ class TestStandaloneFunctions:
         # Test with known parameters
         height = wykoff_height(10.0, b1=4.0, b2=-5.0)
         assert height > 4.5
-        
+
         # Test zero DBH
         height = wykoff_height(0.0, b1=4.0, b2=-5.0)
         assert height == 4.5
+
+
+class TestWykoffInverse:
+    """Test the analytical Wykoff inverse used by the OC small-tree path."""
+
+    def test_round_trip_lp(self):
+        """LP coefficients: forward then inverse should recover the input DBH."""
+        b1, b2 = 4.6897, -6.8801  # Lodgepole pine fallback values
+        for dbh in (0.5, 1.0, 2.5, 5.0, 10.0, 20.0):
+            height = wykoff_height(dbh, b1, b2)
+            recovered = wykoff_inverse_dbh(height, b1, b2)
+            assert abs(recovered - dbh) < 1e-9, (
+                f"round-trip failed at DBH={dbh}: H={height}, recovered={recovered}"
+            )
+
+    def test_round_trip_oc_df(self):
+        """OC Douglas-fir Wykoff coefficients (from oc/blkdat.f via JSON)."""
+        b1, b2 = 5.3076, -14.474
+        for dbh in (0.5, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0):
+            height = wykoff_height(dbh, b1, b2)
+            recovered = wykoff_inverse_dbh(height, b1, b2)
+            assert abs(recovered - dbh) < 1e-9
+
+    def test_height_at_or_below_breast_height(self):
+        """Heights at or below 4.5 ft return the dbh_min floor."""
+        b1, b2 = 5.3076, -14.474
+        assert wykoff_inverse_dbh(4.5, b1, b2) == 0.1
+        assert wykoff_inverse_dbh(3.0, b1, b2) == 0.1
+        assert wykoff_inverse_dbh(0.0, b1, b2) == 0.1
+        # Custom dbh_min is honored
+        assert wykoff_inverse_dbh(4.5, b1, b2, dbh_min=0.5) == 0.5
+
+    def test_dbh_min_clamps_negative_results(self):
+        """For very small heights just above 4.5, the closed form can yield
+        a negative DBH; the dbh_min floor must clamp it.
+
+        With LP fallback coefficients (b1=4.6897, b2=-6.8801), the raw
+        formula crosses zero at H = 4.5 + exp(b1+b2) ~= 4.612. For H=4.51:
+            denom = ln(0.01) - 4.6897 = -9.2949
+            raw   = -6.8801/-9.2949 - 1 = -0.2598
+        which must be clamped to dbh_min.
+        """
+        b1, b2 = 4.6897, -6.8801
+        result = wykoff_inverse_dbh(4.51, b1, b2)
+        assert result == 0.1
+        # Custom floor still applied
+        result_05 = wykoff_inverse_dbh(4.51, b1, b2, dbh_min=0.5)
+        assert result_05 == 0.5
+
+    def test_above_asymptote_returns_sentinel(self):
+        """Heights at or beyond the Wykoff asymptote return the 30.0 sentinel,
+        matching solve_dbh_from_height's convention."""
+        b1, b2 = 4.6897, -6.8801
+        asymptote = 4.5 + math.exp(b1)  # ~113.3 ft for LP
+        assert wykoff_inverse_dbh(asymptote, b1, b2) == 30.0
+        assert wykoff_inverse_dbh(asymptote + 50, b1, b2) == 30.0
+
+    def test_class_method_uses_loaded_coefficients(self):
+        """The HeightDiameterModel.wykoff_inverse_dbh method should use the
+        species's loaded Wykoff_B1/Wykoff_B2."""
+        model = create_height_diameter_model("DF", variant="OC")
+        b1 = model.hd_params['wykoff']['b1']
+        b2 = model.hd_params['wykoff']['b2']
+        # Compute a height and round-trip via the method
+        dbh_in = 2.0
+        height = model.wykoff_height(dbh_in)
+        dbh_out = model.wykoff_inverse_dbh(height)
+        # Sanity-check the method delegates to the standalone function
+        expected = wykoff_inverse_dbh(height, b1, b2)
+        assert dbh_out == expected
+        assert abs(dbh_out - dbh_in) < 1e-9
+
+    def test_matches_oc_regent_formula(self):
+        """Spot-check against the OC Fortran formula form
+        DK = HT2/(ln(HK-4.5) - HT1) - 1.0 from oc/regent.f:296.
+        Using OC PP values and a small-tree height (HK=15 ft)."""
+        # OC PP from oc/blkdat.f via JSON
+        ht1, ht2 = 5.382, -20.4097
+        hk = 15.0
+        expected = ht2 / (math.log(hk - 4.5) - ht1) - 1.0
+        result = wykoff_inverse_dbh(hk, ht1, ht2)
+        assert abs(result - expected) < 1e-12
 
 
 class TestModelComparison:

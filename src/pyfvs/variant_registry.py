@@ -257,6 +257,16 @@ REGISTRY: Dict[str, VariantConfig] = {
         dg_module='oc_diameter_growth',
         dg_factory='create_oc_diameter_growth_model',
         default_elevation=30.0,
+        # Small/large tree blend zone, per oc/regent.f:351-353. The
+        # 1.5..3.0" linear blend applies to 48 of 50 species; Giant
+        # Sequoia (GS, ISPC=23) and Coast Redwood (RW, ISPC=50) use
+        # 1.0..7.0 instead — that per-species override is handled in
+        # tree.py grow_dynamic, since it can't be expressed at the
+        # variant level. The linear (not smoothstep) blend matches
+        # regent.f:351 XDWT=(D-1.5)/1.5.
+        transition_xmin=1.5,
+        transition_xmax=3.0,
+        transition_blend='linear',
         hhtmax=_OC_HHTMAX,
         hhtmax_default=_OC_HHTMAX_DEFAULT,
         sdi_maximums=StandMetricsCalculator.OC_SDI_MAXIMUMS,

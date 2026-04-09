@@ -12,6 +12,7 @@ __all__ = [
     'create_height_diameter_model',
     'curtis_arney_height',
     'wykoff_height',
+    'wykoff_inverse_dbh',
     'compare_models',
 ]
 
@@ -326,6 +327,26 @@ class HeightDiameterModel(ParameterizedModel):
                 return db
             return ((target_height - 4.51) * (dbreak - db)) / denom + db
 
+    def wykoff_inverse_dbh(self, height: float, dbh_min: float = 0.1) -> float:
+        """Solve for DBH given a target height using the analytical Wykoff inverse.
+
+        Uses this model's species-specific Wykoff B1/B2 coefficients
+        (the Wykoff_B1/Wykoff_B2 fields from the coefficient JSON).
+        See the standalone wykoff_inverse_dbh function for the formula
+        and the OC Fortran reference.
+
+        Args:
+            height: Target height (feet).
+            dbh_min: Floor DBH returned at or below 4.5 ft. Defaults to 0.1.
+
+        Returns:
+            Estimated DBH (inches).
+        """
+        params = self.hd_params['wykoff']
+        return wykoff_inverse_dbh(
+            height, b1=params['b1'], b2=params['b2'], dbh_min=dbh_min
+        )
+
     def get_model_parameters(self, model: str = None) -> Dict[str, Any]:
         """Get parameters for a specific model.
 
@@ -414,6 +435,51 @@ def wykoff_height(dbh: float, b1: float, b2: float) -> float:
         return 4.5
 
     return 4.5 + math.exp(b1 + b2 / (dbh + 1))
+
+
+def wykoff_inverse_dbh(height: float, b1: float, b2: float,
+                       dbh_min: float = 0.1) -> float:
+    """Solve for DBH given a target height using the analytical Wykoff inverse.
+
+    The Wykoff height equation is:
+        H = 4.5 + exp(b1 + b2 / (D + 1))
+
+    Inverting algebraically for DBH:
+        D = b2 / (ln(H - 4.5) - b1) - 1
+
+    This matches the OC variant's small-tree DBH derivation in
+    ``oc/regent.f`` lines 296,300, where HT1/HT2 (the Wykoff B1/B2
+    coefficients from ``oc/blkdat.f``) are used to convert a small tree's
+    height back to a DBH for use in the small-tree growth path. NOTE:
+    OC's HT1/HT2 are *different values* from the Curtis-Arney CURARN
+    coefficients in ``oc/htdbh.f`` — the small-tree path uses Wykoff,
+    while the standard initialization path uses Curtis-Arney.
+
+    Args:
+        height: Target height (feet). Must be > 4.5 for the inverse to
+            apply; otherwise dbh_min is returned.
+        b1: Wykoff B1 coefficient.
+        b2: Wykoff B2 coefficient (typically negative).
+        dbh_min: Floor DBH returned for heights at or below 4.5 ft and
+            for trees beyond the model's asymptote. Defaults to 0.1
+            (the floor used by OC's small-tree path).
+
+    Returns:
+        Estimated DBH (inches), no smaller than dbh_min.
+    """
+    if height <= 4.5:
+        return dbh_min
+
+    denom = math.log(height - 4.5) - b1
+    if denom >= 0:
+        # ln(H-4.5) >= b1 means the height is at or beyond the Wykoff
+        # asymptote (H = 4.5 + exp(b1)), where the inverse is undefined
+        # or yields a negative DBH. Match solve_dbh_from_height by
+        # returning a large sentinel.
+        return 30.0
+
+    dbh = b2 / denom - 1.0
+    return max(dbh, dbh_min)
 
 
 def compare_models(dbh_range: list, species_code: str = "LP") -> Dict[str, list]:

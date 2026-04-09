@@ -12,7 +12,7 @@ applying this conversion, over-predicting DDS by ~2x per cycle. These
 tests pin pyfvs to the Fortran reference so the bug cannot regress.
 
 ================================================================
-Strict-parity status and refactoring roadmap (as of 2026-04-09)
+Strict-parity status and refactoring roadmap (revised 2026-04-09)
 ================================================================
 
 `test_oc_planted_parity` is `xfail(strict=True)`. The xfail reason on
@@ -28,22 +28,67 @@ Already fixed (prior sessions):
   specific (2, 3, 5, or 6) instead of SN-style hardcoded 3.0.
 - `LSMortalityModel` (and its NE/CS/OC subclasses) inherits from
   `MortalityModel`, reusing the Fortran-faithful TN10/TOKILL/VARMRT
-  density-mortality machinery. Verified at 15.8% per 10-yr cycle when
-  SDI exceeds maximum (native: ~10-15%).
-
-Verified during the investigation of 2026-04-09:
-
+  density-mortality machinery.
 - OC `DGF` equation form, coefficients, and 10->5 ln(2) conversion are
-  correct. A cycle-2 DGF debug trace captured directly from the native
-  library (run with a `DEBUG / DGF / END` keyword block) shows native's
-  ln(DDS_5) = 0.5105 for a tree at DBH=0.1026, CR=0.82, BA=0.0229,
-  BAL=0.006, PCCF=2.79, ELEV=35, SLOPE=0.05, ISPFOR=4. A pyfvs hand
-  calculation with the same inputs produces 0.5104 — four-decimal
-  agreement. The DGF port is not the bug.
+  correct. A cycle-2 DGF debug trace captured from the native library
+  (`DEBUG / DGF / END`) shows native's ln(DDS_5) = 0.5105 for a tree
+  at DBH=0.1026, CR=0.82, BA=0.0229, BAL=0.006, PCCF=2.79, ELEV=35,
+  SLOPE=0.05, ISPFOR=4; pyfvs hand-calc produces 0.5104. The DGF port
+  is not the bug.
 
-Remaining blockers:
+Correction from the 2026-04-09 investigation:
 
-(1) `bare_ground=True` setup mismatch (test-helper / Stand issue)
+The previous version of this docstring claimed native OC uses the
+Wykoff H-D inverse (HT1/HT2 from `oc/blkdat.f`) for the small-tree
+DBH derivation and that pyfvs's use of `solve_dbh_from_height`
+(Curtis-Arney) was the bug. **That diagnosis was wrong.** Native's
+`oc/regent.f`:290-301 does compute Wykoff DK/DKK first, but lines
+312-324 then unconditionally override them with `HTDBH` (Curtis-Arney)
+unless `LHTDRG(ISPC)` was flipped to `.TRUE.` by the user-data
+calibration logic in `cratet.f`:636-680. `oc/grinit.f`:105 sets
+`LHTDRG = .FALSE.` and `IABFLG = 1` for every species at startup,
+and the cratet calibration only runs when the user supplies >=3
+trees with both H and D measured — not the case for a bare-ground
+PLANT scenario. So in the parity tests, native OC actually uses the
+HTDBH Curtis-Arney inverse with the per-species SPLINE breakpoint,
+which is exactly what `solve_dbh_from_height` already produces. The
+small-tree DBH derivation in pyfvs is mathematically equivalent to
+native at this code path.
+
+A `wykoff_inverse_dbh` helper was added to `src/pyfvs/height_diameter.py`
+in case some future variant (or a runtime-calibrated OC run) actually
+needs the Wykoff path, but it is not wired into the OC growth path.
+
+Actual remaining blockers:
+
+(1) Missing 1.5-3.0" linear blend zone for OC (the dominant bug)
+
+    Native blends a small-tree DBH increment DGSM with the large-tree
+    DGF increment DGLT for trees in 1.5" <= DBH < 3.0". `oc/regent.f`:
+    351-354, 367:
+        XDWT = (D - 1.5) / 1.5      ! clamped 0..1
+        DG   = DGSM*(1 - XDWT) + DGLT*XDWT
+
+    pyfvs has `xmin == xmax == 3.0` for OC (default from
+    `growth_parameters`), which creates a hard switch at DBH=3" rather
+    than the gradual blend. Once a pyfvs tree crosses 3", it jumps
+    straight into pure DGF — but DGF is calibrated assuming trees
+    arrived through the gradual blend, so applied at the threshold
+    cold it produces ~2x the diameter increment native does. Compounded
+    over 5 cycles this gives 3.3x basal area at 25 years
+    (df-si80-25yr: pyfvs BA=114.7 vs native BA=34.96).
+
+    Fix (A3 in the task list):
+    - Set `transition_xmin=1.5`, `transition_xmax=3.0` for OC in
+      `src/pyfvs/variant_registry.py`.
+    - Make OC use linear blending (not the SN-style smoothstep
+      `3t^2 - 2t^3`). Native's formula on regent.f:351 is plain linear
+      `(D - xmin) / (xmax - xmin)`, clamped 0..1.
+    - Either add a `transition_blend` field on `VariantConfig` or
+      special-case OC inline in `tree.py` `grow_dynamic` (cf. the
+      existing PN/WC linear special case at tree.py:238-241).
+
+(2) `bare_ground=True` setup mismatch (test-helper / Stand issue)
 
     Native FVS with ESTAB/PLANT spends cycle 1 on establishment only:
     HT grows from ~1 ft to ~3 ft, DBH stays near 0.1". `run_pyfvs` in
@@ -59,82 +104,7 @@ Remaining blockers:
          15   |   3.58    |    2.09     | ~5-yr lead consistent
          25   |   7.29    |    4.06     | lead grows once pyfvs enters large-tree mode
 
-(2) OC small-tree DBH derivation uses the wrong inverse and skips the
-    1.5-3.0" blend zone (tree.py / oc_diameter_growth.py issue)
-
-    Per `oc/regent.f` lines 283-370, native OC's DBH-increment algorithm
-    for trees < 3" is:
-
-      a. Grow HT via SMHTGF (small-tree height increment model).
-      b. Invert Wykoff H-D to get DBH at both heights. `oc/regent.f`:290-300:
-             DK  = HT2(ISPC) / (ALOG(HK - 4.5) - HT1(ISPC)) - 1.0
-             DKK = HT2(ISPC) / (ALOG(H  - 4.5) - HT1(ISPC)) - 1.0   (or DKK=D if H <= 4.5)
-         where HT1/HT2 come from `oc/blkdat.f` HT1/HT2 arrays (Wykoff
-         B1/B2). NOTE: this is NOT the Curtis-Arney CURARN/SPLINE from
-         `htdbh.f` that `solve_dbh_from_height` uses.
-      c. Compute a small-tree DBH increment adjusted for bark ratio.
-         `oc/regent.f`:361:
-             DGSM = (DK - DKK) * BARK * XRDGRO
-      d. For 1.5" <= DBH < 3.0", linearly blend DGSM with the DGF
-         large-tree increment DGLT. `oc/regent.f`:351-354, 367:
-             XDWT = (D - 1.5) / 1.5      ! clamped 0..1
-             DG   = DGSM*(1 - XDWT) + DGLT*XDWT
-      e. For DBH >= 3": pure DGF DDS path.
-
-    pyfvs currently:
-
-    - Uses the Curtis-Arney analytical inverse via
-      `solve_dbh_from_height` when deriving DBH from height in
-      `tree.py`'s small-tree path. OC's CURARN coefficients produce
-      different DBH values than OC's Wykoff HT1/HT2 at the same height.
-    - Has `xmin == xmax == 3.0` for OC (default from growth_parameters),
-      which creates a hard switch at DBH=3 rather than the 1.5-3.0
-      linear blend.
-    - When `DBH >= 3.0`, jumps straight to `_grow_large_tree_topographic`
-      which applies DGF DDS to the full DBH^2 with no bark-ratio
-      adjustment on the increment.
-
-    Net effect: once pyfvs trees cross 3" DBH, they grow roughly 2x
-    faster than native's trees at comparable states, because the DGF
-    DDS equation was calibrated assuming the blended application
-    described above, not direct application to a small tree that's
-    barely crossed the threshold.
-
-Concrete refactoring plan for the next session:
-
-Step A: Fix the OC small-tree DBH path (biggest impact on parity)
-
-    A1. Add a Wykoff-inverse helper that takes (HT1, HT2, height) and
-        returns DBH. Suggested location: `src/pyfvs/height_diameter.py`
-        alongside `solve_dbh_from_height`. Suggested signature:
-            def wykoff_inverse_dbh(height, b1, b2, dbh_min=0.1): ...
-        with the closed-form
-            DBH = b2 / (ln(H - 4.5) - b1) - 1
-        matching `oc/regent.f`:296,300.
-
-    A2. In `src/pyfvs/tree.py`, teach the OC small-tree path to derive
-        DBH from the new height via `wykoff_inverse_dbh(HT, HT1, HT2)`
-        using the OC species's HT1/HT2 (already in
-        `src/pyfvs/cfg/oc/oc_height_diameter_coefficients.json` as the
-        `Wykoff_B1`/`Wykoff_B2` fields). Compute the increment as
-        `DGSM = (DK - DKK) * BARK` per `regent.f`:361, where DK and DKK
-        come from applying the inverse at the post- and pre-growth
-        heights. If pre-growth HT <= 4.5, use DKK = DBH_old (per
-        `regent.f`:297-299).
-
-    A3. Set OC's `transition_xmin` and `transition_xmax` in
-        `src/pyfvs/variant_registry.py` to 1.5 and 3.0 respectively.
-        Add a `transition_blend` field on `VariantConfig` that switches
-        between "smoothstep" (SN default) and "linear" (new, needed for
-        OC). Use the linear formula `(D - xmin) / (xmax - xmin)`,
-        clamped 0..1, when the OC variant is in use.
-
-    A4. Confirm the existing OC `_grow_large_tree_topographic` branch
-        still matches native for trees >= 3". The DGF equation itself
-        is verified correct, so the large-tree-only path should work
-        without modification once A1-A3 are in place.
-
-Step B: Fix the bare_ground establishment offset (smaller, independent)
+    Fix (B1/B2 in the task list):
 
     Option B1 (test-helper level, lower risk):
         In `tests/parity/_helpers.py run_pyfvs`, when `bare_ground=True`,
@@ -154,7 +124,7 @@ Step B: Fix the bare_ground establishment offset (smaller, independent)
     The simpler fix is B1 (bounded to parity tests); the correct fix
     is B2. Either will reduce the 5-year lead.
 
-Step C: Re-run the OC parity suite and clean up
+After both fixes: re-run the parity suite
 
     C1. Export `FVS_LIB_PATH=/path/to/ForestVegetationSimulator/bin` in
         the shell, then run
@@ -168,11 +138,16 @@ Step C: Re-run the OC parity suite and clean up
 
 Source files to reference:
 
+- `ForestVegetationSimulator/oc/regent.f` lines 283-370 — REGENT
+  small-tree blend logic. Note that lines 290-301 (Wykoff DK/DKK) are
+  effectively dead code in the bare-ground path; lines 312-324 always
+  override with HTDBH because LHTDRG defaults to .FALSE. (see
+  oc/grinit.f:105).
+- `ForestVegetationSimulator/oc/grinit.f` line 105 — `LHTDRG(I) = .FALSE.`,
+  the per-species default that controls whether HTDBH overrides the
+  Wykoff small-tree DBH derivation in regent.f.
 - `ForestVegetationSimulator/oc/dgf.f` — DGF large-tree DDS equation
   (already verified correct; do not touch the coefficients).
-- `ForestVegetationSimulator/oc/regent.f` lines 283-370 — the REGENT
-  small-tree blend logic described in (2) above. This is the function
-  whose behavior needs to be mirrored in pyfvs.
 - `ForestVegetationSimulator/bin/FVSoc_buildDir/dgdriv.f` lines 533-557
   — how DGF's `WK2(I)` (5-year ln(DDS)) becomes `DG(I)` in DIB space:
       D    = DBH(I) * BRATIO(ISPC, DBH(I), HT(I))
@@ -329,20 +304,24 @@ def test_oc_fix_halves_dds_vs_unconverted():
         "Strict OC parity is blocked by two independent issues — see this "
         "module's docstring for the full refactoring roadmap. "
         "Short version: "
-        "(1) bare_ground=True setup mismatch — native's first cycle after "
+        "(1) pyfvs lacks the 1.5-3.0\" linear blend zone between small- and "
+        "large-tree DBH models (oc/regent.f:351-367). xmin==xmax==3.0 means "
+        "trees jump straight into pure DGF at the threshold instead of "
+        "gradually transitioning, and DGF was calibrated assuming the blended "
+        "application — net effect ~2x DBH increment at comparable states, "
+        "compounding to 3.3x basal area at 25 years for DF SI=80. "
+        "(2) bare_ground=True setup mismatch — native's first cycle after "
         "ESTAB/PLANT is establishment-only (HT 1->3 ft, DBH stays ~0.1\"); "
         "pyfvs runs full growth from cycle 1, putting pyfvs 5 calendar years "
         "ahead of native for the whole simulation. "
-        "(2) OC small-tree DBH derivation uses the Curtis-Arney inverse via "
-        "solve_dbh_from_height when it should use a Wykoff inverse + bark-ratio "
-        "scaling per oc/regent.f:286-364, and pyfvs lacks the 1.5-3.0\" linear "
-        "blend zone between small- and large-tree models. Net effect: once "
-        "pyfvs's trees cross 3\" DBH, they enter pure DGF large-tree mode and "
-        "grow ~2x faster than native at comparable states. "
+        "Note: an earlier version of this xfail blamed the small-tree DBH "
+        "derivation (Curtis-Arney vs Wykoff inverse), but oc/grinit.f:105 "
+        "sets LHTDRG=.FALSE. by default, so oc/regent.f:312-324 always "
+        "overrides the Wykoff DK/DKK with HTDBH (Curtis-Arney) for bare-ground "
+        "runs — exactly what pyfvs already does via solve_dbh_from_height. "
         "The DGF equation itself is verified correct against the native "
         "library's DGF debug output at matched cycle-2 inputs (ln_dds_5 "
-        "agreement to 4 decimals); the bug is in how pyfvs evolves stand "
-        "state before/at the small-tree transition, not in the DGF coefficients."
+        "agreement to 4 decimals)."
     ),
 )
 @pytest.mark.parametrize(
