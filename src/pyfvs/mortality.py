@@ -196,6 +196,43 @@ class MortalityModel:
             self._load_mortality_coefficients()
         return self._coefficients_cache
 
+    # -------------------------------------------------------------------------
+    # Virtual hooks for subclasses
+    # -------------------------------------------------------------------------
+    # Subclasses (LS/NE/CS/OC) override these to plug in variant-specific
+    # background mortality equations and shade tolerance coefficients without
+    # duplicating the Fortran-faithful apply_mortality / TN10 / VARMRT machinery.
+
+    def _get_background_rate_for_tree(
+        self, tree: 'Tree', cycle_length: int
+    ) -> float:
+        """Compute per-cycle background mortality probability for one tree.
+
+        Default implementation matches SN morts.f: individual-tree logistic
+        with species coefficients from sn_mortality_model.json (Equation 5.0.1),
+        then compounded to the cycle length (Equation 5.0.2).
+
+        Override in subclasses (e.g., LS 4-group, OC 7-group) to use different
+        equation forms or groupings.
+        """
+        coefficients = self.get_coefficients()
+        p0, p1 = coefficients['background'].get(
+            tree.species, (5.5876999, -0.0053480)
+        )
+        ri = 1.0 / (1.0 + math.exp(p0 + p1 * tree.dbh))
+        rip = 1.0 - ((1.0 - ri) ** cycle_length)
+        return rip
+
+    def _get_varadj_for_tree(self, species: str) -> float:
+        """Return VARMRT shade-tolerance coefficient for a species.
+
+        Default implementation matches SN varmrt.f: reads from the class-level
+        SN_VARADJ dict loaded from sn_mortality_defaults.json.
+
+        Override in subclasses to use a different per-species table.
+        """
+        return self.SN_VARADJ.get(species, 0.5)
+
     def apply_mortality(
         self,
         trees: List['Tree'],
@@ -515,16 +552,9 @@ class MortalityModel:
         trees_died = []
 
         for tree, pct in tree_data:
-            # Get species-specific coefficients (Equation 5.0.1)
-            p0, p1 = coefficients['background'].get(
-                tree.species, (5.5876999, -0.0053480)
-            )
-
-            # Individual tree background mortality rate (Equation 5.0.1)
-            ri = 1.0 / (1.0 + math.exp(p0 + p1 * tree.dbh))
-
-            # Adjust for cycle length (Equation 5.0.2)
-            rip = 1.0 - ((1.0 - ri) ** cycle_length)
+            # Delegate per-tree rate computation to the virtual hook so LS/OC
+            # subclasses can use their 4-group / 7-group halved logistic.
+            rip = self._get_background_rate_for_tree(tree, cycle_length)
 
             # Apply mortality stochastically
             if rng.random() > rip:
@@ -581,8 +611,9 @@ class MortalityModel:
             peff = 0.84525 - 0.01074 * pct + 0.0000002 * (pct ** 3)
             peff = max(0.01, min(1.0, peff))
 
-            # Shade tolerance (VARADJ from varmrt.f)
-            varadj = self.SN_VARADJ.get(tree.species, 0.5)
+            # Shade tolerance (VARADJ from varmrt.f) — delegated so LS/OC
+            # subclasses can supply their own per-species tables.
+            varadj = self._get_varadj_for_tree(tree.species)
 
             # Combined efficiency (varmrt.f line 123)
             eff = peff * varadj * 0.1
@@ -683,38 +714,40 @@ class MortalityModel:
         return max(0.01, min(1.0, mr))
 
 
-class LSMortalityModel:
+class LSMortalityModel(MortalityModel):
     """FVS Lake States mortality model.
 
-    Implements the LS variant mortality model from morts.f:
-    1. 4-group background mortality with halved logistic rates
-    2. SDI-based density mortality with VARADJ shade tolerance adjustment
+    Implements the LS variant mortality model from vls/morts.f as a faithful
+    port of the Fortran algorithm. Inherits the TN10/TOKILL/VARMRT density
+    machinery from `MortalityModel` (the SN port) and overrides only the
+    per-tree background rate and shade tolerance hooks.
 
-    The 4 mortality groups have different logistic coefficients (PMSC, PMD)
-    from morts.f:
-    - Group 1: PMSC=5.1677, PMD=-0.00777
-    - Group 2: PMSC=9.6943, PMD=-0.01273
-    - Group 3: PMSC=5.5877, PMD=-0.00535
-    - Group 4: PMSC=5.9617, PMD=-0.03401
+    Structural difference from SN:
+    1. 4-group background mortality instead of per-species coefficients.
+       Groups from morts.f lines 99-100:
+         Group 1: PMSC=5.1677,  PMD=-0.00777
+         Group 2: PMSC=9.6943,  PMD=-0.01273
+         Group 3: PMSC=5.5877,  PMD=-0.00535
+         Group 4: PMSC=5.9617,  PMD=-0.03401
+       Background rate is halved post-logistic (morts.f:504).
 
-    Background rates are halved compared to the logistic.
-    Density mortality selects EITHER background OR density-based (never both),
-    matching Fortran varmrt.f behavior.
+    2. Per-species shade tolerance table uses the OPPOSITE convention from SN:
+       LS varmrt.f:64 says "VARADJ = TREE SHADE TOLERANCE (1.0 = MOST TOLERANT)"
+       and uses `EFFTR = PEFF * (1.0-VARADJ) * 0.1`, while SN varmrt.f:83 says
+       "VARADJ = TREE SHADE TOLERANCE (1.0 = MOST INTOLERANT)" and uses
+       `EFFTR = PEFF * VARADJ * 0.1`. We flip inside `_get_varadj_for_tree` so
+       the shared SN-derived density code produces correct LS behavior.
 
-    Subclasses (e.g., NEMortalityModel) override class attributes to use
-    variant-specific coefficient files, species-group mappings, and SDI maximums.
+    Subclasses (NE, CS, OC) override class attributes and the species
+    table to use variant-specific coefficient files, species-group mappings,
+    and SDI maximums. OC also overrides `_get_background_rate_for_tree` for its
+    7-group model.
     """
 
     # Coefficient file path (relative to cfg/), overridden by subclasses
     _COEFFICIENT_FILE = 'ls/ls_mortality_coefficients.json'
 
-    # SDI threshold constants (same as SN)
-    LOWER_THRESHOLD = 0.55
-    UPPER_THRESHOLD = 0.85
-
     # 4-group background mortality coefficients (PMSC, PMD) from morts.f lines 99-100
-    # PMSC = [5.1677, 9.6943, 5.5877, 5.9617]
-    # PMD  = [-0.00777, -0.01273, -0.00535, -0.03401]
     MORTALITY_GROUPS = {
         1: {'P0': 5.1677, 'P1': -0.00777},
         2: {'P0': 9.6943, 'P1': -0.01273},
@@ -747,7 +780,8 @@ class LSMortalityModel:
     }
     DEFAULT_SDI_MAX = 400
 
-    # Fallback shade tolerances (overridden by subclasses)
+    # Fallback shade tolerances (LS convention: 1.0 = most TOLERANT).
+    # Values from LS varmrt.f VARADJ DATA statement.
     _FALLBACK_SHADE_TOLERANCE = {
         'JP': 0.30, 'RN': 0.30, 'WP': 0.50, 'BF': 0.90,
         'SM': 0.90, 'RM': 0.85, 'QA': 0.10, 'PB': 0.30,
@@ -767,15 +801,38 @@ class LSMortalityModel:
 
         Args:
             default_species: Default species code for coefficient lookups
-            max_sdi: Maximum SDI for the stand (if None, uses species default)
-            variant: Variant code
+            max_sdi: Maximum SDI for the stand (if None, resolves species-specific
+                     default from the variant's SDI_MAXIMUMS table)
+            variant: Variant code ('LS', 'NE', 'CS', 'OC')
         """
+        # Don't chain through MortalityModel.__init__ because it loads SN
+        # coefficients and VARADJ into class attributes that LS doesn't use.
+        # We still get the inherited methods (apply_mortality, _compute_target_tpa,
+        # _fit_loglog_linear, _calculate_stand_sdi, _calculate_tree_percentiles,
+        # _apply_background_mortality, _apply_density_mortality_fortran).
         self.default_species = default_species
         self.max_sdi = max_sdi
         self.variant = variant
         self._shade_tolerance = {}
+
+        # Persistent state for the SN/Fortran log-log linear function.
+        # LS morts.f uses the same CEPMRT/SLPMRT/TPAMRT state (morts.f:166-168,
+        # 225-228). These are reset on trajectory change in apply_mortality.
+        self._slpmrt = 0.0
+        self._cepmrt = 0.0
+        self._prev_tpa = 0.0
+
         self._load_defaults()
         self._load_shade_tolerance()
+
+        # Resolve species-specific SDI maximum if not explicitly provided.
+        # The inherited apply_mortality does `max_sdi or self.max_sdi or 450`,
+        # but 450 is the SN default and wrong for LS/NE/CS/OC. By setting
+        # self.max_sdi here, that fallback never hits 450 for LS variants.
+        if self.max_sdi is None:
+            self.max_sdi = self._SDI_MAXIMUMS.get(
+                default_species, self.DEFAULT_SDI_MAX
+            )
 
     def _load_defaults(self):
         """Load species groups, SDI maximums, and shade tolerance from JSON config."""
@@ -802,155 +859,46 @@ class LSMortalityModel:
         except (FileNotFoundError, KeyError):
             self._shade_tolerance = dict(self._FALLBACK_SHADE_TOLERANCE)
 
-    def _get_background_rate(self, tree: 'Tree', cycle_length: int) -> float:
-        """Calculate LS 4-group background mortality rate.
+    def _get_background_rate_for_tree(
+        self, tree: 'Tree', cycle_length: int
+    ) -> float:
+        """LS 4-group background mortality with halved logistic rate.
 
-        Rate is halved compared to the base logistic equation per morts.f.
-
-        Args:
-            tree: Tree object
-            cycle_length: Cycle length in years
-
-        Returns:
-            Mortality probability (0-1)
+        Direct port of vls/morts.f:500-504. Selects a group by species from
+        IMAPLS, then applies the logistic and halves per morts.f:504.
         """
         group = self.SPECIES_MORTALITY_GROUP.get(tree.species, 3)
         group_coeffs = self.MORTALITY_GROUPS[group]
         p0 = group_coeffs['P0']
         p1 = group_coeffs['P1']
 
-        # Base annual mortality rate (logistic)
+        # Base annual rate (logistic) — morts.f:500
         ri = 1.0 / (1.0 + math.exp(p0 + p1 * tree.dbh))
 
-        # LS halves the background rate (slower mortality than SN)
+        # Halve the background rate — morts.f:504
         ri *= 0.5
 
-        # Adjust for cycle length
+        # Compound to cycle length
         rip = 1.0 - ((1.0 - ri) ** cycle_length)
-
         return rip
 
-    def apply_mortality(
-        self,
-        trees: List['Tree'],
-        cycle_length: int = 5,
-        max_sdi: Optional[float] = None,
-        random_seed: Optional[int] = None,
-        pre_growth_qmd: float = 0.0,
-        pre_growth_tpa: int = 0
-    ) -> MortalityResult:
-        """Apply LS mortality model with 4-group background and SDI density.
+    def _get_varadj_for_tree(self, species: str) -> float:
+        """Return VARMRT shade-tolerance coefficient in SN convention.
 
-        Args:
-            trees: List of trees in the stand
-            cycle_length: Length of projection cycle in years
-            max_sdi: Maximum SDI (uses species default if None)
-            random_seed: Optional seed for reproducibility
-
-        Returns:
-            MortalityResult with survivors and mortality count
+        LS `_shade_tolerance` stores values in the LS-varmrt convention
+        ("1.0 = MOST TOLERANT", LS varmrt.f:64). The shared density mortality
+        code (inherited from SN `MortalityModel`) uses the SN convention
+        ("1.0 = MOST INTOLERANT", SN varmrt.f:83). Flip here so LS tolerant
+        species (e.g., BF, SM at 0.90) produce low EFFTR and survive.
         """
-        if len(trees) <= 1:
-            return MortalityResult(survivors=list(trees), mortality_count=0, trees_died=[])
-
-        rng = random.Random(random_seed) if random_seed is not None else random.Random()
-
-        max_sdi = max_sdi or self.max_sdi or self._SDI_MAXIMUMS.get(
-            self.default_species, self.DEFAULT_SDI_MAX
-        )
-
-        # Calculate stand SDI
-        current_sdi = self._calculate_stand_sdi(trees)
-        relative_sdi = current_sdi / max_sdi
-
-        # Calculate basal area percentiles
-        tree_data = self._calculate_tree_percentiles(trees)
-
-        survivors = []
-        trees_died = []
-
-        # Calculate density mortality fraction if above threshold
-        density_removal_fraction = 0.0
-        if relative_sdi > self.LOWER_THRESHOLD:
-            if relative_sdi > self.UPPER_THRESHOLD:
-                target_sdi = self.UPPER_THRESHOLD * max_sdi
-                excess_sdi = current_sdi - target_sdi
-                sdi_to_remove = excess_sdi * 0.5
-            else:
-                target_sdi = current_sdi * (
-                    1.0 - 0.05 * (relative_sdi - self.LOWER_THRESHOLD) /
-                    (self.UPPER_THRESHOLD - self.LOWER_THRESHOLD)
-                )
-                sdi_to_remove = current_sdi - target_sdi
-            density_removal_fraction = sdi_to_remove / current_sdi if current_sdi > 0 else 0
-
-        for tree, pct in tree_data:
-            # Background mortality (LS 4-group, halved)
-            rip = self._get_background_rate(tree, cycle_length)
-
-            # Density-dependent mortality component
-            if density_removal_fraction > 0:
-                # Mortality distribution by size (same equation as SN)
-                mr = 0.84525 - (0.01074 * pct) + (0.0000002 * (pct ** 3))
-                mr = max(0.01, min(1.0, mr))
-
-                # VARADJ shade tolerance adjustment from varmrt.f:
-                # EFFTR(I) = PEFF * (1.0 - VARADJ(JSPC)) * 0.1
-                varadj = self._shade_tolerance.get(tree.species, 0.30)
-                shade_modifier = (1.0 - varadj) * 0.1
-
-                mort = mr * shade_modifier * density_removal_fraction * (cycle_length / 5.0)
-            else:
-                mort = 0.0
-
-            # Use the higher of density or background mortality.
-            # Background mortality always provides a floor — density-dependent
-            # mortality adds on top when SDI is high enough that the density
-            # rate exceeds background. This prevents a mortality drop when
-            # RELSDI crosses the 0.55 threshold (density mort can be lower
-            # than background for shade-tolerant species with low removal fractions).
-            total_mort_prob = max(mort, rip)
-
-            if rng.random() > total_mort_prob:
-                survivors.append(tree)
-            else:
-                trees_died.append(tree)
-
-        return MortalityResult(
-            survivors=survivors,
-            mortality_count=len(trees_died),
-            trees_died=trees_died
-        )
-
-    def _calculate_stand_sdi(self, trees: List['Tree']) -> float:
-        """Calculate stand SDI using Reineke's equation."""
-        if not trees:
-            return 0.0
-        tpa = len(trees)
-        qmd_squared = sum(tree.dbh ** 2 for tree in trees) / tpa
-        qmd = math.sqrt(qmd_squared)
-        return tpa * (qmd / 10.0) ** 1.605
-
-    def _calculate_tree_percentiles(
-        self, trees: List['Tree']
-    ) -> List[Tuple['Tree', float]]:
-        """Calculate basal area percentile for each tree."""
-        total_ba = calculate_stand_basal_area(trees)
-        tree_data = []
-        cumulative_ba = 0.0
-        sorted_trees = sorted(trees, key=lambda t: t.dbh)
-        for tree in sorted_trees:
-            tree_ba = calculate_tree_basal_area(tree.dbh)
-            cumulative_ba += tree_ba
-            pct = (cumulative_ba / total_ba) * 100.0 if total_ba > 0 else 50.0
-            tree_data.append((tree, pct))
-        return tree_data
+        ls_tolerance = self._shade_tolerance.get(species, 0.30)
+        return 1.0 - ls_tolerance
 
     def calculate_background_mortality_rate(
         self, tree: 'Tree', cycle_length: int = 5
     ) -> float:
         """Calculate background mortality rate for a single tree."""
-        return self._get_background_rate(tree, cycle_length)
+        return self._get_background_rate_for_tree(tree, cycle_length)
 
 
 class NEMortalityModel(LSMortalityModel):
@@ -1176,7 +1124,9 @@ class OCMortalityModel(LSMortalityModel):
                  variant: str = 'OC'):
         super().__init__(default_species=default_species, max_sdi=max_sdi, variant=variant)
 
-    def _get_background_rate(self, tree: 'Tree', cycle_length: int) -> float:
+    def _get_background_rate_for_tree(
+        self, tree: 'Tree', cycle_length: int
+    ) -> float:
         """OC 7-group background mortality with RW/GS constraint floor.
 
         Direct port of oc/morts.f:509-520. Like LS, the rate is halved compared
@@ -1204,6 +1154,17 @@ class OCMortalityModel(LSMortalityModel):
         # Adjust for cycle length
         rip = 1.0 - ((1.0 - ri) ** cycle_length)
         return rip
+
+    def _get_varadj_for_tree(self, species: str) -> float:
+        """Return VARMRT shade-tolerance coefficient for OC species.
+
+        OC varmrt.f:69 says "VARADJ = TREE SHADE TOLERANCE (1.0 = MOST
+        INTOLERANT)" and uses `EFFTR = PEFF * VARADJ * 0.1` (no flip,
+        OC varmrt.f:109). `oc_mortality_coefficients.json` stores VARADJ
+        verbatim from the Fortran DATA statement, so override the LS
+        tolerance-flip and return the stored value directly.
+        """
+        return self._shade_tolerance.get(species, 0.5)
 
 
 # Module-level convenience functions
