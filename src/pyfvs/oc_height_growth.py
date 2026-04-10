@@ -517,9 +517,14 @@ def calculate_oc_small_tree_height_growth(
 
     tembal = max(bal, 5.0)  # smhtgf.f:115-116
 
+    # RELHT cap — regent.f:211: IF(RELHT .GT. 1.05) RELHT=1.05
+    relht = max(1e-6, min(1.05, relative_height))
+
     if group == 1:
         # PINES — smhtgf.f:122-125
-        cr = max(0.0, min(1.0, crown_ratio))
+        # Fortran CR is 0-10 scale (regent.f:202 CR=ICR/10). Convert our
+        # 0-1 crown_ratio to 0-10 to match the coefficient calibration.
+        cr = max(0.0, min(10.0, crown_ratio * 10.0))
         htgr = math.exp(
             0.7452
             - 0.003271 * bal
@@ -533,11 +538,10 @@ def calculate_oc_small_tree_height_growth(
         # DOMHTGR is a 5-year dominant-height increment fit by Hann-Scrivani
         # (Res Bull 59); SMHMOD adjusts via crown ratio and relative height.
         domhtgr = 5.0 * (2.2227 + 0.4314 * site_index) / (29.0 - 0.05 * site_index)
-        # Fortran converts CR (0-100 percent) to 0-10 by /10. Our crown_ratio
-        # is already 0-1, so multiply by 10 to match the 0-10 input.
-        cr10 = max(0.0, min(10.0, crown_ratio * 10.0))
-        crmod = 1.0 - math.exp(-4.26558 * cr10)
-        relht = max(1e-6, relative_height)
+        # Fortran smhtgf.f:151 divides CR from 0-10 to 0-1: CR=CR/10.
+        # Our crown_ratio is already 0-1, so use directly.
+        cr = max(0.0, min(1.0, crown_ratio))
+        crmod = 1.0 - math.exp(-4.26558 * cr)
         rhmod = math.exp(2.54119 * (relht ** 0.250537 - 1.0))
         smhmod = 1.016605 * crmod * rhmod
         htgr = domhtgr * smhmod
