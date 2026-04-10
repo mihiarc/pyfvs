@@ -109,6 +109,26 @@ class OCDiameterGrowthModel(ParameterizedModel):
         }
     }
 
+    # MAPLOC(10,13) from oc/dgf.f:182-195.  Maps (IFOR, equation) →
+    # 1-based location class used to index DGFOR.  Stored here as a dict
+    # keyed by 1-based equation number; each value is a list of 10 entries
+    # for IFOR 1-10.  Most species map to 1 regardless of forest.
+    _MAPLOC = {
+        '1':  [1,1,1,1,2,1,1,1,1,1],
+        '2':  [1,1,1,1,1,1,1,1,1,1],
+        '3':  [1,1,1,2,1,1,1,1,1,1],
+        '4':  [1,2,2,1,3,4,5,4,4,5],
+        '5':  [1,1,1,1,1,1,1,1,1,1],
+        '6':  [1,1,1,2,1,1,1,1,1,1],
+        '7':  [1,1,1,1,1,1,1,1,1,1],
+        '8':  [1,1,1,1,1,1,1,1,1,1],
+        '9':  [1,1,1,1,1,1,1,1,1,1],
+        '10': [1,1,1,1,1,1,1,1,1,1],
+        '11': [1,1,1,1,1,1,1,1,1,1],
+        '12': [1,1,1,1,1,1,1,1,1,1],
+        '13': [1,1,1,1,1,1,1,1,1,1],
+    }
+
     def __init__(self, species_code: str = 'DF'):
         """Initialize OC diameter growth model for a species.
 
@@ -146,7 +166,7 @@ class OCDiameterGrowthModel(ParameterizedModel):
         elevation: float = 0.0,
         slope: float = 0.0,
         aspect: float = 0.0,
-        location_class: int = 0,
+        ifor: int = 9,
         time_step: float = 5.0,
         rng=None
     ) -> float:
@@ -163,7 +183,8 @@ class OCDiameterGrowthModel(ParameterizedModel):
             elevation: Elevation in hundreds of feet (default 0)
             slope: Slope as proportion 0-1 (default 0)
             aspect: Aspect in radians from north (default 0)
-            location_class: Location/forest class 0-4 (default 0)
+            ifor: Forest number 1-10 (default 9 per oc/grinit.f:192).
+                Mapped to a location class via MAPLOC (oc/dgf.f:182-195).
             time_step: Growth period in years (default 5)
 
         Returns:
@@ -183,9 +204,15 @@ class OCDiameterGrowthModel(ParameterizedModel):
         # Get coefficients
         c = self.coefficients
 
-        # Get location-specific intercept
+        # Map (IFOR, equation) → 1-based location class via MAPLOC,
+        # then index into DGFOR (0-based).  oc/dgf.f:434:
+        #   ISPFOR = MAPLOC(IFOR, JSPC)
+        maploc_row = self._MAPLOC.get(self.equation_index, [1]*10)
+        ifor_idx = max(0, min(len(maploc_row) - 1, ifor - 1))  # 1-based → 0-based
+        ispfor = maploc_row[ifor_idx]  # 1-based location class
+
         dgfor_array = c.get('DGFOR', [-2.0, 0.0, 0.0, 0.0, 0.0])
-        loc_idx = min(location_class, len(dgfor_array) - 1)
+        loc_idx = min(ispfor - 1, len(dgfor_array) - 1)  # 1-based → 0-based
         dgfor = dgfor_array[loc_idx] if dgfor_array[loc_idx] != 0.0 else dgfor_array[0]
 
         # Calculate ln(DDS)
@@ -329,44 +356,37 @@ class OCDiameterGrowthModel(ParameterizedModel):
         site_index: float,
         ba: float,
         bal: float,
+        bark_ratio: float = 0.9,
         pccf: float = 100.0,
         relht: float = 1.0,
         elevation: float = 0.0,
         slope: float = 0.0,
         aspect: float = 0.0,
-        location_class: int = 0,
+        ifor: int = 9,
         time_step: float = 5.0,
         rng=None
     ) -> float:
-        """Calculate diameter growth from DDS.
+        """Calculate diameter growth from DDS with bark ratio conversion.
 
-        Converts DDS to diameter increment using:
-            DG = sqrt(DBH^2 + DDS) - DBH
+        DDS is an inside-bark quantity.  Fortran dgdriv.f applies it to
+        DIB then converts back to OB via BRATIO.  See model_base.dds_to_diameter_growth.
 
         Args:
-            (same as calculate_dds)
+            (same as calculate_dds, plus bark_ratio)
+            bark_ratio: DIB/DOB ratio (default 0.9)
 
         Returns:
-            Diameter growth in inches for the time period
+            Outside-bark diameter growth in inches for the time period.
         """
+        from .model_base import dds_to_diameter_growth
+
         dds = self.calculate_dds(
             dbh, crown_ratio, site_index, ba, bal,
             pccf, relht, elevation, slope, aspect,
-            location_class, time_step, rng=rng
+            ifor, time_step, rng=rng
         )
 
-        # Convert DDS to diameter increment
-        # DDS is change in D^2, so new D = sqrt(old_D^2 + DDS)
-        dbh_squared = dbh * dbh
-        new_dbh_squared = dbh_squared + dds
-
-        if new_dbh_squared <= 0:
-            return 0.0
-
-        new_dbh = math.sqrt(new_dbh_squared)
-        diameter_growth = new_dbh - dbh
-
-        return max(0.0, diameter_growth)
+        return dds_to_diameter_growth(dds, dbh, bark_ratio)
 
 
 def create_oc_diameter_growth_model(species_code: str = 'DF') -> OCDiameterGrowthModel:

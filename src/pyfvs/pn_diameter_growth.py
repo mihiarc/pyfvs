@@ -351,7 +351,8 @@ class PNDiameterGrowthModel(ParameterizedModel):
         Returns:
             Diameter growth (inches) for the time period
         """
-        # Calculate DDS
+        from .model_base import dds_to_diameter_growth
+
         dds = self.calculate_dds(
             dbh=dbh,
             crown_ratio=crown_ratio,
@@ -367,26 +368,7 @@ class PNDiameterGrowthModel(ParameterizedModel):
             rng=rng
         )
 
-        # Convert DBH to inside-bark diameter
-        dib = dbh * bark_ratio
-
-        # Calculate inside-bark diameter squared
-        dsq = dib * dib
-
-        # Add DDS to get new inside-bark diameter squared
-        new_dsq = dsq + dds
-
-        # Calculate new inside-bark diameter
-        new_dib = math.sqrt(max(dsq, new_dsq))
-
-        # Convert back to outside-bark diameter
-        new_dbh = new_dib / bark_ratio
-
-        # Calculate diameter growth
-        dg = new_dbh - dbh
-
-        # Ensure non-negative growth for living trees
-        return max(0.0, dg)
+        return dds_to_diameter_growth(dds, dbh, bark_ratio)
 
 
 # Module-level cache for model instances

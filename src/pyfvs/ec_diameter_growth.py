@@ -229,6 +229,8 @@ class ECDiameterGrowthModel(ParameterizedModel):
         Converts DDS (inside-bark squared diameter change) to an outside-bark
         DBH increment using the bark ratio.
         """
+        from .model_base import dds_to_diameter_growth
+
         dds = self.calculate_dds(
             dbh=dbh,
             crown_ratio=crown_ratio,
@@ -244,14 +246,8 @@ class ECDiameterGrowthModel(ParameterizedModel):
             time_step=time_step,
             rng=rng,
         )
-        # Inside-bark new DBH from current OB DBH and DDS
-        dbh_ib = dbh * bark_ratio
-        new_dbh_ib_sq = dbh_ib * dbh_ib + dds
-        if new_dbh_ib_sq <= 0:
-            return 0.0
-        new_dbh_ib = math.sqrt(new_dbh_ib_sq)
-        new_dbh_ob = new_dbh_ib / bark_ratio if bark_ratio > 0 else new_dbh_ib
-        return max(0.0, new_dbh_ob - dbh)
+
+        return dds_to_diameter_growth(dds, dbh, bark_ratio)
 
     # ------------------------------------------------------------------
     # Internal helpers

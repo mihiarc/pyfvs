@@ -106,7 +106,8 @@ class Tree:
         site_index: float = None,
         rng=None,
         top_height: float = None,
-        avg_height: float = None
+        avg_height: float = None,
+        ccf: float = None
     ) -> None:
         """Grow the tree for the specified number of years.
 
@@ -162,6 +163,7 @@ class Tree:
             rng = params.rng if rng is None else rng
             top_height = params.top_height if top_height is None else top_height
             avg_height = params.avg_height if avg_height is None else avg_height
+            ccf = params.ccf if ccf is None else ccf
         else:
             # Individual parameters - handle both positional and keyword site_index
             if params_or_site_index is not None:
@@ -271,9 +273,18 @@ class Tree:
             self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
         elif weight == 1.0:
             # Pure large-tree model (DBH > xmax)
-            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height)
+            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf)
         else:
-            # Transition zone: blend both models
+            # Transition zone: blend DG only, keep small-tree height.
+            #
+            # Fortran regent.f blends diameter growth:
+            #   XDWT = (D - XMN) / (XMX - XMN)
+            #   DG   = DGSM*(1-XDWT) + DGLT*XDWT
+            # but height stays from SMHTGF — HTGF only runs for trees
+            # >= DGMIN (the upper transition bound).  Blending final DBH
+            # is algebraically equivalent to blending DG for any linear
+            # weighting, so only the height line differs from a naive
+            # state blend.
             self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
             small_dbh = self.dbh
             small_height = self.height
@@ -282,13 +293,14 @@ class Tree:
             self.dbh = initial_dbh
             self.height = initial_height
 
-            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height)
+            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf)
             large_dbh = self.dbh
-            large_height = self.height
 
-            # Blend results
+            # Blend DBH (equivalent to blending DG)
             self.dbh = (1 - weight) * small_dbh + weight * large_dbh
-            self.height = (1 - weight) * small_height + weight * large_height
+            # Height from small-tree model only (Fortran: HTGF skips
+            # trees below DGMIN, so blend-zone trees keep SMHTGF height)
+            self.height = small_height
 
         # Ensure age is properly set after growth
         self.age = initial_age + time_step
@@ -574,7 +586,7 @@ class Tree:
         self.height = max(0.5, self.height + htgr)
         self._update_dbh_from_height()
 
-    def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None, top_height=None):
+    def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None, top_height=None, ccf=None):
         """Implement large tree diameter growth model using variant-specific equations.
 
         Dispatches to the appropriate growth method based on the tree's variant:
@@ -607,7 +619,7 @@ class Tree:
 
         # Topographic variants - use elevation/slope/aspect effects
         elif variant in ('PN', 'WC', 'CA', 'OC', 'WS'):
-            self._grow_large_tree_topographic(variant, site_index, ba, pbal, slope, aspect, time_step, rng=rng, top_height=top_height)
+            self._grow_large_tree_topographic(variant, site_index, ba, pbal, slope, aspect, time_step, rng=rng, top_height=top_height, ccf=ccf)
 
         # Standard variants - DDS without topographic effects
         elif variant in ('LS', 'NE', 'CS'):
@@ -730,7 +742,8 @@ class Tree:
         time_step: float = 10.0,
         elevation: float = None,
         rng=None,
-        top_height: float = None
+        top_height: float = None,
+        ccf: float = None
     ) -> None:
         """Generic large tree growth for topographic variants (PN, WC, CA, OC, WS).
 
@@ -769,8 +782,10 @@ class Tree:
         else:
             relht = 1.0
 
-        # Estimate PCCF from BA (rough approximation)
-        pccf = ba * 1.5 if variant == 'CA' else 100.0
+        # PCCF = stand-level Crown Competition Factor from Fortran DENSE.
+        # Use actual CCF when available; fall back to 100.0 (the previous
+        # default) for backward-compatible standalone tree.grow() calls.
+        pccf = ccf if ccf is not None else 100.0
 
         # Calculate diameter growth using variant-specific parameters
         if variant == 'CA':
@@ -792,19 +807,21 @@ class Tree:
                 rng=rng
             )
         elif variant == 'OC':
-            # OC has location_class parameter + stochastic support
+            # OC: ifor (forest number) defaults to 9 per oc/grinit.f:192.
+            # The DG model maps (ifor, equation) → location class via MAPLOC.
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
                 site_index=site_index,
                 ba=ba,
                 bal=pbal,
+                bark_ratio=bark_ratio,
                 pccf=pccf,
                 relht=relht,
                 elevation=elev,
                 slope=slope,
                 aspect=aspect,
-                location_class=0,
+                ifor=9,
                 time_step=time_step,
                 rng=rng
             )
@@ -816,6 +833,7 @@ class Tree:
                 site_index=site_index,
                 ba=ba,
                 bal=pbal,
+                bark_ratio=bark_ratio,
                 pccf=pccf,
                 relht=relht,
                 elevation=elev,

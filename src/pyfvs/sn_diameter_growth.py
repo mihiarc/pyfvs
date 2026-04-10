@@ -204,6 +204,8 @@ class SNDiameterGrowthModel(ParameterizedModel):
         Returns:
             Diameter growth (inches) for the time period
         """
+        from .model_base import dds_to_diameter_growth
+
         dds = self.calculate_dds(
             dbh, crown_ratio, site_index, ba, pbal,
             relht, slope, aspect,
@@ -211,20 +213,7 @@ class SNDiameterGrowthModel(ParameterizedModel):
             time_step, rng=rng
         )
 
-        # Convert DBH to inside-bark diameter
-        dib_old = dbh * bark_ratio
-        dib_old_sq = dib_old * dib_old
-
-        # Apply DDS to inside-bark diameter
-        dib_new_sq = dib_old_sq + dds
-        if dib_new_sq <= dib_old_sq:
-            return 0.0
-
-        dib_new = math.sqrt(dib_new_sq)
-
-        # Convert back to outside-bark (DBH) and calculate growth
-        dbh_new = dib_new / bark_ratio
-        return dbh_new - dbh
+        return dds_to_diameter_growth(dds, dbh, bark_ratio)
 
 
 # Module-level cache for model instances

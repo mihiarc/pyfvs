@@ -266,6 +266,7 @@ class WSDiameterGrowthModel(ParameterizedModel):
         site_index: float,
         ba: float,
         bal: float,
+        bark_ratio: float = 0.9,
         pccf: float = 100.0,
         relht: float = 1.0,
         elevation: float = 0.0,
@@ -275,35 +276,27 @@ class WSDiameterGrowthModel(ParameterizedModel):
         time_step: float = 10.0,
         rng=None
     ) -> float:
-        """Calculate diameter growth from DDS.
+        """Calculate diameter growth from DDS with bark ratio conversion.
 
-        Converts DDS to diameter increment using:
-            DG = sqrt(DBH^2 + DDS) - DBH
+        DDS is an inside-bark quantity.  Fortran dgdriv.f applies it to
+        DIB then converts back to OB via BRATIO.  See model_base.dds_to_diameter_growth.
 
         Args:
-            (same as calculate_dds)
+            (same as calculate_dds, plus bark_ratio)
+            bark_ratio: DIB/DOB ratio (default 0.9)
 
         Returns:
-            Diameter growth in inches for the time period
+            Outside-bark diameter growth in inches for the time period.
         """
+        from .model_base import dds_to_diameter_growth
+
         dds = self.calculate_dds(
             dbh, crown_ratio, site_index, ba, bal,
             pccf, relht, elevation, slope, aspect,
             location_class, time_step, rng=rng
         )
 
-        # Convert DDS to diameter increment
-        # DDS is change in D^2, so new D = sqrt(old_D^2 + DDS)
-        dbh_squared = dbh * dbh
-        new_dbh_squared = dbh_squared + dds
-
-        if new_dbh_squared <= 0:
-            return 0.0
-
-        new_dbh = math.sqrt(new_dbh_squared)
-        diameter_growth = new_dbh - dbh
-
-        return max(0.0, diameter_growth)
+        return dds_to_diameter_growth(dds, dbh, bark_ratio)
 
 
 def create_ws_diameter_growth_model(species_code: str = 'SP') -> WSDiameterGrowthModel:

@@ -757,6 +757,10 @@ class Stand:
         # Compute average height for SMHGDG AVHT (PN/WC small-tree model)
         avg_height = sum(t.height for t in self.trees) / len(self.trees)
 
+        # Compute stand-level CCF (PCCF in Fortran DENSE subroutine) for
+        # topographic-variant DG equations that include a DGPCCF*PCCF term.
+        ccf = self._metrics.calculate_ccf(self.trees)
+
         # Get competition metrics for each tree
         competition_metrics = self._calculate_competition_metrics()
 
@@ -785,7 +789,8 @@ class Stand:
                 qmd_ge5=qmd_ge5,  # For LS variant RELDBH calculation
                 rng=self._rng if self.stochastic else None,
                 top_height=top_height,
-                avg_height=avg_height
+                avg_height=avg_height,
+                ccf=ccf,
             )
 
         # Apply mortality (pass pre-growth QMD for Fortran-style TPA targeting)

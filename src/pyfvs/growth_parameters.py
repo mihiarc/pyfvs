@@ -108,6 +108,7 @@ class GrowthParameters:
     rng: Optional[random.Random] = field(default=None, repr=False)
     top_height: Optional[float] = None
     avg_height: Optional[float] = None
+    ccf: Optional[float] = None
 
     @classmethod
     def from_stand(
@@ -187,5 +188,6 @@ class GrowthParameters:
             forest_type=stand.forest_type,
             rng=getattr(stand, '_rng', None),
             top_height=top_height,
-            avg_height=avg_height
+            avg_height=avg_height,
+            ccf=ccf,
         )

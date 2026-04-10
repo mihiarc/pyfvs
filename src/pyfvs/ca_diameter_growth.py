@@ -405,7 +405,8 @@ class CADiameterGrowthModel(ParameterizedModel):
         Returns:
             Diameter increment in inches (outside bark)
         """
-        # Calculate DDS
+        from .model_base import dds_to_diameter_growth
+
         dds = self.calculate_dds(
             dbh=dbh,
             crown_ratio=crown_ratio,
@@ -422,18 +423,7 @@ class CADiameterGrowthModel(ParameterizedModel):
             rng=rng
         )
 
-        # Convert to inside-bark diameter
-        dib_old = dbh * bark_ratio
-        dib_old_sq = dib_old * dib_old
-
-        # Apply DDS to inside-bark diameter
-        dib_new = math.sqrt(dib_old_sq + dds)
-
-        # Convert back to outside-bark diameter
-        dbh_new = dib_new / bark_ratio
-
-        # Return the increment
-        return max(0.0, dbh_new - dbh)
+        return dds_to_diameter_growth(dds, dbh, bark_ratio)
 
 
 # Module-level cache for model instances

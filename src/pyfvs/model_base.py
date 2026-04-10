@@ -33,6 +33,42 @@ from .species import SpeciesCode
 logger = logging.getLogger("pyfvs.model_base")
 
 
+def dds_to_diameter_growth(dds: float, dbh: float, bark_ratio: float) -> float:
+    """Convert inside-bark DDS to outside-bark diameter growth.
+
+    Implements the Fortran dgdriv.f DDS-to-DG conversion used by most
+    FVS variants (SN, PN, WC, CA, EC, OC, WS):
+
+        D     = DBH(I) * BRATIO(...)         ! OB → IB
+        DDS   = EXP(WK2(I) + XDGROW) * WK4  ! (already computed by caller)
+        DG(I) = SQRT(D*D + DDS*FRM) - D      ! DG in IB space
+
+    Then update.f converts back:
+
+        DBH(I) = DBH(I) + DG(I) / BRATIO(...)  ! IB → OB
+
+    Variants with different conventions (LS/CS: OB DDS then OB→IB DG;
+    NE: pure OB; OP: direct DG) should NOT use this function.
+
+    Args:
+        dds: Change in inside-bark diameter squared (sq inches).
+        dbh: Current outside-bark DBH (inches).
+        bark_ratio: DIB/DOB ratio (0 < bark_ratio <= 1).
+
+    Returns:
+        Outside-bark diameter growth in inches, non-negative.
+    """
+    if bark_ratio <= 0:
+        bark_ratio = 1.0
+    dib = dbh * bark_ratio
+    dib_sq = dib * dib
+    new_dib_sq = dib_sq + dds
+    if new_dib_sq <= dib_sq:
+        return 0.0
+    new_dbh = math.sqrt(new_dib_sq) / bark_ratio
+    return new_dbh - dbh
+
+
 class ParameterizedModel(ABC):
     """Base class for FVS growth models with species-specific coefficients.
 
