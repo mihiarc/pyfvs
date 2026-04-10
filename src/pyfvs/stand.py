@@ -140,6 +140,13 @@ class Stand:
         # Bare-ground establishment: first cycle is establishment-only
         self._establishment_pending = bare_ground
 
+        # Topographic defaults from variant grinit.f (used when stand-level
+        # slope/aspect/elevation are not explicitly set by the user).
+        from .variant_registry import get_variant_config
+        _vc = get_variant_config(self.variant)
+        self._default_slope = _vc.default_slope
+        self._default_aspect = _vc.default_aspect
+
         # Set up logging
         self.logger = get_logger(__name__)
 
@@ -833,8 +840,8 @@ class Stand:
                 competition_factor=metrics.get('competition_factor', 0.0),
                 ba=ba,
                 pbal=metrics.get('pbal', 0.0),
-                slope=0.0,
-                aspect=0.0,
+                slope=self._default_slope,
+                aspect=self._default_aspect,
                 rank=metrics.get('rank', 0.5),
                 relsdi=metrics.get('relsdi', relsdi),
                 time_step=years,

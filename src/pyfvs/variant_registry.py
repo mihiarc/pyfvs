@@ -62,6 +62,9 @@ class VariantConfig:
 
     # Default elevation for topographic variants (in variant-specific units)
     default_elevation: float = 0.0
+    # Default slope (proportion 0-1) and aspect (radians) from grinit.f
+    default_slope: float = 0.0
+    default_aspect: float = 0.0
 
     # Transition zone overrides (None = use species config or defaults)
     # DG blend zone (regent.f XDWT): small-tree DG blended with large-tree DG
@@ -262,7 +265,8 @@ REGISTRY: Dict[str, VariantConfig] = {
         taper_class=FlewellingTaperModel,
         dg_module='oc_diameter_growth',
         dg_factory='create_oc_diameter_growth_model',
-        default_elevation=30.0,
+        default_elevation=35.0,  # oc/grinit.f:174 ELEV=35 (hundreds of ft)
+        default_slope=0.05,     # oc/grinit.f:227 SLOPE=5.0 (percent→proportion)
         # Small/large tree blend zone, per oc/regent.f:351-353. The
         # 1.5..3.0" linear blend applies to 48 of 50 species; Giant
         # Sequoia (GS, ISPC=23) and Coast Redwood (RW, ISPC=50) use

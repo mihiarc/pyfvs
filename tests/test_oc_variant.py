@@ -391,9 +391,9 @@ class TestOCVariantConfig:
         assert config.hhtmax['WJ'] == 6.0
 
     def test_oc_elevation(self):
-        """OC default elevation is 30.0 (hundreds of feet)."""
+        """OC default elevation is 35.0 (hundreds of feet) per oc/grinit.f:174."""
         config = get_variant_config('OC')
-        assert config.default_elevation == 30.0
+        assert config.default_elevation == 35.0
 
 
 # ===========================================================================
