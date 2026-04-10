@@ -194,11 +194,13 @@ class OCDiameterGrowthModel(ParameterizedModel):
         if self.equation_index == '12':
             return self._calculate_dds_gs_rw(dbh, crown_ratio, bal, slope, aspect, time_step, rng=rng)
 
-        # Ensure valid inputs
+        # Ensure valid inputs.  Fortran does not clamp BA — the regression
+        # was calibrated with ln(BA) at natural values (including very young
+        # stands where BA < 1.0 and ln(BA) < 0).  Only guard against ln(0).
         dbh = max(0.1, dbh)
         crown_ratio = max(0.01, min(0.99, crown_ratio))
         site_index = max(10.0, site_index)
-        ba = max(1.0, ba)
+        ba = max(0.001, ba)
         bal = max(0.0, bal)
 
         # Get coefficients

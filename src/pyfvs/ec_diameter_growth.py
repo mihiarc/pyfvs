@@ -140,7 +140,7 @@ class ECDiameterGrowthModel(ParameterizedModel):
         dbh = max(0.1, dbh)
         crown_ratio = max(0.01, min(0.99, crown_ratio))
         site_index = max(10.0, site_index)
-        ba = max(1.0, ba)
+        ba = max(0.001, ba)
         bal = max(0.0, bal)
         relht = min(1.5, max(0.0, relht))
 
@@ -425,7 +425,7 @@ class ECDiameterGrowthModel(ParameterizedModel):
         ratio model can be wired in later for higher accuracy.
         """
         dbh = max(0.1, dbh)
-        ba = max(1.0, ba)
+        ba = max(0.001, ba)
 
         bark = 0.9  # Approximation; species-specific bark model TBD
         const = 3.250531 - 0.003029 * ba

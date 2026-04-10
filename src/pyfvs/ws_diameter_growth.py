@@ -172,7 +172,7 @@ class WSDiameterGrowthModel(ParameterizedModel):
         dbh = max(0.1, dbh)
         crown_ratio = max(0.01, min(0.99, crown_ratio))
         site_index = max(10.0, site_index)
-        ba = max(1.0, ba)
+        ba = max(0.001, ba)
         bal = max(0.0, bal)
 
         # Get coefficients
