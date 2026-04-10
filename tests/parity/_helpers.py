@@ -52,6 +52,8 @@ def run_pyfvs(
 
     if bare_ground:
         # Match NativeStand's PLANT keyword: bare-ground seedlings.
+        # bare_ground=True on Stand triggers an establishment-only first
+        # cycle (Fortran LESTB=TRUE) so pyfvs and native stay in sync.
         trees = [
             Tree(dbh=0.1, height=1.0, age=1, species=species, variant=variant)
             for _ in range(trees_per_acre)
@@ -64,6 +66,7 @@ def run_pyfvs(
             ecounit=ecounit,
             stochastic=stochastic,
             random_seed=random_seed,
+            bare_ground=True,
         )
         stand.age = 1
     else:

@@ -81,7 +81,8 @@ class Stand:
         ecounit: Optional[str] = None,
         variant: Optional[str] = None,
         stochastic: bool = True,
-        random_seed: Optional[int] = None
+        random_seed: Optional[int] = None,
+        bare_ground: bool = False,
     ):
         """Initialize a stand with a list of trees.
 
@@ -97,6 +98,10 @@ class Stand:
                 When False, uses deterministic Baskerville bias correction.
             random_seed: Seed for reproducible stochastic runs. Only used when
                 stochastic=True. If None, uses non-reproducible random state.
+            bare_ground: When True, the first growth cycle runs establishment-
+                only logic matching Fortran regent.f LESTB=TRUE behavior:
+                5yr variants get no height growth; 10yr variants grow for
+                (cycle-5) years using the small-tree model only.
         """
         self.trees = trees if trees is not None else []
 
@@ -131,6 +136,9 @@ class Stand:
         # behavior: when no ecounit is specified for SN, default to '231T'.
         if self.ecounit is None and self.variant == 'SN':
             self.ecounit = '231T'
+
+        # Bare-ground establishment: first cycle is establishment-only
+        self._establishment_pending = bare_ground
 
         # Set up logging
         self.logger = get_logger(__name__)
@@ -704,6 +712,17 @@ class Stand:
         from .variant_registry import get_variant_config
         base_cycle = get_variant_config(self.variant).cycle_length
 
+        # Bare-ground establishment: first cycle is establishment-only
+        # (Fortran regent.f LESTB=TRUE). Consume one base_cycle from the
+        # requested period, then continue with normal growth.
+        if self._establishment_pending:
+            estab_years = min(base_cycle, years)
+            self._grow_establishment_cycle(estab_years, base_cycle)
+            self._establishment_pending = False
+            years -= estab_years
+            if years <= 0:
+                return
+
         # For periods > base cycle, subdivide into base-cycle sub-cycles.
         # This recalculates competition metrics at appropriate intervals.
         if years > base_cycle:
@@ -714,6 +733,41 @@ class Stand:
                 remaining -= sub_cycle
         else:
             self._grow_single_cycle(years)
+
+    def _grow_establishment_cycle(self, years: int, base_cycle: int) -> None:
+        """First cycle after bare-ground planting (Fortran LESTB=TRUE).
+
+        All FVS variants share the same establishment logic in regent.f:
+
+        - If base_cycle <= 5 yr (SN, OC, OP): LSKIPH=TRUE — no height
+          growth at all. DBH gets a tiny bump: D + 0.001*HT.
+        - If base_cycle > 5 yr (PN, WC, LS, NE, CS, CA, WS): height
+          grows for (base_cycle - 5) years using the small-tree model
+          only (XWT forced to 0, no DGF blending). Below 4.5 ft the
+          DBH derivation matches regent.f: D + 0.001*HT.
+        """
+        self.age += years
+
+        if not self.trees:
+            return
+
+        if base_cycle <= 5:
+            # 5yr variants: no growth (regent.f LSKIPH=TRUE).
+            for tree in self.trees:
+                tree.age += years
+                tree.dbh = tree.dbh + 0.001 * tree.height
+        else:
+            # 10yr variants: small-tree growth for (cycle - 5) years.
+            growth_years = base_cycle - 5
+            for tree in self.trees:
+                tree.age += years
+                tree._grow_small_tree(
+                    self.site_index,
+                    competition_factor=0.0,
+                    time_step=growth_years,
+                    ba=0.0,
+                    pbal=0.0,
+                )
 
     def _grow_single_cycle(self, years: int):
         """Execute a single growth cycle (internal helper).
