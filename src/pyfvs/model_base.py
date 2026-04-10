@@ -92,9 +92,9 @@ class ParameterizedModel(ABC):
     FALLBACK_PARAMETERS: Dict[str, Dict[str, Any]] = {}
     DEFAULT_SPECIES: str = SpeciesCode.LOBLOLLY_PINE.value
 
-    # Controls deterministic branch of _stochastic_multiplier().
-    # True: apply Baskerville correction (SN, LS, PN, WC).
-    # False: return 1.0 (CS — already overshoots without correction).
+    # Formerly controlled Baskerville correction in deterministic mode.
+    # Removed: Fortran dgscor.f returns FRM=1.0 when DGSD<1 (deterministic),
+    # so no correction should be applied.  Kept as no-op for subclass compat.
     _use_baskerville: bool = True
 
     def __init__(self, species_code: str = None):
@@ -242,30 +242,27 @@ class ParameterizedModel(ABC):
         return variance_params.get(self.species_code, 0.0)
 
     def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
-        """DDS multiplier: Baskerville (deterministic) or random draw (stochastic).
+        """DDS multiplier: 1.0 (deterministic) or random draw (stochastic).
 
-        When rng is None, returns deterministic Baskerville correction
-        (if _use_baskerville is True) or 1.0.
-        When rng is provided, draws Z ~ N(0, sigma^2) bounded +/-2sigma
-        with size-based suppression matching Fortran dgscor.f.
+        Matches Fortran dgscor.f behavior:
+        - When DGSD < 1.0 (deterministic): FRM = EXP(0.0) = 1.0.
+          No Baskerville correction — the coefficients were calibrated
+          expecting this, and the bias is built in.
+        - When DGSD >= 1.0 (stochastic): draw Z ~ N(0, sigma²) bounded
+          +/- DGSD*sigma with size-based suppression, return EXP(Z).
         """
         if self._sigma <= 0.0:
             return 1.0
 
-        # Size-based suppression (dgscor.f)
+        if rng is None:
+            # Deterministic: Fortran dgscor.f returns FRM = EXP(0) = 1.0
+            return 1.0
+
+        # Stochastic: draw bounded normal (dgscor.f)
         if ln_dds > 5.0:
             return 1.0
         suppress = (5.0 - ln_dds) / 1.0 if ln_dds > 4.0 else 1.0
 
-        if rng is None:
-            # Deterministic branch
-            if not self._use_baskerville:
-                return 1.0
-            alpha = 0.88
-            full_correction = math.exp(alpha * self._sigma * self._sigma / 2.0)
-            return 1.0 + (full_correction - 1.0) * suppress
-
-        # Stochastic: draw bounded normal
         dgsd = 2.0
         z = rng.gauss(0.0, self._sigma)
         z = max(-dgsd * self._sigma, min(dgsd * self._sigma, z))

@@ -263,18 +263,18 @@ class OCDiameterGrowthModel(ParameterizedModel):
         if species_upper != 'TO':
             ln_dds -= math.log(2.0)
 
-        # Stochastic / Baskerville correction (applied to 5-year ln(DDS) to
-        # match Fortran's dgscor.f, which runs after WK2 holds the converted
-        # 5-year value)
-        sigma = _SIGMA.get(species_upper, 0.35)
+        # Stochastic error (dgscor.f).  When DGSD < 1.0 (deterministic
+        # mode), Fortran sets FRM = EXP(0.0) = 1.0 — no Baskerville
+        # correction.  Only stochastic mode draws from the error
+        # distribution; the log-normal mean correction emerges naturally
+        # from averaging many draws.
         if rng is not None:
+            sigma = _SIGMA.get(species_upper, 0.35)
             z = rng.gauss(0, sigma)
             z = max(-2 * sigma, min(2 * sigma, z))
             if ln_dds + z > 4.0:
                 z *= max(0.0, 1.0 - (ln_dds + z - 4.0) / 2.0)
             ln_dds += z
-        else:
-            ln_dds += 0.88 * sigma * sigma / 2.0
 
         # Floor at ln(DDS) = -9.21 to match Fortran oc/dgf.f:404
         if ln_dds < -9.21:
@@ -326,16 +326,14 @@ class OCDiameterGrowthModel(ParameterizedModel):
         # other species.
         ln_dds -= math.log(2.0)
 
-        # Stochastic / Baskerville correction for GS/RW
-        sigma = _SIGMA.get(self.species_code.upper() if self.species_code else 'DF', 0.35)
+        # Stochastic error for GS/RW (same dgscor.f logic as main path)
         if rng is not None:
+            sigma = _SIGMA.get(self.species_code.upper() if self.species_code else 'DF', 0.35)
             z = rng.gauss(0, sigma)
             z = max(-2 * sigma, min(2 * sigma, z))
             if ln_dds + z > 4.0:
                 z *= max(0.0, 1.0 - (ln_dds + z - 4.0) / 2.0)
             ln_dds += z
-        else:
-            ln_dds += 0.88 * sigma * sigma / 2.0
 
         # Floor at ln(DDS) = -9.21 to match Fortran oc/dgf.f:404
         if ln_dds < -9.21:
