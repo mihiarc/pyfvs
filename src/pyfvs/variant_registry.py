@@ -64,9 +64,15 @@ class VariantConfig:
     default_elevation: float = 0.0
 
     # Transition zone overrides (None = use species config or defaults)
+    # DG blend zone (regent.f XDWT): small-tree DG blended with large-tree DG
     transition_xmin: Optional[float] = None
     transition_xmax: Optional[float] = None
     transition_blend: str = 'smoothstep'
+    # HTG blend zone (regent.f XWT): small-tree HTG blended with large-tree HTG.
+    # In Fortran this is separate from the DG zone: XMN-XMX (typically 2.0-4.0")
+    # vs XDWT at 1.5-DGMIN (typically 1.5-3.0").  When None, use the DG zone.
+    transition_ht_xmin: Optional[float] = None
+    transition_ht_xmax: Optional[float] = None
 
     # HHTMAX dict and default for establishment height caps
     hhtmax: Dict[str, float] = field(default_factory=dict)
@@ -267,6 +273,10 @@ REGISTRY: Dict[str, VariantConfig] = {
         transition_xmin=1.5,
         transition_xmax=3.0,
         transition_blend='linear',
+        # Height blend zone (regent.f XWT): XMN=2.0 to XMX=4.0 for most
+        # species.  GS/RW use 2.0-10.0 (handled per-species in tree.py).
+        transition_ht_xmin=2.0,
+        transition_ht_xmax=4.0,
         hhtmax=_OC_HHTMAX,
         hhtmax_default=_OC_HHTMAX_DEFAULT,
         sdi_maximums=StandMetricsCalculator.OC_SDI_MAXIMUMS,

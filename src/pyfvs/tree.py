@@ -240,67 +240,76 @@ class Tree:
         if avg_height is None:
             avg_height = 0.0
 
-        # Calculate weight for blending growth models based on initial DBH
+        # Fortran regent.f has TWO separate blend zones:
+        #   DG blend (XDWT): 1.5-3.0" (regent.f:351)
+        #   HTG blend (XWT): 2.0-4.0" (regent.f:244, XMN-XMX)
+        # The outer cutoff (XMAX) is 4.0" — trees >= XMAX skip REGENT.
+        # Resolve the height blend zone from variant config.
+        ht_xmin = xmin   # default: same as DG zone
+        ht_xmax = xmax
+        if variant not in ('PN', 'WC'):
+            vc_ht = get_variant_config(variant) if variant not in ('PN', 'WC') else None
+            if vc_ht and vc_ht.transition_ht_xmin is not None:
+                ht_xmin = vc_ht.transition_ht_xmin
+                ht_xmax = vc_ht.transition_ht_xmax
+                # GS/RW per-species override (regent.f:102 XMAX)
+                if variant == 'OC' and self.species in ('GS', 'RW'):
+                    ht_xmax = 10.0
+
+        # Outer cutoff: tree enters REGENT if DBH < max(xmax_dg, xmax_ht)
+        outer_xmax = max(xmax, ht_xmax)
+
+        # DG weight: regent.f XDWT = (D-1.5)/1.5, clamped [0,1]
         if initial_dbh < xmin:
-            weight = 0.0
+            dg_weight = 0.0
         elif initial_dbh >= xmax:
-            weight = 1.0
+            dg_weight = 1.0
         elif xmin >= xmax:
-            weight = 1.0
+            dg_weight = 1.0
         elif variant in ('PN', 'WC', 'OC'):
-            # PN/WC/OC: linear blend matching Fortran regent.f
-            # PN/WC regent.f: XWT = (D - XMN) / (XMX - XMN)
-            # OC  regent.f:351: XDWT = (D - 1.5) / 1.5
-            weight = (initial_dbh - xmin) / (xmax - xmin)
+            dg_weight = (initial_dbh - xmin) / (xmax - xmin)
         else:
-            # Other variants: smoothstep function 3t^2 - 2t^3
             t = (initial_dbh - xmin) / (xmax - xmin)
-            weight = t * t * (3.0 - 2.0 * t)
-            
-        # Log model transition if crossing threshold
-        if initial_dbh < xmin and self.dbh >= xmin:
-            log_model_transition(self.logger, f"{self.species}_{id(self)}", 
-                                "small_tree", "blended", self.dbh)
-        elif initial_dbh < xmax and self.dbh >= xmax:
-            log_model_transition(self.logger, f"{self.species}_{id(self)}", 
-                                "blended", "large_tree", self.dbh)
-        
+            dg_weight = t * t * (3.0 - 2.0 * t)
+
+        # HTG weight: regent.f XWT = (D-XMN)/(XMX-XMN), clamped [0,1]
+        if ht_xmin >= ht_xmax or initial_dbh <= ht_xmin:
+            ht_weight = 0.0
+        elif initial_dbh >= ht_xmax:
+            ht_weight = 1.0
+        else:
+            ht_weight = (initial_dbh - ht_xmin) / (ht_xmax - ht_xmin)
+
         # Temporarily increment age for growth calculations
         self.age = initial_age + time_step
 
-        if weight == 0.0:
-            # Pure small-tree model (DBH < xmin)
-            self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
-        elif weight == 1.0:
-            # Pure large-tree model (DBH > xmax)
+        if initial_dbh >= outer_xmax:
+            # Pure large-tree model (above both blend zones)
             self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf)
+        elif dg_weight == 0.0 and ht_weight == 0.0:
+            # Pure small-tree model (below both blend zones)
+            self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
         else:
-            # Transition zone: blend DG only, keep small-tree height.
+            # Transition zone: separate DG and HTG blend weights.
             #
-            # Fortran regent.f blends diameter growth:
-            #   XDWT = (D - XMN) / (XMX - XMN)
-            #   DG   = DGSM*(1-XDWT) + DGLT*XDWT
-            # but height stays from SMHTGF — HTGF only runs for trees
-            # >= DGMIN (the upper transition bound).  Blending final DBH
-            # is algebraically equivalent to blending DG for any linear
-            # weighting, so only the height line differs from a naive
-            # state blend.
+            # Fortran GRINCR sequence: DGDRIV→HTGF (all trees), then
+            # REGENT overwrites/blends for trees < XMAX:
+            #   DG:  XDWT = (D-1.5)/1.5       [regent.f:351]
+            #   HTG: XWT  = (D-XMN)/(XMX-XMN)  [regent.f:244]
             self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
             small_dbh = self.dbh
             small_height = self.height
 
-            # Reset to initial state for large tree model
             self.dbh = initial_dbh
             self.height = initial_height
 
             self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf)
             large_dbh = self.dbh
+            large_height = self.height
 
-            # Blend DBH (equivalent to blending DG)
-            self.dbh = (1 - weight) * small_dbh + weight * large_dbh
-            # Height from small-tree model only (Fortran: HTGF skips
-            # trees below DGMIN, so blend-zone trees keep SMHTGF height)
-            self.height = small_height
+            # Blend DG and HTG with their own weights
+            self.dbh = (1 - dg_weight) * small_dbh + dg_weight * large_dbh
+            self.height = (1 - ht_weight) * small_height + ht_weight * large_height
 
         # Ensure age is properly set after growth
         self.age = initial_age + time_step
