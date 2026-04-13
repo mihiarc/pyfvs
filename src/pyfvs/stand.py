@@ -40,16 +40,8 @@ from .stand_output import StandOutputGenerator, YieldRecord
 
 __all__ = ['Stand']
 
-# Import establishment functions (extracted to reduce stand.py size)
-from .establishment import (
-    ESSUBH_DEFAULT_CARAGE,
-    get_hhtmax,
-    load_small_tree_coefficients,
-    compute_establishment_height,
-    compute_essubh_height,
-    compute_western_establishment_height,
-    estimate_dbh_from_height,
-)
+# Establishment helper (variant-dispatched height/DBH computation)
+from .establishment import compute_establishment_tree_state
 
 
 class Stand:
@@ -360,117 +352,21 @@ class Stand:
         from .variant_registry import get_variant_config
         cycle_length = get_variant_config(actual_variant).cycle_length
 
-        # Variant-dispatched establishment height computation.
-        # Fortran ESSUBH + regent behavior differs by cycle length:
-        # - SN/OP (5yr cycle): establishment_age = cycle_length + 2 = 7, direct CR
-        # - CS/NE (10yr cycle): ESSUBH linear interp at 5yr + 5yr regent growth
-        # - LS (10yr cycle): direct CR at establishment_age (NC-128 curves
-        #   underestimate LS growth at young ages; Fortran HTCALC uses
-        #   species-specific height-age functions not available here)
-        # - PN/WC (10yr cycle): 1.0 ft seedling + 10yr CR growth
-        # - CA/OC/WS: fallback to SN approach (use SN models)
-        if actual_variant in ('SN', 'OP', 'CA', 'OC', 'WS', 'LS'):
-            # SN/OP/LS: direct CR at establishment_age
-            establishment_age = cycle_length + 2
-            base_height = compute_establishment_height(
-                species, site_index, establishment_age, actual_variant
-            )
-        elif actual_variant in ('CS', 'NE'):
-            # Eastern 10yr variants: ESSUBH linear interp + regent
-            base_height = compute_essubh_height(
-                species, site_index, actual_variant, cycle_length
-            )
-            # Compute pre-regent ESSUBH height for non-equilibrium DBH
-            # estimation. Same decoupling as PN/WC: Fortran LSKIPH suppresses
-            # diameter growth during establishment while height grows via
-            # site curve + regent. Using H-D inverse at full establishment
-            # height overestimates DBH. The midpoint approximates the
-            # average growth state during the establishment period.
-            carmean_age = ESSUBH_DEFAULT_CARAGE  # 20 years
-            h_at_carage = compute_establishment_height(
-                species, site_index, carmean_age, actual_variant
-            )
-            csne_essubh_height = (h_at_carage / carmean_age) * 5.0
-        elif actual_variant in ('PN', 'WC'):
-            # Western 10yr variants: SMHGDG-based establishment
-            # Returns both height and DBH directly from the growth model,
-            # eliminating the H-D inverse error that caused overestimated DBH.
-            base_height, pnwc_establishment_dbh = compute_western_establishment_height(
-                species, site_index, actual_variant
-            )
-        else:
-            # Unknown variant: fallback to direct CR
-            establishment_age = cycle_length + 2
-            base_height = compute_establishment_height(
-                species, site_index, establishment_age, actual_variant
-            )
-
-        # Get HHTMAX cap for post-variation application
-        hhtmax = get_hhtmax(species, actual_variant)
-
-        # Create trees with lognormal height variation around the base.
-        # Fortran FVS applies stochastic error (DGSCOR) to each tree's
-        # diameter growth prediction, creating DBH differentiation that
-        # drives PBAL (basal area in larger trees) competition effects.
-        # Without variation, all trees in a monoculture have PBAL=0,
-        # removing a critical growth dampening term.
-        # Seed the height-variation RNG from random_seed so different seeds
-        # produce different initial height distributions.  Fall back to 42
-        # for backwards-compatible deterministic runs (random_seed=None).
+        # Create trees using the shared establishment helper.
+        # Variant-dispatched height/DBH computation is in
+        # compute_establishment_tree_state() (establishment.py) which
+        # replicates the Fortran ESTAB -> ESGENT -> REGENT(TRUE) pipeline.
+        # Lognormal height variation (sigma=0.1) substitutes for Fortran
+        # DGSCOR stochastic error, creating DBH differentiation that drives
+        # PBAL competition effects.
         rng = random.Random(random_seed if random_seed is not None else 42)
         trees = []
         for _ in range(trees_per_acre):
-            # Lognormal height variation: sigma=0.1, bounded [0.7x, 1.3x]
-            # Substitutes for Fortran DGSCOR (diameter growth stochastic error)
-            # which creates DBH differentiation driving PBAL competition effects.
             height_multiplier = max(0.7, min(1.3, math.exp(rng.gauss(0, 0.1))))
-            tree_height = base_height * height_multiplier
-
-            # Apply HHTMAX cap AFTER variation (fixes bug where lognormal
-            # multiplier could push trees above HHTMAX)
-            if hhtmax > 0 and tree_height > hhtmax:
-                tree_height = hhtmax
-
-            # DBH from H-D relationship (natural variation through height)
-            # For 10yr cycle variants, height and diameter decouple during
-            # establishment (Fortran LSKIPH suppresses DDS equations).
-            # Use H-D inverse at midpoint between ESSUBH and final height
-            # to approximate the non-equilibrium DBH.
-            if actual_variant in ('PN', 'WC'):
-                # Use SMHGDG-derived DBH directly (not H-D inverse)
-                # Small variation proportional to height variation
-                dbh_multiplier = tree_height / base_height if base_height > 0 else 1.0
-                tree_dbh = max(0.0, pnwc_establishment_dbh * dbh_multiplier)
-            elif actual_variant in ('CS', 'NE'):
-                # Variant-specific midpoint fraction for H-D inverse.
-                # CS DDS accumulates more diameter during establishment than
-                # NE, so CS needs a higher fraction (closer to equilibrium).
-                # CS frac=0.75: QMD≈1.06 vs native 1.11 for WO SI=65
-                # NE frac=0.50: QMD≈0.87 vs native 0.91 for RM SI=60
-                estab_frac = 0.75 if actual_variant == 'CS' else 0.50
-                midpoint_height = csne_essubh_height + estab_frac * (
-                    tree_height - csne_essubh_height
-                )
-                tree_dbh = estimate_dbh_from_height(
-                    midpoint_height, species, actual_variant
-                )
-            elif actual_variant in ('SN', 'CA', 'OC', 'WS'):
-                # SN: H-D inverse at partial uncapped height to match native
-                # record-tripling QMD effect. Native FVS triples tree records
-                # with stochastic DG, creating DBH variance → QMD > mean(DBH).
-                # Using a height slightly above the HHTMAX cap compensates for
-                # the missing variance (QMD = sqrt(μ² + σ²) > μ).
-                uncapped_height = base_height * height_multiplier
-                estab_frac = 0.25
-                hd_height = tree_height + estab_frac * (uncapped_height - tree_height)
-                tree_dbh = estimate_dbh_from_height(
-                    hd_height, species, actual_variant
-                )
-            else:
-                tree_dbh = estimate_dbh_from_height(
-                    tree_height, species, actual_variant
-                )
-
+            tree_height, tree_dbh = compute_establishment_tree_state(
+                species, site_index, actual_variant, cycle_length,
+                height_multiplier=height_multiplier,
+            )
             tree = Tree(
                 dbh=tree_dbh,
                 height=tree_height,
@@ -744,37 +640,36 @@ class Stand:
     def _grow_establishment_cycle(self, years: int, base_cycle: int) -> None:
         """First cycle after bare-ground planting (Fortran LESTB=TRUE).
 
-        All FVS variants share the same establishment logic in regent.f:
+        Fortran FVS uses ESTAB -> ESGENT -> REGENT(TRUE) to place newly
+        planted trees at the site-curve height for their establishment
+        age, then derives DBH from height-diameter allometry.  The trees
+        enter the next regular growth cycle at that size.
 
-        - If base_cycle <= 5 yr (SN, OC, OP): LSKIPH=TRUE — no height
-          growth at all. DBH gets a tiny bump: D + 0.001*HT.
-        - If base_cycle > 5 yr (PN, WC, LS, NE, CS, CA, WS): height
-          grows for (base_cycle - 5) years using the small-tree model
-          only (XWT forced to 0, no DGF blending). Below 4.5 ft the
-          DBH derivation matches regent.f: D + 0.001*HT.
+        This method replicates that behaviour using the same
+        variant-dispatched computation as initialize_planted(), via the
+        shared helper compute_establishment_tree_state().
         """
         self.age += years
 
         if not self.trees:
             return
 
-        if base_cycle <= 5:
-            # 5yr variants: no growth (regent.f LSKIPH=TRUE).
-            for tree in self.trees:
-                tree.age += years
-                tree.dbh = tree.dbh + 0.001 * tree.height
-        else:
-            # 10yr variants: small-tree growth for (cycle - 5) years.
-            growth_years = base_cycle - 5
-            for tree in self.trees:
-                tree.age += years
-                tree._grow_small_tree(
-                    self.site_index,
-                    competition_factor=0.0,
-                    time_step=growth_years,
-                    ba=0.0,
-                    pbal=0.0,
-                )
+        # No height variation here: native FVS ESTAB with PLANT keyword
+        # produces uniform trees in a monoculture (all capped at HHTMAX).
+        # initialize_planted() adds variation as a user-convenience
+        # substitute for DGSCOR stochastic differentiation — that's a
+        # separate design choice, not something the bare-ground parity
+        # path should replicate.
+        for tree in self.trees:
+            ht, dbh = compute_establishment_tree_state(
+                species=tree.species,
+                site_index=self.site_index,
+                variant=self.variant,
+                cycle_length=base_cycle,
+            )
+            tree.height = ht
+            tree.dbh = dbh
+            tree.age = base_cycle
 
     def _grow_single_cycle(self, years: int):
         """Execute a single growth cycle (internal helper).

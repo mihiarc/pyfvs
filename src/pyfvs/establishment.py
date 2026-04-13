@@ -429,6 +429,83 @@ def compute_western_establishment_height(species: str, site_index: float,
     return max(0.5, establishment_height), establishment_dbh
 
 
+def compute_establishment_tree_state(
+    species: str, site_index: float, variant: str, cycle_length: int,
+    height_multiplier: float = 1.0,
+) -> Tuple[float, float]:
+    """Compute (height, dbh) for a tree at the end of the establishment cycle.
+
+    Encapsulates the variant-dispatched logic that both initialize_planted()
+    and _grow_establishment_cycle() need.  Replicates the Fortran ESTAB ->
+    ESGENT -> REGENT(TRUE) pipeline: place the tree on the site curve at the
+    establishment age, apply HHTMAX cap and height variation, then derive DBH
+    from the resulting height using the variant-appropriate allometric strategy.
+
+    Args:
+        species: Species code (e.g., 'LP', 'DF')
+        site_index: Site index in feet
+        variant: FVS variant code (e.g., 'SN', 'LS', 'PN')
+        cycle_length: Variant base cycle in years (5 or 10)
+        height_multiplier: Lognormal variation factor (default 1.0 = no variation)
+
+    Returns:
+        (height, dbh) in feet and inches.
+    """
+    # --- Variant-dispatched establishment height ---
+    pnwc_establishment_dbh = None
+    csne_essubh_height = None
+
+    if variant in ('SN', 'OP', 'CA', 'OC', 'WS', 'LS'):
+        establishment_age = cycle_length + 2
+        base_height = compute_establishment_height(
+            species, site_index, establishment_age, variant
+        )
+    elif variant in ('CS', 'NE'):
+        base_height = compute_essubh_height(
+            species, site_index, variant, cycle_length
+        )
+        carmean_age = ESSUBH_DEFAULT_CARAGE
+        h_at_carage = compute_establishment_height(
+            species, site_index, carmean_age, variant
+        )
+        csne_essubh_height = (h_at_carage / carmean_age) * 5.0
+    elif variant in ('PN', 'WC'):
+        base_height, pnwc_establishment_dbh = compute_western_establishment_height(
+            species, site_index, variant
+        )
+    else:
+        establishment_age = cycle_length + 2
+        base_height = compute_establishment_height(
+            species, site_index, establishment_age, variant
+        )
+
+    # --- Apply HHTMAX cap and height variation ---
+    hhtmax = get_hhtmax(species, variant)
+    tree_height = base_height * height_multiplier
+    if hhtmax > 0 and tree_height > hhtmax:
+        tree_height = hhtmax
+
+    # --- Variant-dispatched DBH computation ---
+    if variant in ('PN', 'WC'):
+        dbh_multiplier = tree_height / base_height if base_height > 0 else 1.0
+        tree_dbh = max(0.0, pnwc_establishment_dbh * dbh_multiplier)
+    elif variant in ('CS', 'NE'):
+        estab_frac = 0.75 if variant == 'CS' else 0.50
+        midpoint_height = csne_essubh_height + estab_frac * (
+            tree_height - csne_essubh_height
+        )
+        tree_dbh = estimate_dbh_from_height(midpoint_height, species, variant)
+    elif variant in ('SN', 'CA', 'OC', 'WS'):
+        uncapped_height = base_height * height_multiplier
+        estab_frac = 0.25
+        hd_height = tree_height + estab_frac * (uncapped_height - tree_height)
+        tree_dbh = estimate_dbh_from_height(hd_height, species, variant)
+    else:
+        tree_dbh = estimate_dbh_from_height(tree_height, species, variant)
+
+    return tree_height, tree_dbh
+
+
 def estimate_dbh_from_height(height: float, species: str, variant: str) -> float:
     """Estimate DBH from height using Curtis-Arney H-D inverse.
 
