@@ -14,8 +14,12 @@ from dataclasses import dataclass
 
 @dataclass
 class ClarkCoefficients:
-    """Coefficients for Clark profile model."""
-    # Total height equation coefficients (inside bark)
+    """Coefficients for Clark profile model.
+
+    Source: NVEL r8vol2.f TOTAL array (inside-bark taper) and
+    r8dib.inc R8CF array (bark ratio, form class).
+    """
+    # Total height equation coefficients (inside bark, from TOTAL array)
     R: float  # Butt taper exponent
     C: float  # Butt taper coefficient
     E: float  # Butt taper DBH adjustment
@@ -23,41 +27,55 @@ class ClarkCoefficients:
     B: float  # Upper taper coefficient
     A: float  # Upper taper transition point
 
-    # Bark ratio coefficients
+    # Bark ratio at BH (from R8CF cols 4-5)
     AD: float  # Intercept for DIB = AD + BD * DOB
     BD: float  # Slope for DIB calculation
 
-    # Form class coefficients (diameter at 17.3 ft)
-    AF: float  # Form class intercept
-    BF: float  # Form class slope
+    # Form class coefficients (diameter at 17.3 ft, from R8CF cols 14-15)
+    AF: float  # Form class intercept: FCLSS = DBH * (AF + BF * (17.3/THT)^2)
+    BF: float  # Form class slope (negative for most species)
+
+    # Species group (from R8CF col 3): 100=softwood, 200=hardwood, 300=cypress
+    SPGRP: int = 100
+
+    # Inverse bark ratio for form class (from R8CF cols 6-7)
+    # Used to convert FCLSS (DIB) to FCDOB (DOB): FCDOB = (FCLSS - AFI) / BFI
+    AFI: float = 0.0
+    BFI: float = 1.0
 
 
 # Clark profile coefficients for southern pines
-# Extracted from NVEL r8vol2.f TOTAL array (inside bark, total height)
+# Taper (R,C,E,P,B,A): from NVEL r8vol2.f TOTAL(49,7)
+# Bark/form class (AD,BD,AF,BF,AFI,BFI): from NVEL r8dib.inc R8CF(182,18)
+# Geographic area 1 used (default for Region 8)
 CLARK_COEFFICIENTS: Dict[str, ClarkCoefficients] = {
-    # Loblolly Pine (131) - from r8vol2.f line 106
+    # Loblolly Pine (FIA 131) — r8vol2.f line 106, r8dib.inc area 1
     'LP': ClarkCoefficients(
         R=31.66250, C=0.57402, E=110.96000, P=8.57300, B=2.36238, A=0.68464,
-        AD=-0.48140, BD=0.91413,  # From bark ratio coefficients
-        AF=0.7618, BF=0.1596      # Form class from r8dib.inc
+        AD=-0.49634, BD=0.91369,
+        AF=0.84885, BF=-1.30374,
+        SPGRP=100, AFI=-0.28939, BFI=0.93389,
     ),
-    # Shortleaf Pine (132) - from r8vol2.f line 107
+    # Shortleaf Pine (FIA 110) — r8vol2.f line 98, r8dib.inc area 2
     'SP': ClarkCoefficients(
-        R=8.77959, C=0.30226, E=27.58681, P=7.18305, B=2.07630, A=0.61061,
-        AD=-0.56870, BD=0.92470,
-        AF=0.7618, BF=0.1596
+        R=25.43531, C=0.45525, E=28.38927, P=8.21438, B=2.86552, A=0.72623,
+        AD=-0.52087, BD=0.93222,
+        AF=0.87910, BF=-1.30480,
+        SPGRP=100, AFI=-0.23829, BFI=0.93332,
     ),
-    # Slash Pine (121) - from r8vol2.f line 101
+    # Slash Pine (FIA 111) — r8vol2.f line 99, r8dib.inc area 1
     'SA': ClarkCoefficients(
-        R=24.40837, C=0.46799, E=10.67266, P=3.59700, B=2.03709, A=0.65814,
-        AD=-0.40380, BD=0.91430,
-        AF=0.7618, BF=0.1596
+        R=32.39761, C=0.77487, E=-2.25836, P=4.80100, B=2.52226, A=0.73935,
+        AD=-0.42543, BD=0.90211,
+        AF=0.85504, BF=-1.52260,
+        SPGRP=100, AFI=-0.40470, BFI=0.92183,
     ),
-    # Longleaf Pine (121 approximated by 129 - Sand Pine closest)
+    # Longleaf Pine (FIA 121) — r8vol2.f line 101, r8dib.inc area 1
     'LL': ClarkCoefficients(
-        R=12.19768, C=0.35840, E=19.63087, P=10.31373, B=1.74982, A=0.60458,
-        AD=-0.39470, BD=0.90970,
-        AF=0.7618, BF=0.1596
+        R=24.40837, C=0.46799, E=10.67266, P=3.59700, B=2.03709, A=0.65814,
+        AD=-0.50845, BD=0.93246,
+        AF=0.84822, BF=-0.94775,
+        SPGRP=100, AFI=-0.38680, BFI=0.93848,
     ),
 }
 
@@ -77,30 +95,153 @@ def calculate_dib(dbh: float, ad: float, bd: float) -> float:
     return max(dib, 0.1)  # Ensure positive
 
 
-def calculate_form_class(dbh: float, total_height: float, af: float, bf: float) -> float:
-    """Calculate form class (diameter at 17.3 feet).
+def _get_fcmin(spgrp: int, tht: float) -> int:
+    """Get minimum form class percentage from NVEL r8vol2.f TOTHT lines 745-764.
+
+    Args:
+        spgrp: Species group (100=softwood, 200/500=hardwood, 300=cypress)
+        tht: Total tree height (feet)
+
+    Returns:
+        Minimum form class as integer percentage (56-69)
+    """
+    if spgrp == 100:  # Softwood
+        if tht < 32.5:
+            return 56
+        elif tht < 37.5:
+            return 64
+        elif tht < 42.5:
+            return 66
+        else:
+            return 67
+    elif spgrp == 300:  # Cypress
+        if tht < 32.5:
+            return 57
+        elif tht < 37.5:
+            return 60
+        elif tht < 42.5:
+            return 64
+        else:
+            return 67
+    else:  # Hardwood / default (200, 500)
+        if tht < 32.5:
+            return 58
+        elif tht < 37.5:
+            return 65
+        elif tht < 42.5:
+            return 67
+        else:
+            return 69
+
+
+def calculate_form_class(dbh: float, total_height: float, af: float, bf: float,
+                         spgrp: int = 100) -> float:
+    """Calculate form class (diameter inside bark at 17.3 feet).
+
+    Matches NVEL r8vol2.f TOTHT: computes FCLSS from the AF/BF regression,
+    then enforces the species-group/height minimum form class (FCMIN).
 
     Args:
         dbh: DBH outside bark (inches)
         total_height: Total tree height (feet)
-        af: Form class intercept
-        bf: Form class slope
+        af: Form class intercept (from R8CF col 14)
+        bf: Form class slope (from R8CF col 15, typically negative)
+        spgrp: Species group (100, 200/500, 300)
 
     Returns:
-        Form class diameter (inches)
+        Form class diameter inside bark (inches)
     """
     if total_height <= 17.3:
-        return dbh * 0.7  # Approximate for short trees
+        return dbh * 0.7
 
     fclss = dbh * (af + bf * (17.3 / total_height) ** 2)
+    if fclss < 0.0:
+        fclss = 0.0
+
+    # Apply species-group/height minimum (r8vol2.f lines 745-764)
+    fcmin = _get_fcmin(spgrp, total_height)
+    fcdib = dbh * fcmin * 0.01
+    if total_height < 47.5 and fclss < fcdib:
+        fclss = fcdib
+
     return max(fclss, 0.1)
+
+
+def _compute_clark_volume(dbh: float, tht: float, coef: ClarkCoefficients,
+                          fclss: float, upper: float) -> float:
+    """Core Clark volume integration (NVEL r8vol2.f TOTHT lines 835-887).
+
+    Computes cubic foot volume from stump (0.5 ft) to `upper` height using
+    the three-segment Clark profile model.
+
+    Args:
+        dbh: DBH outside bark (inches)
+        tht: Total tree height (feet) — defines the profile shape
+        coef: Clark profile coefficients
+        fclss: Form class diameter inside bark at 17.3 ft
+        upper: Upper integration limit (feet)
+
+    Returns:
+        Cubic foot volume (inside bark)
+    """
+    dib = calculate_dib(dbh, coef.AD, coef.BD)
+    dib2 = dib ** 2
+    dib3 = dib ** 3
+    fclss2 = fclss ** 2
+
+    V = (1 - 4.5 / tht) ** coef.R
+    W = (coef.C + coef.E / dib3) / (1 - V) if V < 1 else 0
+    X = (1 - 4.5 / tht) ** coef.P
+    Y = (1 - 17.3 / tht) ** coef.P if tht > 17.3 else 0
+    Z = (dib2 - fclss2) / (X - Y) if abs(X - Y) > 0.001 else 0
+    T = dib2 - Z * X
+
+    L1, U1 = 0.5, min(4.5, upper)
+    L2 = 4.5
+    U2 = min(17.3, upper)
+    L3, U3 = 17.3, min(tht, upper)
+
+    # Segment 1: Butt (0.5 to 4.5 ft)
+    S1 = 0.0
+    if tht > 0.5:
+        t_l1 = (1 - L1 / tht) ** coef.R * (tht - L1) if L1 < tht else 0
+        t_u1 = (1 - U1 / tht) ** coef.R * (tht - U1) if U1 < tht else 0
+        S1 = dib2 * ((1 - V * W) * (U1 - L1) + W * (t_l1 - t_u1) / (coef.R + 1))
+
+    # Segment 2: Middle (4.5 to 17.3 ft)
+    S2 = 0.0
+    if upper > 4.5:
+        t_l2 = (1 - L2 / tht) ** coef.P * (tht - L2) if L2 < tht else 0
+        t_u2 = (1 - U2 / tht) ** coef.P * (tht - U2) if U2 < tht else 0
+        S2 = T * (U2 - L2) + Z * (t_l2 - t_u2) / (coef.P + 1)
+
+    # Segment 3: Upper (17.3 ft to tip/upper)
+    S3 = 0.0
+    if upper > 17.3:
+        A, B = coef.A, coef.B
+        tht_17 = tht - 17.3
+        I5 = 1 if (L3 - 17.3) < A * tht_17 else 0
+        I6 = 1 if (U3 - 17.3) < A * tht_17 else 0
+
+        S3_b = B * (U3 - L3)
+        S3_b -= B * ((U3 - 17.3) ** 2 - (L3 - 17.3) ** 2) / tht_17
+        S3_b += (B / 3) * ((U3 - 17.3) ** 3 - (L3 - 17.3) ** 3) / tht_17 ** 2
+        if I5:
+            S3_b += (1 / 3) * ((1 - B) / A ** 2) * (A * tht_17 - (L3 - 17.3)) ** 3 / tht_17 ** 2
+        if I6:
+            S3_b -= (1 / 3) * ((1 - B) / A ** 2) * (A * tht_17 - (U3 - 17.3)) ** 3 / tht_17 ** 2
+        S3 = fclss2 * S3_b
+
+    return 0.005454 * (S1 + S2 + S3)
 
 
 def clark_total_cubic_volume(dbh: float, total_height: float,
                              coef: ClarkCoefficients) -> float:
     """Calculate total cubic volume using Clark profile model.
 
-    Implements the TOTHT subroutine from NVEL r8vol2.f.
+    Implements the TOTHT subroutine from NVEL r8vol2.f, including:
+    - Species-group/height minimum form class (FCMIN)
+    - Iterative correction for trees >= 47.5 ft (lines 889-895)
 
     Args:
         dbh: Diameter at breast height outside bark (inches)
@@ -113,86 +254,26 @@ def clark_total_cubic_volume(dbh: float, total_height: float,
     if dbh <= 0 or total_height <= 4.5:
         return 0.0
 
-    # Calculate DIB and form class
-    dib = calculate_dib(dbh, coef.AD, coef.BD)
-    fclss = calculate_form_class(dbh, total_height, coef.AF, coef.BF)
-
-    # Ensure form class is reasonable
-    if fclss < 0.1:
-        fclss = dib * 0.8
-
-    # Pre-compute powers
-    dib2 = dib ** 2
-    dib3 = dib ** 3
-    fclss2 = fclss ** 2
     tht = total_height
+    fclss = calculate_form_class(dbh, tht, coef.AF, coef.BF, coef.SPGRP)
 
-    # Calculate taper variables
-    # V, W for butt section (0.5 to 4.5 ft)
-    V = (1 - 4.5 / tht) ** coef.R
-    W = (coef.C + coef.E / dib3) / (1 - V) if V < 1 else 0
+    # Compute FCDIB for iterative correction check
+    fcmin = _get_fcmin(coef.SPGRP, tht)
+    fcdib = dbh * fcmin * 0.01
 
-    # X, Y, Z, T for middle section (4.5 to 17.3 ft)
-    X = (1 - 4.5 / tht) ** coef.P
-    Y = (1 - 17.3 / tht) ** coef.P if tht > 17.3 else 0
-    Z = (dib2 - fclss2) / (X - Y) if abs(X - Y) > 0.001 else 0
-    T = dib2 - Z * X
+    vol = _compute_clark_volume(dbh, tht, coef, fclss, tht)
 
-    # Segment boundaries
-    L1, U1 = 0.5, min(4.5, tht)
-    L2, U2 = 4.5, min(17.3, tht)
-    L3, U3 = 17.3, tht
+    # Iterative correction (r8vol2.f lines 889-895):
+    # For tall trees where form class fell below minimum, recalculate
+    # at THT=47.49 and take the higher volume.
+    if tht >= 47.5 and fclss < fcdib:
+        volini = vol
+        fclss2 = calculate_form_class(dbh, 47.49, coef.AF, coef.BF, coef.SPGRP)
+        vol2 = _compute_clark_volume(dbh, 47.49, coef, fclss2, 47.49)
+        if volini > vol2:
+            vol = volini
 
-    # Indicator variables
-    I1 = 1
-    I2 = 1 if tht > 4.5 else 0
-    I3 = 1 if tht > 4.5 else 0
-    I4 = 1 if tht > 17.3 else 0
-
-    # Calculate segment volumes
-    # Segment 1: Butt (0.5 to 4.5 ft)
-    if I1 and tht > 0.5:
-        term_l1 = (1 - L1/tht) ** coef.R * (tht - L1) if L1 < tht else 0
-        term_u1 = (1 - U1/tht) ** coef.R * (tht - U1) if U1 < tht else 0
-        S1 = dib2 * ((1 - V * W) * (U1 - L1) + W * (term_l1 - term_u1) / (coef.R + 1))
-    else:
-        S1 = 0
-
-    # Segment 2: Middle (4.5 to 17.3 ft)
-    if I2 and I3 and tht > 4.5:
-        term_l2 = (1 - L2/tht) ** coef.P * (tht - L2) if L2 < tht else 0
-        term_u2 = (1 - U2/tht) ** coef.P * (tht - U2) if U2 < tht else 0
-        S2 = T * (U2 - L2) + Z * (term_l2 - term_u2) / (coef.P + 1)
-    else:
-        S2 = 0
-
-    # Segment 3: Upper (17.3 ft to tip)
-    if I4 and tht > 17.3:
-        A = coef.A
-        B = coef.B
-        tht_17 = tht - 17.3
-
-        # Check indicator variables for upper section transitions
-        I5 = 1 if (L3 - 17.3) < A * tht_17 else 0
-        I6 = 1 if (U3 - 17.3) < A * tht_17 else 0
-
-        S3_base = B * (U3 - L3)
-        S3_base -= B * ((U3 - 17.3)**2 - (L3 - 17.3)**2) / tht_17
-        S3_base += (B / 3) * ((U3 - 17.3)**3 - (L3 - 17.3)**3) / tht_17**2
-
-        if I5:
-            S3_base += (1/3) * ((1 - B) / A**2) * (A * tht_17 - (L3 - 17.3))**3 / tht_17**2
-        if I6:
-            S3_base -= (1/3) * ((1 - B) / A**2) * (A * tht_17 - (U3 - 17.3))**3 / tht_17**2
-
-        S3 = fclss2 * S3_base
-    else:
-        S3 = 0
-
-    # Total volume (0.005454 converts to cubic feet)
-    volume = 0.005454 * (S1 + S2 + S3)
-
-    return max(volume, 0.0)
+    return max(vol, 0.0)
 
 
 def clark_merchantable_volume(dbh: float, total_height: float,

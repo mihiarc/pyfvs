@@ -190,10 +190,10 @@ class ClarkTaperModel(TaperModel):
     COEFFICIENT_FILE_R9 = 'taper/clark_r9_coefficients.json'
 
     # R8 (Region 8 — Southern) correction factors.
-    # Fortran has no r8cor, but our base Clark integration runs ~4% high
-    # for R8 coefficients.  These empirical factors match SN native.
-    R8_SOFTWOOD_CORRECTION = 0.96
-    R8_HARDWOOD_CORRECTION = 0.90
+    # With correct R8CF coefficients (a4/b4/a17/b17 from r8dib.inc), no
+    # empirical correction is needed — the Clark integration matches NVEL.
+    R8_SOFTWOOD_CORRECTION = 1.0
+    R8_HARDWOOD_CORRECTION = 1.0
 
     # R9 (Region 9 — North/Central) correction factors from NVEL r9cor
     # subroutine (r9clark.f lines 1497-1564).  Raw Clark integration
