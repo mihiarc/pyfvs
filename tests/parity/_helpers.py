@@ -54,8 +54,14 @@ def run_pyfvs(
         # Match NativeStand's PLANT keyword: bare-ground seedlings.
         # bare_ground=True on Stand triggers an establishment-only first
         # cycle (Fortran LESTB=TRUE) so pyfvs and native stay in sync.
+        #
+        # Initial height must match ESSUBH (species-specific).  Each
+        # variant's essubh.f sets HHT by species — for OC, DF=2.0,
+        # LP=3.0, RF=1.0, etc.  DBH = 0.1 and age = 1 for all.
+        from pyfvs.establishment import get_essubh_height
+        init_ht = get_essubh_height(species, variant)
         trees = [
-            Tree(dbh=0.1, height=1.0, age=1, species=species, variant=variant)
+            Tree(dbh=0.1, height=init_ht, age=1, species=species, variant=variant)
             for _ in range(trees_per_acre)
         ]
         stand = Stand(

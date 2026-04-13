@@ -145,6 +145,32 @@ def get_hhtmax(species: str, variant: str) -> float:
     return config.hhtmax_default
 
 
+def get_essubh_height(species: str, variant: str) -> float:
+    """Initial seedling height from Fortran essubh.f for bare-ground PLANT.
+
+    Each variant's essubh.f assigns species-specific heights to newly
+    planted trees.  These values must match for parity tests that start
+    from the same bare-ground state as native FVS.
+
+    Currently only OC/CA (shared essubh.f) is implemented.  Other
+    variants fall back to 1.0 ft.
+    """
+    # OC/CA essubh.f (bin/FVSoc_buildDir/essubh.f lines 52-86):
+    #   Species 5,6,9 (RF,SH,MH): 1.0 ft
+    #   Species 1-4,7,8,15-20,22,23,25,50 (DF, conifers, RW): 2.0 ft
+    #   Species 10-14,21 (LP, pines, JU): 3.0 ft
+    #   Species 24,30-32,35,39,40 (oaks, BU, DG, FL): 1.0 ft
+    #   Species 26-29,33,34,36-39,41-49 (hardwoods, MA): 2.0 ft
+    _OC_ESSUBH = {
+        'RF': 1.0, 'SH': 1.0, 'MH': 1.0,
+        'WB': 3.0, 'KP': 3.0, 'LP': 3.0, 'CP': 3.0, 'LM': 3.0, 'WJ': 3.0,
+        'PY': 1.0, 'WO': 1.0, 'BO': 1.0, 'VO': 1.0, 'BU': 1.0, 'DG': 1.0, 'FL': 1.0,
+    }
+    if variant in ('OC', 'CA'):
+        return _OC_ESSUBH.get(species, 2.0)  # Default 2.0 (DF, most conifers/hardwoods)
+    return 1.0  # Generic fallback for other variants
+
+
 def load_small_tree_coefficients(species: str, variant: str) -> dict:
     """Load variant-specific NC-128 small tree height growth coefficients.
 
