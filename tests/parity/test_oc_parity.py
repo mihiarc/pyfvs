@@ -1,185 +1,139 @@
 """Parity tests: pyfvs OC variant vs native FVS Fortran library.
 
-Primary purpose: validate the OC 10-year-to-5-year cycle conversion fix.
-The OC variant equations are calibrated for 10-year diameter growth, but
-the variant runs on 5-year cycles (Fortran oc/blkdat.f: DATA YR / 5.0 /).
-Fortran converts in real space at oc/dgf.f:402-403:
-    TDDS = EXP(DDS)
-    DDS  = ALOG(TDDS/2.0)
-
-Prior to the fix, pyfvs was using the raw 10-year coefficients without
-applying this conversion, over-predicting DDS by ~2x per cycle. These
-tests pin pyfvs to the Fortran reference so the bug cannot regress.
-
 ================================================================
-Strict-parity status and refactoring roadmap (revised 2026-04-09)
+Strict-parity status and roadmap (revised 2026-04-13)
 ================================================================
 
-`test_oc_planted_parity` is `xfail(strict=True)`. The xfail reason on
-the test has a short summary; this module docstring has the long
-version with concrete next-session steps.
+`test_oc_planted_parity` is `xfail(strict=True)`.
 
-Already fixed (prior sessions):
+Current state (df-si80-25yr at 400 TPA, deterministic):
 
-- OC Curtis-Arney H-D coefficients now loaded verbatim from
-  `bin/FVSoc_buildDir/htdbh.f` (50 species x CURARN + SPLINE arrays);
-  `HeightDiameterModel.solve_dbh_from_height` honors the per-species
-  Dbreak (SPLINE Z) so the OC linear-interp breakpoint is species-
-  specific (2, 3, 5, or 6) instead of SN-style hardcoded 3.0.
-- `LSMortalityModel` (and its NE/CS/OC subclasses) inherits from
-  `MortalityModel`, reusing the Fortran-faithful TN10/TOKILL/VARMRT
-  density-mortality machinery.
-- OC `DGF` equation form, coefficients, and 10->5 ln(2) conversion are
-  correct. A cycle-2 DGF debug trace captured from the native library
-  (`DEBUG / DGF / END`) shows native's ln(DDS_5) = 0.5105 for a tree
-  at DBH=0.1026, CR=0.82, BA=0.0229, BAL=0.006, PCCF=2.79, ELEV=35,
-  SLOPE=0.05, ISPFOR=4; pyfvs hand-calc produces 0.5104. The DGF port
-  is not the bug.
+    pyfvs:  TPA=396  BA=95.9  QMD=6.66  topH=32.6
+    native: TPA=389  BA=35.0  QMD=4.06  topH=34.8
 
-Correction from the 2026-04-09 investigation:
+The remaining 2.7x BA gap is dominated by a single root cause.
 
-The previous version of this docstring claimed native OC uses the
-Wykoff H-D inverse (HT1/HT2 from `oc/blkdat.f`) for the small-tree
-DBH derivation and that pyfvs's use of `solve_dbh_from_height`
-(Curtis-Arney) was the bug. **That diagnosis was wrong.** Native's
-`oc/regent.f`:290-301 does compute Wykoff DK/DKK first, but lines
-312-324 then unconditionally override them with `HTDBH` (Curtis-Arney)
-unless `LHTDRG(ISPC)` was flipped to `.TRUE.` by the user-data
-calibration logic in `cratet.f`:636-680. `oc/grinit.f`:105 sets
-`LHTDRG = .FALSE.` and `IABFLG = 1` for every species at startup,
-and the cratet calibration only runs when the user supplies >=3
-trees with both H and D measured — not the case for a bare-ground
-PLANT scenario. So in the parity tests, native OC actually uses the
-HTDBH Curtis-Arney inverse with the per-species SPLINE breakpoint,
-which is exactly what `solve_dbh_from_height` already produces. The
-small-tree DBH derivation in pyfvs is mathematically equivalent to
-native at this code path.
+--- What has been verified correct ---
 
-A `wykoff_inverse_dbh` helper was added to `src/pyfvs/height_diameter.py`
-in case some future variant (or a runtime-calibrated OC run) actually
-needs the Wykoff path, but it is not wired into the OC growth path.
+The FVS growth equations match native at the single-evaluation level:
 
-Actual remaining blockers:
+- DGF equation: pyfvs ln(DDS_5) = 0.5104, native = 0.5105 at matched
+  cycle-2 inputs (DBH=0.1026, CR=0.82, BA=0.023, PCCF=2.79, ELEV=35,
+  SLOPE=0.05, IFOR=9). Not the bug.
+- Curtis-Arney H-D inverse (htdbh.f): exact match to 4 decimal places
+  at all heights tested (5-30 ft). Not the bug.
+- SMHTGF small-tree height growth: hand-calc matches Fortran exactly
+  for all 5 species groups. Not the bug.
+- Blend zone algebra: blending OB final DBH (pyfvs) is algebraically
+  equivalent to blending IB DG increments (Fortran) when tree is on
+  the H-D curve. Verified to 6 decimal places. Not the bug.
+- dds_to_diameter_growth (dgdriv.f IB conversion): shared utility in
+  model_base.py matches Fortran for all variants.
 
-(1) Missing 1.5-3.0" linear blend zone for OC (the dominant bug)
+--- Fixes applied in this session (2026-04-10 through 2026-04-13) ---
 
-    Native blends a small-tree DBH increment DGSM with the large-tree
-    DGF increment DGLT for trees in 1.5" <= DBH < 3.0". `oc/regent.f`:
-    351-354, 367:
-        XDWT = (D - 1.5) / 1.5      ! clamped 0..1
-        DG   = DGSM*(1 - XDWT) + DGLT*XDWT
+Cross-variant:
+- dds_to_diameter_growth: shared dgdriv.f IB conversion, fixes OC/WS
+- Blend zone height: use small-tree HTG only (regent.f: HTGF skips
+  trees below DGMIN). Two-zone HTG/DG blend matching regent.f.
+- PCCF plumbing: actual stand CCF passed instead of hardcoded 100.0
+- Baskerville removal: deterministic mode returns FRM=1.0 matching
+  dgscor.f (DGSD<1 → no correction)
+- BA floor: max(0.001) not max(1.0), matching Fortran (no ln(BA) clamp)
 
-    pyfvs has `xmin == xmax == 3.0` for OC (default from
-    `growth_parameters`), which creates a hard switch at DBH=3" rather
-    than the gradual blend. Once a pyfvs tree crosses 3", it jumps
-    straight into pure DGF — but DGF is calibrated assuming trees
-    arrived through the gradual blend, so applied at the threshold
-    cold it produces ~2x the diameter increment native does. Compounded
-    over 5 cycles this gives 3.3x basal area at 25 years
-    (df-si80-25yr: pyfvs BA=114.7 vs native BA=34.96).
+OC-specific:
+- MAPLOC: ifor=9 → ISPFOR=MAPLOC(9,eq) for correct DGFOR intercept
+  (oc/dgf.f:182-195, oc/grinit.f:192)
+- Elevation/slope: ELEV=35, SLOPE=0.05 from oc/grinit.f:174,227
+- SMHTGF CR scaling: group-2 (firs) uses CR 0-1 directly (not *10);
+  group-1 (pines) uses CR*10. RELHT capped at 1.05 (regent.f:211).
+- Establishment cycle: bare_ground=True triggers LESTB=TRUE behavior
+  (5yr variants: no growth; 10yr variants: (cycle-5) years small-tree)
+- ESSUBH initial heights: species-specific from essubh.f (DF=2.0 ft)
 
-    Fix (A3 in the task list):
-    - Set `transition_xmin=1.5`, `transition_xmax=3.0` for OC in
-      `src/pyfvs/variant_registry.py`.
-    - Make OC use linear blending (not the SN-style smoothstep
-      `3t^2 - 2t^3`). Native's formula on regent.f:351 is plain linear
-      `(D - xmin) / (xmax - xmin)`, clamped 0..1.
-    - Either add a `transition_blend` field on `VariantConfig` or
-      special-case OC inline in `tree.py` `grow_dynamic` (cf. the
-      existing PN/WC linear special case at tree.py:238-241).
+--- Remaining blocker: ORGANON mortality ---
 
-(2) `bare_ground=True` setup mismatch (test-helper / Stand issue)
+The OC native library initializes with LORGANON=TRUE (oc/grinit.f:342).
+Every cycle, dgdriv.f:370 calls the ORGANON DLL `EXECUTE()` which
+computes growth and mortality estimates for all trees. For planted
+bare-ground trees (IORG=0), FVS DGF equations are used for growth,
+BUT oc/morts.f:498 uses ORGANON mortality (MORTEXP array) for ALL
+trees when SMORMT > 0:
 
-    Native FVS with ESTAB/PLANT spends cycle 1 on establishment only:
-    HT grows from ~1 ft to ~3 ft, DBH stays near 0.1". `run_pyfvs` in
-    `tests/parity/_helpers.py` (with `bare_ground=True`) creates trees
-    at DBH=0.1, HT=1.0 and runs a full growth cycle starting from that
-    state. Net effect: every pyfvs simulation that uses this helper is
-    ~5 calendar years ahead of native for the rest of the run.
-    Observed on the DF SI=80 scenario:
+    IF(LORGANON .AND. (SMORMT .GT. 0.)) THEN
+      WK2(I) = MORTEXP(I) * (FINT/5.)
+      ...
+      GO TO 39   ! skips FVS SDI-based mortality entirely
+    ENDIF
 
-        year  | pyfvs QMD | native QMD  | note
-          5   |   1.03    |    0.10     | pyfvs did full cycle, native establishment
-         10   |   2.40    |    1.13     | pyfvs roughly matches native at 5 yrs later
-         15   |   3.58    |    2.09     | ~5-yr lead consistent
-         25   |   7.29    |    4.06     | lead grows once pyfvs enters large-tree mode
+pyfvs uses FVS SDI-based mortality (OCMortalityModel → LSMortalityModel).
+Native uses ORGANON mortality. These are completely different models.
 
-    Fix (B1/B2 in the task list):
+The mortality difference is not the main driver of the BA gap (TPA is
+similar: 396 vs 389). The dominant cause is the per-tree QMD divergence
+(6.66 vs 4.06). However, ORGANON mortality will become critical at
+higher densities and longer simulations where thinning mortality is the
+primary regulator.
 
-    Option B1 (test-helper level, lower risk):
-        In `tests/parity/_helpers.py run_pyfvs`, when `bare_ground=True`,
-        create the initial trees at the state native produces at
-        end-of-cycle-1 instead of the pre-cycle state. For DF at SI=80
-        that's roughly (HT=3.01, DBH=0.1026, age=5), then run
-        `stand.grow(years - 5)` instead of `stand.grow(years)`.
-        Downside: this hardcodes per-species establishment values.
+The per-tree growth divergence likely comes from ORGANON's growth
+effect on trees that eventually get IORG=1 status (set during cratet
+calibration) — but for bare-ground PLANT scenarios, all trees remain
+IORG=0 and should use FVS equations. The remaining gap may be from
+ORGANON indirectly affecting stand-level variables (BA, CCF, QMD) that
+feed back into FVS equations through the DENSE subroutine.
 
-    Option B2 (engine level, correct fix):
-        In `Stand`, add an "establishment-only" first-cycle mode that
-        mirrors native's ESSUBH + REGENT behavior. Native's first cycle
-        does NOT run the full small/large tree growth path; it only
-        runs establishment logic that produces modest height growth and
-        effectively-frozen DBH.
+Investigation needed: run native with ORGANON disabled (keyword:
+ORGANON / 0 / or set LORGANON=FALSE) to isolate ORGANON vs FVS
+mortality and growth effects. If the gap closes significantly with
+ORGANON off, the fix is to implement ORGANON mortality in pyfvs.
 
-    The simpler fix is B1 (bounded to parity tests); the correct fix
-    is B2. Either will reduce the 5-year lead.
+--- Implementation roadmap ---
 
-After both fixes: re-run the parity suite
+Phase 1: Implement ORGANON mortality model
 
-    C1. Export `FVS_LIB_PATH=/path/to/ForestVegetationSimulator/bin` in
-        the shell, then run
-        `pytest tests/parity/test_oc_parity.py -v -m "" --runxfail`.
-        `--runxfail` makes xfails display their real pass/fail state.
-    C2. If all 3 cases (df-si80-25yr, df-si100-50yr, pp-si70-25yr) pass,
-        delete the `@pytest.mark.xfail` decorator. The `strict=True`
-        flag will turn the tests into hard failures on regression.
-    C3. If only some pass, narrow the xfail parametrize set to the
-        still-failing cases and document what remains in this docstring.
+    Key Fortran files:
+    - bin/FVSoc_buildDir/mortality.f — ORGANON mortality subroutine
+    - bin/FVSoc_buildDir/diagro.f — ORGANON diameter growth
+    - bin/FVSoc_buildDir/htgrowth.f — ORGANON height growth
+    - bin/FVSoc_buildDir/prepare.f — ORGANON initialization
+    - bin/FVSoc_buildDir/start2.f — ORGANON startup
+    - oc/grinit.f lines 340-450 — ORGANON variable initialization
+    - ORGANON.F77 include — ORGANON common block variables
 
-Source files to reference:
+    The ORGANON DLL is called via EXECUTE() in dgdriv.f:370 with 50+
+    arguments. It returns DGRO, HGRO, CRCHNG, MORTEXP arrays. For
+    parity, we need at minimum the MORTEXP output.
 
-- `ForestVegetationSimulator/oc/regent.f` lines 283-370 — REGENT
-  small-tree blend logic. Note that lines 290-301 (Wykoff DK/DKK) are
-  effectively dead code in the bare-ground path; lines 312-324 always
-  override with HTDBH because LHTDRG defaults to .FALSE. (see
-  oc/grinit.f:105).
-- `ForestVegetationSimulator/oc/grinit.f` line 105 — `LHTDRG(I) = .FALSE.`,
-  the per-species default that controls whether HTDBH overrides the
-  Wykoff small-tree DBH derivation in regent.f.
-- `ForestVegetationSimulator/oc/dgf.f` — DGF large-tree DDS equation
-  (already verified correct; do not touch the coefficients).
-- `ForestVegetationSimulator/bin/FVSoc_buildDir/dgdriv.f` lines 533-557
-  — how DGF's `WK2(I)` (5-year ln(DDS)) becomes `DG(I)` in DIB space:
-      D    = DBH(I) * BRATIO(ISPC, DBH(I), HT(I))
-      DDS  = EXP(WK2(I) + XDGROW) * WK4(I)
-      DG(I)= SQRT(D*D + DDS*FRM) - D
-- `ForestVegetationSimulator/bin/FVSoc_buildDir/update.f` line 115 —
-  how `DG(I)` in DIB space becomes a DBH update:
-      DBH(I) = DBH(I) + DG(I) / BRATIO(IS, DBH(I), HT(I))
+    The ORGANON mortality model (SWO variant) is documented in:
+    - Hann, D.W. 2011. ORGANON user's manual, Edition 9.1
 
-Debug scaffolding for validation:
+    Implementation strategy:
+    a) Port the ORGANON SWO mortality equation from mortality.f
+    b) Create OC-specific mortality model that uses ORGANON rates
+       instead of FVS SDI-based rates
+    c) Wire it into the variant registry for OC
 
-The FVS DEBUG keyword can be added to NativeStand's generated key file
-to print per-tree DGF calculations. Use something like:
+Phase 2: Validate
 
-    STDIDENT
-    TRACE
-    DEBUG
-    DGF               0
-    END
-    ... (rest of the key file)
+    D1. Run parity suite: `pytest tests/parity/test_oc_parity.py -v
+        -m "" --runxfail`
+    D2. If all 3 cases pass, remove the xfail decorator
+    D3. If only some pass, narrow xfail and document what remains
 
-This prints per-cycle `IN DGF 8000F ...` lines (CONSPP, D, BA, CR, BAL,
-PCCF, RELDEN, HT, AVH) and an `IN DGF, I=..., LN(DDS)= ...` summary
-line for every tree. The stand.out file can be binary (nulls); run
-`tr -d '\\000' < stand.out` first. This is the canonical way to
-cross-check any new pyfvs OC implementation against Fortran at matched
-stand state. A minimal standalone run is possible with:
+--- Fortran source reference ---
 
-    /path/to/FVSoc --keywordfile=stand.key
+All files relative to ~/Projects/ForestVegetationSimulator:
 
-but the OC variant's standalone executable tends to segfault after
-2-3 cycles with DEBUG enabled; use 2 cycles for reliable capture.
+- oc/regent.f — small-tree blend (verified, lines 283-370)
+- oc/dgf.f — large-tree DDS (verified, coefficients correct)
+- oc/morts.f — mortality (lines 498-504: ORGANON path)
+- oc/grinit.f — initialization (line 342: LORGANON=TRUE)
+- bin/FVSoc_buildDir/dgdriv.f — DG driver (line 370: EXECUTE call)
+- bin/FVSoc_buildDir/htdbh.f — H-D relationship (verified exact match)
+- bin/FVSoc_buildDir/smhtgf.f — small-tree height (verified match)
+- bin/FVSoc_buildDir/dgscor.f — stochastic error (FRM=1.0 when DGSD<1)
+- bin/FVSoc_buildDir/mortality.f — ORGANON mortality subroutine
+- bin/FVSoc_buildDir/diagro.f — ORGANON diameter growth subroutine
 """
 
 from __future__ import annotations
@@ -301,27 +255,12 @@ def test_oc_fix_halves_dds_vs_unconverted():
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "Strict OC parity is blocked by two independent issues — see this "
-        "module's docstring for the full refactoring roadmap. "
-        "Short version: "
-        "(1) pyfvs lacks the 1.5-3.0\" linear blend zone between small- and "
-        "large-tree DBH models (oc/regent.f:351-367). xmin==xmax==3.0 means "
-        "trees jump straight into pure DGF at the threshold instead of "
-        "gradually transitioning, and DGF was calibrated assuming the blended "
-        "application — net effect ~2x DBH increment at comparable states, "
-        "compounding to 3.3x basal area at 25 years for DF SI=80. "
-        "(2) bare_ground=True setup mismatch — native's first cycle after "
-        "ESTAB/PLANT is establishment-only (HT 1->3 ft, DBH stays ~0.1\"); "
-        "pyfvs runs full growth from cycle 1, putting pyfvs 5 calendar years "
-        "ahead of native for the whole simulation. "
-        "Note: an earlier version of this xfail blamed the small-tree DBH "
-        "derivation (Curtis-Arney vs Wykoff inverse), but oc/grinit.f:105 "
-        "sets LHTDRG=.FALSE. by default, so oc/regent.f:312-324 always "
-        "overrides the Wykoff DK/DKK with HTDBH (Curtis-Arney) for bare-ground "
-        "runs — exactly what pyfvs already does via solve_dbh_from_height. "
-        "The DGF equation itself is verified correct against the native "
-        "library's DGF debug output at matched cycle-2 inputs (ln_dds_5 "
-        "agreement to 4 decimals)."
+        "OC parity blocked by missing ORGANON mortality. Native OC uses "
+        "LORGANON=TRUE (oc/grinit.f:342) — the ORGANON DLL computes "
+        "mortality for ALL trees (oc/morts.f:498), bypassing FVS SDI-based "
+        "mortality. pyfvs uses FVS mortality only. FVS growth equations "
+        "(DGF, SMHTGF, H-D inverse, blend zone) are verified correct at "
+        "single-evaluation level. See module docstring for full roadmap."
     ),
 )
 @pytest.mark.parametrize(
