@@ -51,69 +51,95 @@ OC-specific:
   (5yr variants: no growth; 10yr variants: (cycle-5) years small-tree)
 - ESSUBH initial heights: species-specific from essubh.f (DF=2.0 ft)
 
---- Remaining blocker: ORGANON mortality ---
+--- ORGANON mortality: implemented (2026-04-13) ---
 
-The OC native library initializes with LORGANON=TRUE (oc/grinit.f:342).
-Every cycle, dgdriv.f:370 calls the ORGANON DLL `EXECUTE()` which
-computes growth and mortality estimates for all trees. For planted
-bare-ground trees (IORG=0), FVS DGF equations are used for growth,
-BUT oc/morts.f:498 uses ORGANON mortality (MORTEXP array) for ALL
-trees when SMORMT > 0:
+OrganonSwoMortalityModel (mortality.py) implements the full ORGANON SWO
+individual-tree mortality equation (PM_SWO from mortality.f:441-539)
+plus the MORTAL_RUN density-dependent caps.  When big-6 conifers
+(DF, GF, IC, SP, PP) have HT > 4.5 and DBH >= 0.1, ORGANON mortality
+is used for ALL trees; otherwise FVS SDI-based mortality (OCMortalityModel)
+is used as a fallback.
 
-    IF(LORGANON .AND. (SMORMT .GT. 0.)) THEN
-      WK2(I) = MORTEXP(I) * (FINT/5.)
-      ...
-      GO TO 39   ! skips FVS SDI-based mortality entirely
-    ENDIF
+Ported components:
+- PM_SWO logistic (18 species groups, 8 coefficients each)
+- Crown ratio adjustment (CRADJ, mortality.f:136)
+- Old-growth indicator (OLDGRO, mortality.f:737-800)
+- Species mapping (orgspc.f + SPGROUP_EDIT, 50 OC species → 18 groups)
+- Self-thinning line (SUBMAX, submax.f: A1/A2 with composition modifiers)
+- Density-dependent KR1 iteration (mortality.f:239-298)
+- PP→DF site index conversion (execute2.f:263-267)
 
-pyfvs uses FVS SDI-based mortality (OCMortalityModel → LSMortalityModel).
-Native uses ORGANON mortality. These are completely different models.
+--- ORGANON diameter growth: implemented (2026-04-13) ---
 
-The mortality difference is not the main driver of the BA gap (TPA is
-similar: 396 vs 389). The dominant cause is the per-tree QMD divergence
-(6.66 vs 4.06). However, ORGANON mortality will become critical at
-higher densities and longer simulations where thinning mortality is the
-primary regulator.
+organon_swo_diameter_growth() (oc_diameter_growth.py) implements the
+ORGANON SWO DG_SWO equation (diagro.f:87-239) for IORG=1 trees.
+When a tree is IORG-eligible (species in the _IORG_SPECIES set AND
+HT > 4.5 AND DBH >= 0.1), tree.py dispatches to ORGANON DG instead
+of FVS DGF.
 
-The per-tree growth divergence likely comes from ORGANON's growth
-effect on trees that eventually get IORG=1 status (set during cratet
-calibration) — but for bare-ground PLANT scenarios, all trees remain
-IORG=0 and should use FVS equations. The remaining gap may be from
-ORGANON indirectly affecting stand-level variables (BA, CCF, QMD) that
-feed back into FVS equations through the DENSE subroutine.
+Ported components:
+- DG_SWO equation (18 groups, 11 parameters: diagro.f DGPAR array)
+- Crown ratio adjustment (CRADJ, diagro.f:213-214)
+- Species-specific ADJ factors (diagro.f:218-236)
+- PP→DF site index conversion
 
-Investigation needed: run native with ORGANON disabled (keyword:
-ORGANON / 0 / or set LORGANON=FALSE) to isolate ORGANON vs FVS
-mortality and growth effects. If the gap closes significantly with
-ORGANON off, the fix is to implement ORGANON mortality in pyfvs.
+--- ORGANON height growth: implemented (2026-04-13) ---
+
+organon_swo_height_growth() (oc_height_growth.py) implements the
+ORGANON SWO height growth for the 5 major conifer groups (DF, GW, PP,
+SP, IC) using HS_HG potential height growth (Hann-Scrivani 1987) and
+HG_SWO crown/competition modifier.  Minor species (groups 6-18) fall
+back to FVS HTGF.
+
+--- Blend-weight bypass for IORG=1 trees (2026-04-13) ---
+
+Key finding from oc/regent.f: lines 249 and 359 force both blend
+weights to 1.0 for ORGANON IORG=1 trees:
+
+    IF(LORGANON .AND. (IORG(K) .EQ. 1)) XWT = 1.0   ! height
+    IF(LORGANON .AND. (IORG(K) .EQ. 1)) XDWT = 1.0  ! diameter
+
+This bypasses small-tree growth entirely — even for trees below the
+normal blend zone minimum (DBH < 1.5"). Implemented in tree.py's
+grow_dynamic by overriding dg_weight/ht_weight for IORG-eligible
+trees. This was the largest single fix: QMD 4.65→4.25, topH 32.6→35.3.
+
+Current state (df-si80-25yr at 400 TPA, deterministic):
+
+    pyfvs:  TPA=390  BA=38.4  QMD=4.25  topH=35.3
+    native: TPA=389  BA=35.0  QMD=4.06  topH=34.8
+
+    pp-si70-25yr: PASSES parity (all metrics within tolerance)
+
+For df-si80-25yr, TPA (0.3%), QMD (4.7%), and topH (1.4%) are within
+tolerance.  BA (9.8%) and volume (11.3%) exceed tolerance because BA
+scales as QMD^2, so the 4.7% QMD overshoot becomes 9.7% in BA.
+
+--- Remaining gap analysis ---
+
+For DF, the ~5% QMD overshoot corresponds to ~1 inch over 25 years
+(0.04 in/cycle excess).  Possible sources (unverified — requires
+native debug output or ORGANON-off comparison):
+
+  1. Crown ratio model: pyfvs Weibull CR vs ORGANON CR2 from crngrow.f.
+     Lower CR reduces ORGANON DG (B3 term), which could account for the
+     gap. BUT this is unconfirmed — native CR values are not known.
+  2. ORGANON calibration: the CALIB(3,ISPGRP) diameter calibration factor
+     defaults to 1.0 but is updated by CRATET calibration logic in native.
+     For bare-ground plants with no calibration data, it should stay at 1.0.
+  3. Small differences in H-D curve inversion or competition metrics at
+     cycle boundaries, compounding over multiple cycles.
 
 --- Implementation roadmap ---
 
-Phase 1: Implement ORGANON mortality model
+Phase 4: Narrow the remaining DF gap
 
-    Key Fortran files:
-    - bin/FVSoc_buildDir/mortality.f — ORGANON mortality subroutine
-    - bin/FVSoc_buildDir/diagro.f — ORGANON diameter growth
-    - bin/FVSoc_buildDir/htgrowth.f — ORGANON height growth
-    - bin/FVSoc_buildDir/prepare.f — ORGANON initialization
-    - bin/FVSoc_buildDir/start2.f — ORGANON startup
-    - oc/grinit.f lines 340-450 — ORGANON variable initialization
-    - ORGANON.F77 include — ORGANON common block variables
+    a) Obtain native debug output (DEBUG keyword) to compare per-cycle
+       CR, DG, HTG values between pyfvs and native
+    b) If CR is the driver: port ORGANON crown ratio from crngrow.f
+    c) If calibration: verify CALIB values in bare-ground scenario
 
-    The ORGANON DLL is called via EXECUTE() in dgdriv.f:370 with 50+
-    arguments. It returns DGRO, HGRO, CRCHNG, MORTEXP arrays. For
-    parity, we need at minimum the MORTEXP output.
-
-    The ORGANON mortality model (SWO variant) is documented in:
-    - Hann, D.W. 2011. ORGANON user's manual, Edition 9.1
-
-    Implementation strategy:
-    a) Port the ORGANON SWO mortality equation from mortality.f
-    b) Create OC-specific mortality model that uses ORGANON rates
-       instead of FVS SDI-based rates
-    c) Wire it into the variant registry for OC
-
-Phase 2: Validate
+Phase 5: Validate
 
     D1. Run parity suite: `pytest tests/parity/test_oc_parity.py -v
         -m "" --runxfail`
@@ -252,25 +278,12 @@ def test_oc_fix_halves_dds_vs_unconverted():
 # Native parity tests (require FVSoc.so)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "OC parity blocked by missing ORGANON mortality. Native OC uses "
-        "LORGANON=TRUE (oc/grinit.f:342) — the ORGANON DLL computes "
-        "mortality for ALL trees (oc/morts.f:498), bypassing FVS SDI-based "
-        "mortality. pyfvs uses FVS mortality only. FVS growth equations "
-        "(DGF, SMHTGF, H-D inverse, blend zone) are verified correct at "
-        "single-evaluation level. See module docstring for full roadmap."
-    ),
-)
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
-        ("DF", 80, 400, 25),
-        ("DF", 100, 300, 50),
         ("PP", 70, 350, 25),
     ],
-    ids=["df-si80-25yr", "df-si100-50yr", "pp-si70-25yr"],
+    ids=["pp-si70-25yr"],
 )
 def test_oc_planted_parity(
     require_native_variant,
@@ -280,11 +293,11 @@ def test_oc_planted_parity(
     trees_per_acre,
     years,
 ):
-    """pyfvs OC and native FVSoc planted-stand metrics — XFAIL.
+    """pyfvs OC and native FVSoc planted-stand metrics — passing cases.
 
-    See xfail reason above. Currently confirms that the multi-bug picture
-    is reproducible. When the underlying OC bugs are fixed, this xfail
-    will start passing strictly and need to be removed.
+    PP passes after implementing ORGANON mortality, diameter growth,
+    height growth, and the regent.f blend-weight override for IORG=1
+    trees.
     """
     require_native_variant("OC")
 
@@ -294,7 +307,60 @@ def test_oc_planted_parity(
         site_index=site_index,
         trees_per_acre=trees_per_acre,
         years=years,
-        bare_ground=True,  # Match native FVS's bare-ground PLANT keyword
+        bare_ground=True,
+    )
+    native_result = run_native(
+        variant="OC",
+        species=species,
+        site_index=site_index,
+        trees_per_acre=trees_per_acre,
+        years=years,
+    )
+
+    assert_metrics_close(pyfvs_result, native_result, parity_tolerance)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "OC DF parity: BA (9.8%) and volume (11.3%) exceed tolerance for "
+        "df-si80-25yr. TPA (0.3%), QMD (4.7%), and topH (1.4%) pass. The "
+        "BA overshoot is QMD^2 amplification. Remaining QMD gap likely from "
+        "crown ratio divergence: pyfvs Weibull CR vs ORGANON CR2 from "
+        "EXECUTE(). The df-si100-50yr case compounds the per-cycle error "
+        "over 10 cycles. See module docstring."
+    ),
+)
+@pytest.mark.parametrize(
+    "species,site_index,trees_per_acre,years",
+    [
+        ("DF", 80, 400, 25),
+        ("DF", 100, 300, 50),
+    ],
+    ids=["df-si80-25yr", "df-si100-50yr"],
+)
+def test_oc_planted_parity_df(
+    require_native_variant,
+    parity_tolerance,
+    species,
+    site_index,
+    trees_per_acre,
+    years,
+):
+    """pyfvs OC DF scenarios — XFAIL.
+
+    DF has a ~5% QMD overshoot that compounds to ~10% in BA. The gap
+    is likely from crown ratio divergence (pyfvs Weibull vs ORGANON CR2).
+    """
+    require_native_variant("OC")
+
+    pyfvs_result = run_pyfvs(
+        variant="OC",
+        species=species,
+        site_index=site_index,
+        trees_per_acre=trees_per_acre,
+        years=years,
+        bare_ground=True,
     )
     native_result = run_native(
         variant="OC",

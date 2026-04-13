@@ -240,7 +240,8 @@ class MortalityModel:
         max_sdi: Optional[float] = None,
         random_seed: Optional[int] = None,
         pre_growth_qmd: float = 0.0,
-        pre_growth_tpa: int = 0
+        pre_growth_tpa: int = 0,
+        **kwargs,
     ) -> MortalityResult:
         """Apply FVS mortality matching Fortran morts.f + varmrt.f.
 
@@ -1165,6 +1166,567 @@ class OCMortalityModel(LSMortalityModel):
         tolerance-flip and return the stored value directly.
         """
         return self._shade_tolerance.get(species, 0.5)
+
+
+class OrganonSwoMortalityModel(OCMortalityModel):
+    """ORGANON SWO mortality model for the OC variant.
+
+    When the OC variant has LORGANON=TRUE (oc/grinit.f:342), every cycle
+    dgdriv.f:370 calls the ORGANON DLL which computes mortality for all
+    trees.  In oc/morts.f:498, when SMORMT > 0 the ORGANON mortality
+    (MORTEXP array) completely replaces FVS SDI-based mortality.
+
+    This class ports the ORGANON SWO individual-tree mortality equation
+    (PM_SWO from bin/FVSoc_buildDir/mortality.f) and the MORTAL_RUN
+    density-dependent caps.  When no "big 6" conifer species meet the
+    ORGANON threshold (HT > 4.5 and DBH >= 0.1), the model falls back
+    to the FVS OCMortalityModel parent class.
+
+    The individual tree equation is a logistic:
+
+        PMK = B0 + B1*DBH + B2*DBH^2 + B3*CR + B4*SI
+              + B5*BAL + B6*BAL*exp(B7*OG)
+
+    where SI is total-height site index, CR is crown ratio (0–1),
+    BAL is basal area of larger trees, and OG is the old-growth
+    indicator (mean DBH*HT/10000 for the top 5 TPA by DBH class).
+
+    Coefficients from Hann and Hanus (2001) FRL Research Contribution 34
+    and other sources cited in mortality.f.
+    """
+
+    # OC FVS species numbers for the "big 6" conifers (dgdriv.f:227).
+    # If ANY tree of these species meets HT > 4.5 and DBH >= 0.1, ORGANON
+    # runs for ALL trees.  Species codes: IC, GF, DF, SP, PP.
+    _BIG6_SPECIES = frozenset({'IC', 'GF', 'DF', 'SP', 'PP'})
+
+    # PM_SWO coefficients: 18 SWO species groups × 8 equation parameters + POW.
+    # From mortality.f MPAR(18,9) DATA statement.
+    # Key: group number (1–18).
+    # Value: (B0, B1, B2, B3, B4, B5, B6, B7, POW).
+    _PM_SWO = {
+        1:  (-4.648483270, -0.266558690,  0.003699110, -2.118026640,  0.025499430,  0.003361340,  0.013553950, -2.723470950, 1.0),  # DF
+        2:  (-2.215777201, -0.162895666,  0.003317290, -3.561438261,  0.014644689,  0.0,          0.0,          0.0,          1.0),  # GW
+        3:  (-1.050000682, -0.194363402,  0.003803100, -3.557300286,  0.003971638,  0.005573601,  0.0,          0.0,          1.0),  # PP
+        4:  (-1.531051304,  0.0,          0.0,          0.0,          0.0,          0.0,          0.0,          0.0,          1.0),  # SP
+        5:  (-1.922689902, -0.136081990,  0.002479863, -3.178123293,  0.0,          0.004684133,  0.0,          0.0,          1.0),  # IC
+        6:  (-1.166211991,  0.0,          0.0,         -4.602668157,  0.0,          0.0,          0.0,          0.0,          1.0),  # WH
+        7:  (-0.761609,    -0.529366,     0.0,         -4.74019,      0.0119587,    0.00756365,   0.0,          0.0,          1.0),  # RC
+        8:  (-4.072781265, -0.176433475,  0.0,         -1.729453975,  0.0,          0.012525642,  0.0,          0.0,          1.0),  # PY
+        9:  (-6.089598985, -0.245615070,  0.0,         -3.208265570,  0.033348079,  0.013571319,  0.0,          0.0,          1.0),  # MD
+        10: (-4.317549852, -0.057696253,  0.0,          0.0,          0.004861355,  0.00998129,   0.0,          0.0,          1.0),  # GC
+        11: (-2.410756914,  0.0,          0.0,         -1.049353753,  0.008845583,  0.0,          0.0,          0.0,          1.0),  # TA
+        12: (-2.990451960,  0.0,          0.0,          0.0,          0.0,          0.002884840,  0.0,          0.0,          1.0),  # CL
+        13: (-2.976822456,  0.0,          0.0,         -6.223250962,  0.0,          0.0,          0.0,          0.0,          1.0),  # BL
+        14: (-6.00031085,  -0.10490823,   0.0,         -0.99541909,   0.00912739,   0.87115652,   0.0,          0.0,          1.0),  # WO
+        15: (-3.108619921, -0.570366764,  0.018205398, -4.584655216,  0.014926170,  0.012419026,  0.0,          0.0,          1.0),  # BO
+        16: (-2.0,         -0.5,          0.015,       -3.0,          0.015,        0.01,         0.0,          0.0,          1.0),  # RA
+        17: (-3.020345211,  0.0,          0.0,         -8.467882343,  0.013966388,  0.009461545,  0.0,          0.0,          1.0),  # PD
+        18: (-1.386294361,  0.0,          0.0,          0.0,          0.0,          0.0,          0.0,          0.0,          1.0),  # WI
+    }
+
+    # OC species code → ORGANON SWO species group (1–18).
+    # Derived from orgspc.f (OSPMAP) → SPGROUP_EDIT (SCODE1 with ISX>2 adjustment).
+    _SPECIES_TO_SWO_GROUP = {
+        'PC': 7,  'IC': 5,  'RC': 7,  'GF': 2,  'RF': 1,  'SH': 1,
+        'DF': 1,  'WH': 6,  'MH': 6,  'WB': 3,  'KP': 3,  'LP': 3,
+        'CP': 3,  'LM': 3,  'JP': 3,  'SP': 4,  'WP': 3,  'PP': 3,
+        'MP': 3,  'GP': 3,  'WJ': 8,  'BR': 2,  'GS': 3,  'PY': 8,
+        'OS': 8,  'LO': 12, 'CY': 12, 'BL': 12, 'EO': 12, 'WO': 14,
+        'BO': 15, 'VO': 12, 'IO': 12, 'BM': 13, 'BU': 13, 'RA': 16,
+        'MA': 9,  'GC': 10, 'DG': 17, 'FL': 13, 'WN': 13, 'TO': 11,
+        'SY': 13, 'AS': 13, 'CW': 13, 'WI': 18, 'CN': 17, 'CL': 17,
+        'OH': 17, 'RW': 3,
+    }
+
+    # DF site index conversion from PP (sitset.f / execute2.f:263-267).
+    _PP_TO_DF_SI = 1.062934
+    _DF_TO_PP_SI = 0.940792
+
+    # ORGANON SWO self-thinning line parameters (submax.f).
+    _A2 = 0.62305                # Reineke (1933) slope
+    _BASE_A1 = 6.21113           # Default SWO (max SDI ≈ 530.2)
+    _A1_TF_MODIFIER = 1.03481817 # True fir modifier
+    _A1_OC_MODIFIER = 0.9943501  # Other conifer modifier
+    _RDCC = 0.60                 # Critical relative density (VERSION ≤ 3)
+    _A3 = 14.39533971            # Density trajectory exponent (VERSION ≤ 3)
+    _KB = 0.005454154            # Basal area factor (pi/576)
+
+    # Persistent MORTAL_RUN state (per instance, reset on new stand).
+    def __init__(self, default_species: str = 'DF', max_sdi: Optional[float] = None,
+                 variant: str = 'OC'):
+        super().__init__(default_species=default_species, max_sdi=max_sdi, variant=variant)
+        self._rd0 = 0.0
+        self._no = 0.0
+        self._a1max = self._BASE_A1
+        self._pa1max = self._BASE_A1
+        self._organon_cycle = 0
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def apply_mortality(
+        self,
+        trees: List['Tree'],
+        cycle_length: int = 5,
+        max_sdi: Optional[float] = None,
+        random_seed: Optional[int] = None,
+        pre_growth_qmd: float = 0.0,
+        pre_growth_tpa: int = 0,
+        site_index: Optional[float] = None,
+        **kwargs,
+    ) -> MortalityResult:
+        """Apply ORGANON SWO mortality when big-6 trees are present.
+
+        Falls back to the parent OCMortalityModel (FVS SDI-based) when
+        no big-6 species meets the ORGANON threshold (HT > 4.5 ft and
+        DBH >= 0.1 in).  This matches the Fortran behaviour in
+        dgdriv.f:254-259.
+
+        Args:
+            trees: Post-growth tree list (each tree = 1 TPA).
+            cycle_length: Projection cycle in years.
+            site_index: Stand site index (total height).  Required for
+                ORGANON path; ignored when falling back to FVS.
+            Other args: Forwarded to parent ``apply_mortality``.
+
+        Returns:
+            MortalityResult with survivors and mortality count.
+        """
+        if len(trees) <= 1:
+            return MortalityResult(survivors=list(trees), mortality_count=0,
+                                   trees_died=[])
+
+        # Do any big-6 species meet the ORGANON threshold?
+        has_organon = any(
+            t.height > 4.5 and t.dbh >= 0.1 and t.species in self._BIG6_SPECIES
+            for t in trees
+        )
+
+        if not has_organon:
+            return super().apply_mortality(
+                trees, cycle_length=cycle_length, max_sdi=max_sdi,
+                random_seed=random_seed, pre_growth_qmd=pre_growth_qmd,
+                pre_growth_tpa=pre_growth_tpa,
+            )
+
+        return self._apply_organon_mortality(
+            trees, cycle_length, site_index or 80.0, random_seed,
+        )
+
+    # ------------------------------------------------------------------
+    # ORGANON SWO mortality core
+    # ------------------------------------------------------------------
+
+    def _apply_organon_mortality(
+        self,
+        trees: List['Tree'],
+        cycle_length: int,
+        site_index: float,
+        random_seed: Optional[int],
+    ) -> MortalityResult:
+        """Full ORGANON MORTAL_RUN logic (mortality.f).
+
+        1. Compute stand-level density (STBA, STN, RD).
+        2. Compute old-growth indicator (OG).
+        3. For each tree: individual logit (PM_SWO) → 5-yr mortality rate.
+        4. If density > RDCC: iteratively increase logit (KR1) to cap density.
+        5. Apply mortality stochastically.
+        """
+        rng = random.Random(random_seed) if random_seed is not None else random.Random()
+
+        # DF site index (ORGANON always uses DF SI).
+        df_si = self._resolve_df_site_index(site_index)
+
+        # Stand-level metrics (MORTAL_RUN lines 58-73).
+        stba = sum(self._KB * t.dbh ** 2 for t in trees)
+        stn = float(len(trees))
+
+        if stn < 1 or stba <= 0:
+            return MortalityResult(survivors=list(trees), mortality_count=0,
+                                   trees_died=[])
+
+        # A1/A2 from SUBMAX (for pure-DF stands, A1 = BASE_A1).
+        a1, a2 = self._compute_submax(trees)
+
+        # Relative density (mortality.f:79).
+        sqmda = math.sqrt(stba / (self._KB * stn))
+        rd = stn / math.exp(a1 / a2 - math.log(sqmda) / a2)
+
+        # Old-growth indicator (mortality.f:737-800, called with XIND=0).
+        og = self._compute_oldgro(trees)
+
+        # BAL for each tree (basal area of larger trees).
+        bal_map = self._compute_bal(trees)
+
+        # Individual-tree logit (PM_SWO) and POW.
+        pmk_list = []   # per-tree logit
+        pow_list = []    # per-tree POW exponent
+        for t in trees:
+            grp = self._SPECIES_TO_SWO_GROUP.get(t.species, 1)
+            coeffs = self._PM_SWO[grp]
+            bal = bal_map[id(t)]
+            pmk = self._pm_swo(coeffs, t.dbh, t.crown_ratio, df_si, bal, og, grp)
+            pmk_list.append(pmk)
+            pow_list.append(coeffs[8])
+
+        # Convert logit to 5-yr mortality rates and compute post-mortality
+        # TPA/BA (mortality.f:128-142).
+        na = 0.0     # post-mortality TPA
+        baa = 0.0    # post-mortality BA
+        pm_rates = []
+        for i, t in enumerate(trees):
+            cr = t.crown_ratio
+            cradj = 1.0
+            if cr <= 0.17:
+                cradj = 1.0 - math.exp(-(25.0 * cr) ** 2)
+            xpm = 1.0 / (1.0 + math.exp(-pmk_list[i]))
+            ps = (1.0 - xpm) ** pow_list[i]
+            pm = 1.0 - ps * cradj
+            pm_rates.append(pm)
+            na += 1.0 - pm  # expected survivors from this tree
+            baa += self._KB * t.dbh ** 2 * (1.0 - pm)
+
+        # Density-dependent adjustment (mortality.f:147-316).
+        # Only active when MORT=TRUE (INDS(9)=1, default for OC).
+        kr1 = self._density_adjustment(
+            trees, pmk_list, pow_list, stn, stba, na, baa,
+            rd, a1, a2,
+        )
+
+        # If kr1 > 0, recompute PM with shifted logit.
+        if kr1 > 0.0:
+            pm_rates = []
+            for i, t in enumerate(trees):
+                cr = t.crown_ratio
+                cradj = 1.0
+                if cr <= 0.17:
+                    cradj = 1.0 - math.exp(-(25.0 * cr) ** 2)
+                xpm = 1.0 / (1.0 + math.exp(-(kr1 + pmk_list[i])))
+                ps = (1.0 - xpm) ** pow_list[i]
+                pm = 1.0 - ps * cradj
+                pm_rates.append(pm)
+
+        # Scale 5-yr rate to cycle length (oc/morts.f:499: FINT/5).
+        scale = cycle_length / 5.0
+
+        # Apply mortality stochastically.
+        survivors = []
+        trees_died = []
+        for i, t in enumerate(trees):
+            # Expected trees dying from this 1-TPA record.
+            mort_prob = pm_rates[i] * scale
+            mort_prob = min(mort_prob, 1.0)
+            if rng.random() > mort_prob:
+                survivors.append(t)
+            else:
+                trees_died.append(t)
+
+        self._organon_cycle += 1
+
+        return MortalityResult(
+            survivors=survivors,
+            mortality_count=len(trees_died),
+            trees_died=trees_died,
+        )
+
+    # ------------------------------------------------------------------
+    # PM_SWO equation (mortality.f:441-539)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _pm_swo(
+        coeffs: tuple, dbh: float, cr: float, si: float,
+        bal: float, og: float, grp: int,
+    ) -> float:
+        """Compute the ORGANON SWO mortality logit for one tree.
+
+        Args:
+            coeffs: (B0..B7, POW) for the species group.
+            dbh: Diameter at breast height (inches).
+            cr: Crown ratio (0–1).
+            si: DF total-height site index (feet).
+            bal: Basal area of larger trees (sq ft/acre).
+            og: Old-growth indicator.
+            grp: SWO species group (1–18).
+
+        Returns:
+            PMK logit value.
+        """
+        b0, b1, b2, b3, b4, b5, b6, b7 = coeffs[:8]
+        if grp == 14:  # Oregon white oak — uses log(BAL+5)
+            return (b0 + b1 * dbh + b2 * dbh ** 2 + b3 * cr
+                    + b4 * si + b5 * math.log(bal + 5.0))
+        return (b0 + b1 * dbh + b2 * dbh ** 2 + b3 * cr
+                + b4 * si + b5 * bal + b6 * bal * math.exp(b7 * og))
+
+    # ------------------------------------------------------------------
+    # OLDGRO indicator (mortality.f:737-800)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_oldgro(trees: List['Tree']) -> float:
+        """Old-growth indicator: mean DBH*HT/10000 for top 5 TPA.
+
+        Accumulates trees into 1-inch DBH classes from largest to smallest,
+        stopping once 5 TPA are collected (fractional last class).
+        """
+        # Build 1-inch DBH class accumulators (indices 1..100).
+        htcl = [0.0] * 101   # sum of HT*TPA in class
+        dcl = [0.0] * 101    # sum of DBH*TPA in class
+        trcl = [0.0] * 101   # sum of TPA in class
+        for t in trees:
+            idx = min(int(t.dbh) + 1, 100)
+            htcl[idx] += t.height  # each tree = 1 TPA
+            dcl[idx] += t.dbh
+            trcl[idx] += 1.0
+
+        totht = 0.0
+        totd = 0.0
+        tottr = 0.0
+        for i in range(100, 0, -1):
+            totht += htcl[i]
+            totd += dcl[i]
+            tottr += trcl[i]
+            if tottr > 5.0:
+                trdiff = trcl[i] - (tottr - 5.0)
+                if trcl[i] > 0:
+                    totht = totht - htcl[i] + (htcl[i] / trcl[i]) * trdiff
+                    totd = totd - dcl[i] + (dcl[i] / trcl[i]) * trdiff
+                tottr = 5.0
+                break
+        if tottr > 0.0:
+            ht5 = totht / tottr
+            dbh5 = totd / tottr
+            return dbh5 * ht5 / 10000.0
+        return 0.0
+
+    # ------------------------------------------------------------------
+    # BAL computation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_bal(trees: List['Tree']) -> Dict[int, float]:
+        """Basal area of larger trees for each tree.
+
+        Returns a dict mapping ``id(tree)`` → BAL (sq ft/acre).
+        """
+        kb = 0.005454154
+        sorted_trees = sorted(trees, key=lambda t: t.dbh)
+        total_ba = sum(kb * t.dbh ** 2 for t in sorted_trees)
+        bal_map: Dict[int, float] = {}
+        cum_ba = 0.0
+        i = 0
+        n = len(sorted_trees)
+        while i < n:
+            cur_dbh = sorted_trees[i].dbh
+            grp_start = i
+            grp_ba = 0.0
+            while i < n and sorted_trees[i].dbh == cur_dbh:
+                grp_ba += kb * sorted_trees[i].dbh ** 2
+                i += 1
+            ba_larger = total_ba - cum_ba - grp_ba
+            for j in range(grp_start, i):
+                bal_map[id(sorted_trees[j])] = ba_larger
+            cum_ba += grp_ba
+        return bal_map
+
+    # ------------------------------------------------------------------
+    # SUBMAX: maximum size-density line (submax.f)
+    # ------------------------------------------------------------------
+
+    def _compute_submax(self, trees: List['Tree']) -> Tuple[float, float]:
+        """Compute A1, A2 for the self-thinning line.
+
+        For SWO, A1 is modified by species composition (DF, true-fir, PP
+        proportions of basal area in the top 3 species groups).
+        """
+        a2 = self._A2
+        tempa1 = self._BASE_A1
+
+        # BA by species group for the first 3 groups (DF, GW, PP).
+        bagrp = [0.0, 0.0, 0.0]
+        for t in trees:
+            grp = self._SPECIES_TO_SWO_GROUP.get(t.species, 1)
+            if 1 <= grp <= 3:
+                bagrp[grp - 1] += self._KB * t.dbh ** 2
+
+        totba = sum(bagrp)
+        if totba > 0:
+            pdf = bagrp[0] / totba   # DF proportion
+            ptf = bagrp[1] / totba   # true fir proportion
+            ppp = bagrp[2] / totba   # PP proportion
+        else:
+            pdf = ptf = ppp = 0.0
+
+        tfmod = self._A1_TF_MODIFIER
+        ocmod = self._A1_OC_MODIFIER
+
+        if pdf >= 0.5:
+            a1mod = 1.0
+        elif ptf >= 2.0 / 3.0:
+            a1mod = tfmod
+        elif ppp >= 2.0 / 3.0:
+            a1mod = ocmod
+        else:
+            a1mod = pdf + tfmod * ptf + ocmod * ppp
+
+        if a1mod <= 0.0:
+            a1mod = 1.0
+
+        return tempa1 * a1mod, a2
+
+    # ------------------------------------------------------------------
+    # Density-dependent mortality cap (mortality.f:147-316)
+    # ------------------------------------------------------------------
+
+    def _density_adjustment(
+        self,
+        trees: List['Tree'],
+        pmk_list: List[float],
+        pow_list: List[float],
+        stn: float,
+        stba: float,
+        na: float,
+        baa: float,
+        rd: float,
+        a1: float,
+        a2: float,
+    ) -> float:
+        """Determine KR1 shift to PMK if density-dependent caps are needed.
+
+        Returns 0.0 when no adjustment is required (RD ≤ RDCC or target
+        QMD exceeds actual QMD).  Otherwise returns the KR1 value that
+        shifts all PMK values upward to bring the stand to the target
+        density trajectory (mortality.f:239-298).
+        """
+        rdcc = self._RDCC
+
+        if rd <= rdcc:
+            return 0.0
+
+        if na <= 0 or baa <= 0:
+            return 0.0
+
+        qmda = math.sqrt(baa / (self._KB * na))
+
+        # First growth cycle initialisation (CYCLG=0).
+        is_first = (self._organon_cycle == 0)
+
+        if is_first:
+            self._rd0 = rd
+            self._no = 0.0
+            self._a1max = a1
+
+        if is_first:
+            if rd >= 1.0:
+                sqmda_start = math.sqrt(stba / (self._KB * stn))
+                rda = na / math.exp(a1 / a2 - math.log(qmda) / a2)
+                if rda > rd:
+                    self._a1max = math.log(sqmda_start) + a2 * math.log(stn)
+                else:
+                    self._a1max = math.log(qmda) + a2 * math.log(na)
+                ind = 1
+                if self._a1max < a1:
+                    self._a1max = a1
+                self._pa1max = self._a1max
+            else:
+                ind = 0
+                if rd > rdcc:
+                    xa3 = -1.0 / self._A3
+                    self._no = stn * (math.log(rd) / math.log(rdcc)) ** xa3
+        else:
+            if self._rd0 >= 1.0:
+                ind = 1
+                self._a1max = math.log(qmda) + a2 * math.log(na)
+                if self._a1max > self._pa1max:
+                    self._a1max = self._pa1max
+                if self._a1max < a1:
+                    self._a1max = a1
+                self._pa1max = self._a1max
+            elif rd >= 1.0 and self._no <= 0.0:
+                sqmda_start = math.sqrt(stba / (self._KB * stn))
+                rda = na / math.exp(a1 / a2 - math.log(qmda) / a2)
+                if rda > rd:
+                    self._a1max = math.log(sqmda_start) + a2 * math.log(stn)
+                else:
+                    self._a1max = math.log(qmda) + a2 * math.log(na)
+                ind = 1
+                if self._a1max < a1:
+                    self._a1max = a1
+                self._pa1max = self._a1max
+            else:
+                ind = 0
+                if rd > rdcc and self._no <= 0.0:
+                    xa3 = -1.0 / self._A3
+                    self._no = stn * (math.log(rd) / math.log(rdcc)) ** xa3
+
+        # Target QMD (QMDP).
+        if ind == 0 and self._no > 0.0:
+            qmdp = self._quad1(na, self._no, rdcc, a1)
+        else:
+            qmdp = math.exp(self._a1max - a2 * math.log(max(na, 0.001)))
+
+        # No additional mortality needed if target QMD > actual QMD.
+        if qmdp > qmda:
+            return 0.0
+
+        # Iterative search for KR1 (mortality.f:241-278).
+        kr1 = 0.0
+        for kk in range(1, 8):
+            nk = 10.0 / 10.0 ** kk
+            while True:
+                kr1 += nk
+                naa = 0.0
+                baaa = 0.0
+                for i, t in enumerate(trees):
+                    cr = t.crown_ratio
+                    cradj = 1.0
+                    if cr <= 0.17:
+                        cradj = 1.0 - math.exp(-(25.0 * cr) ** 2)
+                    xpm = 1.0 / (1.0 + math.exp(-(kr1 + pmk_list[i])))
+                    ps = (1.0 - xpm) ** pow_list[i]
+                    pm = 1.0 - ps * cradj
+                    naa += 1.0 - pm
+                    baaa += self._KB * t.dbh ** 2 * (1.0 - pm)
+                if naa <= 0:
+                    break
+                qmda_adj = math.sqrt(baaa / (self._KB * naa))
+                if ind == 0 and self._no > 0.0:
+                    qmdp = self._quad1(naa, self._no, rdcc, a1)
+                else:
+                    qmdp = math.exp(self._a1max - a2 * math.log(max(naa, 0.001)))
+                if qmdp >= qmda_adj:
+                    kr1 -= nk
+                    break
+
+        return kr1
+
+    @staticmethod
+    def _quad1(ni: float, no: float, rdcc: float, a1: float) -> float:
+        """QUAD1 function from mortality.f:323-334."""
+        a2 = 0.62305
+        a3_val = 14.39533971
+        a4 = -(math.log(rdcc) * a2 / a1)
+        x = a1 - a2 * math.log(max(ni, 0.001)) - (a1 * a4) * math.exp(
+            -a3_val * (math.log(max(no, 0.001)) - math.log(max(ni, 0.001)))
+        )
+        return math.exp(x)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _resolve_df_site_index(self, stand_si: float) -> float:
+        """Convert stand site index to DF total-height site index.
+
+        ORGANON SWO always uses DF site index (execute2.f:263-267).
+        If the default species is PP, convert.
+        """
+        if self.default_species == 'PP':
+            return self._PP_TO_DF_SI * stand_si
+        return stand_si
 
 
 # Module-level convenience functions

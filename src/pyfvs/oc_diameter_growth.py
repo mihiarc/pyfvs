@@ -389,6 +389,127 @@ class OCDiameterGrowthModel(ParameterizedModel):
         return dds_to_diameter_growth(dds, dbh, bark_ratio)
 
 
+# ============================================================================
+# ORGANON SWO diameter growth (diagro.f DG_SWO)
+# ============================================================================
+
+# Species that get ORGANON growth when big-6 trees are present (dgdriv.f:233).
+_IORG_SPECIES = frozenset({
+    'IC', 'RC', 'GF', 'DF', 'WH', 'SP', 'PP', 'PY', 'CY', 'WO',
+    'BO', 'BM', 'RA', 'MA', 'GC', 'DG', 'TO', 'WI',
+})
+
+# DG_SWO coefficients: 18 SWO species groups × 11 parameters.
+# From diagro.f DGPAR(18,11) DATA statement.
+# Columns: B0, B1, B2, B3, B4, B5, B6, K1, K2, K3, K4
+_DG_SWO = {
+    1:  (-5.35558894, 0.840528547, -0.0427481848, 1.15950313, 0.954711126, -0.00894779670, 0.0,           5.0,    1.0, 1.0, 2.7),  # DF
+    2:  (-5.84904111, 1.668196109, -0.0853271265, 1.21222176, 0.679346647, -0.00809965733, 0.0,           5.0,    1.0, 1.0, 2.7),  # GW
+    3:  (-4.51958940, 0.813998712, -0.0493858858, 1.10249641, 0.879440023, -0.0108521667, -0.0333706948,  5.0,    1.0, 1.0, 2.7),  # PP
+    4:  (-4.12342552, 0.734988422, -0.0425469735, 1.05942163, 0.808656390, -0.0107837565,  0.0,           5.0,    1.0, 1.0, 2.7),  # SP
+    5:  (-2.08551255, 0.596043703, -0.0215223077, 1.02734556, 0.383450822, -0.00489046624, -0.0609024782, 5.0,    1.0, 1.0, 2.7),  # IC
+    6:  (-5.70052255, 0.865087036, -0.0432543518, 1.10859727, 0.977332597,  0.0,          -0.0526263229,  5.0,    1.0, 1.0, 2.7),  # WH
+    7:  (-11.45456097,0.784133664, -0.0261377888, 0.70174783, 2.057236260, -0.00415440257, 0.0,           5.0,    1.0, 1.0, 2.7),  # RC
+    8:  (-9.15835863, 1.0,         -0.00000035,   1.16688474, 0.0,          0.0,          -0.02,       4000.0,    4.0, 1.0, 2.7),  # PY
+    9:  (-8.84531757, 1.5,         -0.0006,       0.51225596, 0.418129153, -0.00355254593, -0.0321315389,110.0,   2.0, 1.0, 2.7),  # MD
+    10: (-7.78451344, 1.2,         -0.07,         0.0,        1.01436101,  -0.00834323811, 0.0,          10.0,    1.0, 1.0, 2.7),  # GC
+    11: (-3.36821750, 1.2,         -0.07,         0.0,        0.0,          0.0,          -0.0339813575, 10.0,    1.0, 1.0, 2.7),  # TA
+    12: (-3.59333060, 1.2,         -0.07,         0.51637418, 0.0,          0.0,          -0.02,         10.0,    1.0, 1.0, 2.7),  # CL
+    13: (-3.41449922, 1.0,         -0.05,         0.0,        0.324349277,  0.0,          -0.0989519477, 10.0,    1.0, 1.0, 2.7),  # BL
+    14: (-7.81267986, 1.405616529, -0.0603105850, 0.64286007, 1.037687142,  0.0,          -0.0787012218,  5.0,    1.0, 1.0, 2.7),  # WO
+    15: (-4.43438109, 0.930930363, -0.0465947242, 0.0,        0.510717175,  0.0,          -0.0688832423,  5.0,    1.0, 1.0, 2.7),  # BO
+    16: (-4.39082007, 1.0,         -0.0945057147, 1.06867026, 0.685908029, -0.00586331028, 0.0,           5.0,    1.0, 1.0, 2.7),  # RA
+    17: (-8.08352683, 1.0,         -0.00000035,   0.31176647, 0.0,          0.0,          -0.0730788052,4000.0,   4.0, 1.0, 2.7),  # PD
+    18: (-8.08352683, 1.0,         -0.00000035,   0.31176647, 0.0,          0.0,          -0.0730788052,4000.0,   4.0, 1.0, 2.7),  # WI
+}
+
+# Species-specific ADJ factor (diagro.f:218-236).
+_DG_SWO_ADJ = {
+    1: 0.8938, 2: 0.8722, 4: 0.7903, 9: 0.7928, 10: 0.7259,
+    14: 1.0, 15: 0.7667,
+}
+_DG_SWO_ADJ_DEFAULT = 0.8
+
+# OC species → ORGANON SWO species group (same as mortality mapping).
+_SPECIES_TO_SWO_GROUP = {
+    'PC': 7,  'IC': 5,  'RC': 7,  'GF': 2,  'RF': 1,  'SH': 1,
+    'DF': 1,  'WH': 6,  'MH': 6,  'WB': 3,  'KP': 3,  'LP': 3,
+    'CP': 3,  'LM': 3,  'JP': 3,  'SP': 4,  'WP': 3,  'PP': 3,
+    'MP': 3,  'GP': 3,  'WJ': 8,  'BR': 2,  'GS': 3,  'PY': 8,
+    'OS': 8,  'LO': 12, 'CY': 12, 'BL': 12, 'EO': 12, 'WO': 14,
+    'BO': 15, 'VO': 12, 'IO': 12, 'BM': 13, 'BU': 13, 'RA': 16,
+    'MA': 9,  'GC': 10, 'DG': 17, 'FL': 13, 'WN': 13, 'TO': 11,
+    'SY': 13, 'AS': 13, 'CW': 13, 'WI': 18, 'CN': 17, 'CL': 17,
+    'OH': 17, 'RW': 3,
+}
+
+# PP → DF site index conversion (execute2.f:263-267).
+_PP_TO_DF_SI = 1.062934
+
+
+def organon_swo_diameter_growth(
+    species: str,
+    dbh: float,
+    crown_ratio: float,
+    site_index: float,
+    ba: float,
+    bal: float,
+    bark_ratio: float = 0.9,
+    default_species: str = 'DF',
+) -> float:
+    """Compute 5-year outside-bark diameter growth using ORGANON SWO DG_SWO.
+
+    Port of diagro.f DG_SWO + DIAMGRO_RUN.  Used for IORG=1 trees in
+    the OC variant when big-6 conifers are present.
+
+    The equation is::
+
+        ln(DG) = B0 + B1*ln(DBH+K1) + B2*DBH^K2 + B3*ln((CR+0.2)/1.2)
+               + B4*ln(SITE) + B5*(SBAL1^K3 / ln(DBH+K4)) + B6*sqrt(SBA1)
+
+    Args:
+        species: OC species code.
+        dbh: Diameter at breast height (inches, outside bark).
+        crown_ratio: Crown ratio (0–1).
+        site_index: Stand site index (total height at base age 50).
+        ba: Total stand basal area (sq ft/acre).
+        bal: Basal area of larger trees (sq ft/acre).
+        bark_ratio: Inside-bark / outside-bark diameter ratio.
+        default_species: Stand default species (for SI conversion).
+
+    Returns:
+        Outside-bark diameter growth in inches (5-year period).
+    """
+    grp = _SPECIES_TO_SWO_GROUP.get(species, 1)
+    coeffs = _DG_SWO[grp]
+    b0, b1, b2, b3, b4, b5, b6, k1, k2, k3, k4 = coeffs
+
+    # ORGANON always uses DF site index (execute2.f:263).
+    site = site_index
+    if default_species == 'PP':
+        site = _PP_TO_DF_SI * site_index
+
+    # DG_SWO equation (diagro.f:203-209).
+    lndg = (b0
+            + b1 * math.log(dbh + k1)
+            + b2 * dbh ** k2
+            + b3 * math.log((crown_ratio + 0.2) / 1.2)
+            + b4 * math.log(max(site, 1.0))
+            + b5 * ((bal ** k3) / math.log(dbh + k4))
+            + b6 * math.sqrt(max(ba, 0.0)))
+
+    # Crown ratio adjustment (diagro.f:213-214).
+    cradj = 1.0
+    if crown_ratio <= 0.17:
+        cradj = 1.0 - math.exp(-(25.0 * crown_ratio) ** 2)
+
+    # Species-specific ADJ factor (diagro.f:218-236).
+    adj = _DG_SWO_ADJ.get(grp, _DG_SWO_ADJ_DEFAULT)
+
+    dg_ob = math.exp(lndg) * cradj * adj
+    return max(0.0, dg_ob)
+
+
 def create_oc_diameter_growth_model(species_code: str = 'DF') -> OCDiameterGrowthModel:
     """Factory function to create a cached OC diameter growth model.
 

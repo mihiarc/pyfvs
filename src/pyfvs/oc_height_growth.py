@@ -589,3 +589,168 @@ def _oc_small_tree_height_redwood(height: float, site_index: float) -> float:
     h1 = 2.242202 * site_index * (1.0 - math.exp(-0.010742 * age1)) ** 0.919076
     h2 = 2.242202 * site_index * (1.0 - math.exp(-0.010742 * age2)) ** 0.919076
     return h2 - h1
+
+
+# ============================================================================
+# ORGANON SWO height growth (htgrowth.f HS_HG + HG_SWO)
+# ============================================================================
+
+# HG_SWO coefficients: 5 major conifer groups × 8 parameters.
+# From htgrowth.f HGPAR(5,8) DATA statement.
+# Groups: 1=DF, 2=GW, 3=PP, 4=SP, 5=IC
+_HG_SWO_PARAMS: dict[int, tuple] = {
+    1: (1.0, -0.02457621, -0.00407303, 1.0, 2.89556338, 2.0, 0.0, 1.0),  # DF
+    2: (1.0, -0.01453250, -0.00407303, 1.0, 7.69023575, 2.0, 0.0, 1.0),  # GW
+    3: (1.0, -0.14889850, -0.00322752, 1.0, 0.92071847, 2.0, 0.0, 1.0),  # PP
+    4: (1.0, -0.14889850, -0.00678955, 1.0, 0.92071847, 2.0, 0.0, 1.0),  # SP
+    5: (1.0, -0.01453250, -0.00637434, 1.0, 1.27228638, 2.0, 0.0, 1.0),  # IC
+}
+
+# OC species → SWO major-species HG group (1-5). Only these 5 groups have
+# ORGANON height growth equations.  All other species (groups 6-18) use FVS HTGF.
+_SPECIES_TO_HG_GROUP: dict[str, int] = {
+    'DF': 1, 'RF': 1, 'SH': 1,    # DF group
+    'GF': 2, 'BR': 2,              # GW group
+    'PP': 3, 'WB': 3, 'KP': 3, 'LP': 3, 'CP': 3, 'LM': 3,
+    'JP': 3, 'WP': 3, 'MP': 3, 'GP': 3, 'GS': 3, 'RW': 3,  # PP group
+    'SP': 4,                        # SP group
+    'IC': 5, 'PC': 5, 'RC': 5,    # IC group
+}
+
+# Hann-Scrivani (1987) coefficients: ISP=1 (DF/non-PP conifers), ISP=2 (PP).
+_HS_DF = (-6.21693, 0.281176, 1.14354)
+_HS_PP = (-6.54707, 0.288169, 1.21297)
+
+# PP → DF site index conversion (execute2.f:263-267).
+_PP_TO_DF_SI = 1.062934
+
+
+def _hs_hg(site_index: float, height: float, is_pp: bool = False) -> Tuple[float, float]:
+    """Hann-Scrivani (1987) potential 5-year height growth.
+
+    Inverts the dominant-height site curve to get growth-effective age,
+    then projects 5 years forward.
+
+    Args:
+        site_index: Total-height site index (feet).
+        height: Current tree height (feet).
+        is_pp: True for ponderosa pine (uses ISP=2 coefficients).
+
+    Returns:
+        (potential_height_growth, growth_effective_age).
+    """
+    b0, b1, b2 = _HS_PP if is_pp else _HS_DF
+    si = max(site_index, 4.6)  # guard against degenerate SI
+    ht = max(height, 4.5)
+
+    bbc = b0 + b1 * math.log(si)
+    x50 = 1.0 - math.exp(-math.exp(bbc + b2 * 3.912023))  # 3.912023 = ln(50)
+    a1a = 1.0 - (ht - 4.5) * (x50 / si)
+
+    if a1a <= 0.0:
+        return 0.0, 500.0
+
+    geage = ((-math.log(a1a)) / (math.exp(b0) * si ** b1)) ** (1.0 / b2)
+    xai = 1.0 - math.exp(-math.exp(bbc + b2 * math.log(max(geage, 0.001))))
+    xai5 = 1.0 - math.exp(-math.exp(bbc + b2 * math.log(max(geage + 5.0, 0.001))))
+
+    phtgro = (4.5 + (ht - 4.5) * (xai5 / max(xai, 1e-10))) - ht
+    return max(phtgro, 0.0), geage
+
+
+def _hg_swo(grp: int, phtgro: float, crown_ratio: float, tcch: float = 0.0) -> float:
+    """ORGANON SWO height growth modifier (htgrowth.f HG_SWO).
+
+    Modifies potential height growth by crown ratio and crown competition
+    (TCCH = crown competition above the tree).
+
+    For even-aged plantations with uniform heights, TCCH = 0 and the
+    modifier reduces to P8 = 1.0.
+
+    Args:
+        grp: SWO HG species group (1-5).
+        phtgro: Potential height growth from HS_HG (feet).
+        crown_ratio: Crown ratio (0-1).
+        tcch: Crown competition above tree height (default 0.0).
+
+    Returns:
+        Modified 5-year height growth (feet).
+    """
+    params = _HG_SWO_PARAMS.get(grp)
+    if params is None:
+        return phtgro  # no ORGANON HG for this group
+
+    p1, p2, p3, p4, p5, p6, p7, p8 = params
+    cr = max(0.0, min(1.0, crown_ratio))
+
+    fcr = -p5 * (1.0 - cr) ** p6 * math.exp(p7 * math.sqrt(tcch))
+    b0 = p1 * math.exp(p2 * tcch)
+    b1 = math.exp(p3 * tcch ** p4)
+
+    if fcr < -20.0:
+        modifier = p8 * b0
+    else:
+        modifier = p8 * (b0 + (b1 - b0) * math.exp(fcr))
+
+    cradj = 1.0
+    if cr <= 0.17:
+        cradj = 1.0 - math.exp(-(25.0 * cr) ** 2)
+
+    return phtgro * modifier * cradj
+
+
+def organon_swo_height_growth(
+    species: str,
+    height: float,
+    crown_ratio: float,
+    site_index: float,
+    default_species: str = 'DF',
+    tcch: float = 0.0,
+    time_step: float = 5.0,
+) -> float:
+    """Compute 5-year height growth using the ORGANON SWO model.
+
+    Port of oc/htgf.f:95-100 combined with htgrowth.f HS_HG + HG_SWO.
+    Used for IORG=1 trees in the OC variant when big-6 conifers are present.
+
+    Only the 5 major conifer groups (DF, GW, PP, SP, IC) have ORGANON
+    height growth equations. Other species return None so the caller
+    can fall back to FVS HTGF.
+
+    Args:
+        species: OC species code.
+        height: Current tree height (feet).
+        crown_ratio: Crown ratio (0-1).
+        site_index: Stand site index (total height at base age 50).
+        default_species: Stand default species (for SI conversion).
+        tcch: Crown competition above tree (0.0 for even-aged stands).
+        time_step: Cycle length in years.
+
+    Returns:
+        Height growth in feet, or None if species has no ORGANON HG.
+    """
+    grp = _SPECIES_TO_HG_GROUP.get(species)
+    if grp is None:
+        return None
+
+    # ORGANON always uses DF SI, except PP (ISP=2 uses PP SI directly).
+    if grp == 3:  # PP group
+        # PP uses its own SI in HS_HG (ISP=2).
+        if default_species == 'PP':
+            psi = site_index
+        else:
+            psi = site_index / _PP_TO_DF_SI  # convert DF SI to PP SI
+        phtgro, _geage = _hs_hg(psi, height, is_pp=True)
+    else:
+        # All other major species use DF SI (ISP=1).
+        df_si = site_index
+        if default_species == 'PP':
+            df_si = _PP_TO_DF_SI * site_index
+        phtgro, _geage = _hs_hg(df_si, height, is_pp=False)
+
+    hg = _hg_swo(grp, phtgro, crown_ratio, tcch)
+
+    # Scale to cycle length (oc/htgf.f:66: SCALE=FINT/YR).
+    # HS_HG already returns 5-year increments, so scale by time_step/5.
+    scale = time_step / 5.0
+    return max(hg * scale, 0.1)

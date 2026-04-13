@@ -896,7 +896,8 @@ class Stand:
             max_sdi=max_sdi,
             random_seed=mort_seed,
             pre_growth_qmd=pre_growth_qmd,
-            pre_growth_tpa=pre_growth_tpa
+            pre_growth_tpa=pre_growth_tpa,
+            site_index=self.site_index,
         )
 
         self.trees = result.survivors

@@ -23,7 +23,7 @@ from .crown_ratio import (
 )
 from .mortality import (
     MortalityModel, LSMortalityModel, NEMortalityModel, CSMortalityModel,
-    OCMortalityModel,
+    OCMortalityModel, OrganonSwoMortalityModel,
 )
 from .taper import ClarkTaperModel, FlewellingTaperModel
 
@@ -260,7 +260,7 @@ REGISTRY: Dict[str, VariantConfig] = {
         growth_category='topographic',
         bark_ratio_class=OCBarkRatioModel,
         crown_ratio_class=OCCrownRatioModel,
-        mortality_class=OCMortalityModel,
+        mortality_class=OrganonSwoMortalityModel,
         mortality_needs_sdi_lookup=False,
         taper_class=FlewellingTaperModel,
         dg_module='oc_diameter_growth',

@@ -280,6 +280,17 @@ class Tree:
         else:
             ht_weight = (initial_dbh - ht_xmin) / (ht_xmax - ht_xmin)
 
+        # OC ORGANON override: for IORG=1 trees, Fortran regent.f forces
+        # both blend weights to 1.0 (lines 249 and 359), bypassing small-
+        # tree growth entirely.  The tree uses 100% ORGANON DG and HTG.
+        if variant == 'OC':
+            from .oc_diameter_growth import _IORG_SPECIES
+            if (self.species in _IORG_SPECIES
+                    and initial_height > 4.5
+                    and initial_dbh >= 0.1):
+                dg_weight = 1.0
+                ht_weight = 1.0
+
         # Temporarily increment age for growth calculations
         self.age = initial_age + time_step
 
@@ -816,24 +827,45 @@ class Tree:
                 rng=rng
             )
         elif variant == 'OC':
-            # OC: ifor (forest number) defaults to 9 per oc/grinit.f:192.
-            # The DG model maps (ifor, equation) → location class via MAPLOC.
-            diameter_increment = dg_model.calculate_diameter_growth(
-                dbh=self.dbh,
-                crown_ratio=self.crown_ratio,
-                site_index=site_index,
-                ba=ba,
-                bal=pbal,
-                bark_ratio=bark_ratio,
-                pccf=pccf,
-                relht=relht,
-                elevation=elev,
-                slope=slope,
-                aspect=aspect,
-                ifor=9,
-                time_step=time_step,
-                rng=rng
+            # Native OC uses ORGANON diameter growth for IORG=1 species
+            # when big-6 conifers (DF, GF, IC, SP, PP) are present with
+            # HT > 4.5 and DBH >= 0.1 (dgdriv.f:222-237, 441-452).
+            # The stand-level big-6 check is deferred: per-tree eligibility
+            # is used as a proxy (correct for single-species planted stands).
+            from .oc_diameter_growth import _IORG_SPECIES, organon_swo_diameter_growth
+            use_organon = (
+                self.species in _IORG_SPECIES
+                and self.height > 4.5
+                and self.dbh >= 0.1
             )
+            if use_organon:
+                diameter_increment = organon_swo_diameter_growth(
+                    species=self.species,
+                    dbh=self.dbh,
+                    crown_ratio=self.crown_ratio,
+                    site_index=site_index,
+                    ba=ba,
+                    bal=pbal,
+                    bark_ratio=bark_ratio,
+                )
+            else:
+                # FVS DGF for non-ORGANON trees (IORG=0).
+                diameter_increment = dg_model.calculate_diameter_growth(
+                    dbh=self.dbh,
+                    crown_ratio=self.crown_ratio,
+                    site_index=site_index,
+                    ba=ba,
+                    bal=pbal,
+                    bark_ratio=bark_ratio,
+                    pccf=pccf,
+                    relht=relht,
+                    elevation=elev,
+                    slope=slope,
+                    aspect=aspect,
+                    ifor=9,
+                    time_step=time_step,
+                    rng=rng
+                )
         elif variant == 'WS':
             # WS has location_class parameter + stochastic support
             diameter_increment = dg_model.calculate_diameter_growth(
@@ -879,15 +911,28 @@ class Tree:
             relht = 1.0
 
         if variant == 'OC':
-            # OC uses site-curve based HTGF (oc/htgf.f) — distinct from the
-            # SN regression used by _update_height_large_tree.
-            self._update_height_large_tree_oc(
-                site_index=site_index,
-                relht=relht,
-                diameter_increment=max(0.0, diameter_increment),
-                bark_ratio=bark_ratio,
-                time_step=time_step,
-            )
+            # ORGANON height growth for IORG-eligible species (oc/htgf.f:95).
+            # Falls back to FVS HTGF for non-major species.
+            oc_htg = None
+            if use_organon:
+                from .oc_height_growth import organon_swo_height_growth
+                oc_htg = organon_swo_height_growth(
+                    species=self.species,
+                    height=self.height,
+                    crown_ratio=self.crown_ratio,
+                    site_index=site_index,
+                    time_step=time_step,
+                )
+            if oc_htg is not None:
+                self.height = max(4.5, self.height + oc_htg)
+            else:
+                self._update_height_large_tree_oc(
+                    site_index=site_index,
+                    relht=relht,
+                    diameter_increment=max(0.0, diameter_increment),
+                    bark_ratio=bark_ratio,
+                    time_step=time_step,
+                )
         else:
             self._update_height_large_tree(
                 site_index=site_index,

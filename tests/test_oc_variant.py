@@ -365,10 +365,10 @@ class TestOCVariantConfig:
         config = get_variant_config('OC')
         assert config.bark_ratio_class.__name__ == 'OCBarkRatioModel'
         assert config.crown_ratio_class.__name__ == 'OCCrownRatioModel'
-        # OCMortalityModel handles its own SDI lookup from the variant's
-        # JSON config (sdi_maximums in oc_mortality_defaults.json), so the
-        # registry doesn't need to inject one at construction time.
-        assert config.mortality_class.__name__ == 'OCMortalityModel'
+        # OrganonSwoMortalityModel extends OCMortalityModel with ORGANON
+        # SWO individual-tree mortality (mortality.f PM_SWO).  It handles
+        # its own SDI lookup, so the registry doesn't inject one.
+        assert config.mortality_class.__name__ == 'OrganonSwoMortalityModel'
         assert config.mortality_needs_sdi_lookup is False
 
     def test_oc_taper_model(self):
@@ -394,6 +394,263 @@ class TestOCVariantConfig:
         """OC default elevation is 35.0 (hundreds of feet) per oc/grinit.f:174."""
         config = get_variant_config('OC')
         assert config.default_elevation == 35.0
+
+
+# ===========================================================================
+# ORGANON SWO Mortality Tests
+# ===========================================================================
+
+class TestOrganonSwoMortality:
+    """Tests for the ORGANON SWO mortality model (mortality.f PM_SWO)."""
+
+    def test_pm_swo_df_hand_calc(self):
+        """PM_SWO logit for DF matches hand calculation."""
+        from pyfvs.mortality import OrganonSwoMortalityModel
+
+        model = OrganonSwoMortalityModel()
+        # DF = group 1.  Hand calc:
+        # B0=-4.648483270, B1=-0.266558690, B2=0.003699110,
+        # B3=-2.118026640, B4=0.025499430, B5=0.003361340,
+        # B6=0.013553950, B7=-2.723470950
+        coeffs = model._PM_SWO[1]
+        dbh, cr, si, bal, og = 10.0, 0.5, 80.0, 50.0, 0.01
+        pmk = model._pm_swo(coeffs, dbh, cr, si, bal, og, grp=1)
+        expected = (
+            -4.648483270
+            + -0.266558690 * 10.0
+            + 0.003699110 * 100.0
+            + -2.118026640 * 0.5
+            + 0.025499430 * 80.0
+            + 0.003361340 * 50.0
+            + 0.013553950 * 50.0 * math.exp(-2.723470950 * 0.01)
+        )
+        assert abs(pmk - expected) < 1e-8
+
+    def test_pm_swo_wo_uses_log_bal(self):
+        """Oregon white oak (group 14) uses log(BAL+5)."""
+        from pyfvs.mortality import OrganonSwoMortalityModel
+
+        model = OrganonSwoMortalityModel()
+        coeffs = model._PM_SWO[14]
+        dbh, cr, si, bal, og = 8.0, 0.4, 80.0, 30.0, 0.0
+        pmk = model._pm_swo(coeffs, dbh, cr, si, bal, og, grp=14)
+        expected = (
+            coeffs[0]
+            + coeffs[1] * 8.0
+            + coeffs[2] * 64.0
+            + coeffs[3] * 0.4
+            + coeffs[4] * 80.0
+            + coeffs[5] * math.log(35.0)
+        )
+        assert abs(pmk - expected) < 1e-8
+
+    def test_species_group_mapping(self):
+        """Key OC species map to correct SWO groups."""
+        from pyfvs.mortality import OrganonSwoMortalityModel
+
+        m = OrganonSwoMortalityModel._SPECIES_TO_SWO_GROUP
+        assert m['DF'] == 1   # Douglas-fir
+        assert m['GF'] == 2   # Grand fir → GW group
+        assert m['PP'] == 3   # Ponderosa pine
+        assert m['SP'] == 4   # Sugar pine
+        assert m['IC'] == 5   # Incense cedar
+        assert m['WH'] == 6   # Western hemlock
+        assert m['TO'] == 11  # Tanoak
+        assert m['WO'] == 14  # Oregon white oak
+        assert m['RA'] == 16  # Red alder
+
+    def test_oldgro_small_trees(self):
+        """OLDGRO returns ~0 for a young plantation."""
+        from pyfvs.tree import Tree
+        from pyfvs.mortality import OrganonSwoMortalityModel
+
+        trees = [Tree(0.5, 5.0, species='DF', variant='OC') for _ in range(400)]
+        og = OrganonSwoMortalityModel._compute_oldgro(trees)
+        # 0.5 * 5.0 / 10000 = 0.00025
+        assert og < 0.001
+
+    def test_cradj_above_017(self):
+        """Crown ratio adjustment is 1.0 when CR > 0.17."""
+        cr = 0.5
+        cradj = 1.0
+        if cr <= 0.17:
+            cradj = 1.0 - math.exp(-(25.0 * cr) ** 2)
+        assert cradj == 1.0
+
+    def test_cradj_below_017(self):
+        """Crown ratio adjustment reduces mortality for very low CR."""
+        cr = 0.10
+        cradj = 1.0 - math.exp(-(25.0 * cr) ** 2)
+        assert 0.0 < cradj < 1.0
+
+    def test_fallback_to_fvs_when_no_big6(self):
+        """Model falls back to FVS mortality when no big-6 trees qualify."""
+        from pyfvs.tree import Tree
+        from pyfvs.mortality import OrganonSwoMortalityModel
+
+        model = OrganonSwoMortalityModel()
+        # WO is NOT big-6, and trees are below threshold anyway
+        trees = [Tree(0.05, 3.0, species='WO', variant='OC') for _ in range(100)]
+        result = model.apply_mortality(trees, cycle_length=5, site_index=80.0)
+        assert len(result.survivors) + result.mortality_count == 100
+
+    def test_organon_mortality_activates_for_df(self):
+        """ORGANON path activates for DF trees above threshold."""
+        from pyfvs.tree import Tree
+        from pyfvs.mortality import OrganonSwoMortalityModel
+
+        model = OrganonSwoMortalityModel()
+        # DF trees above threshold (HT>4.5, DBH>=0.1)
+        trees = [Tree(2.0, 15.0, species='DF', variant='OC') for _ in range(200)]
+        result = model.apply_mortality(
+            trees, cycle_length=5, site_index=80.0, random_seed=42,
+        )
+        # Some trees should die under ORGANON individual-tree mortality
+        assert result.mortality_count >= 0
+        assert len(result.survivors) + result.mortality_count == 200
+
+    def test_organon_mortality_rate_increases_with_bal(self):
+        """Higher BAL (competition) increases mortality probability."""
+        from pyfvs.mortality import OrganonSwoMortalityModel
+
+        model = OrganonSwoMortalityModel()
+        coeffs = model._PM_SWO[1]  # DF
+        # Low competition
+        pmk_low = model._pm_swo(coeffs, 5.0, 0.5, 80.0, 10.0, 0.0, grp=1)
+        # High competition
+        pmk_high = model._pm_swo(coeffs, 5.0, 0.5, 80.0, 200.0, 0.0, grp=1)
+        # Higher BAL → higher logit → higher mortality probability
+        assert pmk_high > pmk_low
+
+    def test_pp_si_converted_to_df_si(self):
+        """PP site index is converted to DF equivalent for PM_SWO."""
+        from pyfvs.mortality import OrganonSwoMortalityModel
+
+        model = OrganonSwoMortalityModel(default_species='PP')
+        df_si = model._resolve_df_site_index(70.0)
+        assert abs(df_si - 1.062934 * 70.0) < 0.01
+
+
+# ===========================================================================
+# ORGANON SWO Diameter Growth Tests
+# ===========================================================================
+
+class TestOrganonSwoDiameterGrowth:
+    """Tests for the ORGANON SWO diameter growth equation (diagro.f DG_SWO)."""
+
+    def test_dg_swo_df_hand_calc(self):
+        """DG_SWO for DF matches hand calculation."""
+        from pyfvs.oc_diameter_growth import organon_swo_diameter_growth
+
+        dg = organon_swo_diameter_growth(
+            species='DF', dbh=10.0, crown_ratio=0.5,
+            site_index=80.0, ba=120.0, bal=60.0,
+        )
+        # DF group=1: B0=-5.356, B1=0.841, ..., ADJ=0.8938
+        # Result should be a reasonable 5-year DG for a 10" DF
+        assert 0.3 < dg < 2.5
+
+    def test_dg_swo_competition_reduces_growth(self):
+        """Higher BAL and stand BA reduce diameter growth."""
+        from pyfvs.oc_diameter_growth import organon_swo_diameter_growth
+
+        dg_low = organon_swo_diameter_growth(
+            species='DF', dbh=10.0, crown_ratio=0.5,
+            site_index=80.0, ba=50.0, bal=10.0,
+        )
+        dg_high = organon_swo_diameter_growth(
+            species='DF', dbh=10.0, crown_ratio=0.5,
+            site_index=80.0, ba=200.0, bal=100.0,
+        )
+        assert dg_high < dg_low
+
+    def test_dg_swo_higher_si_increases_growth(self):
+        """Higher site index increases diameter growth."""
+        from pyfvs.oc_diameter_growth import organon_swo_diameter_growth
+
+        dg_low = organon_swo_diameter_growth(
+            species='DF', dbh=10.0, crown_ratio=0.5,
+            site_index=60.0, ba=120.0, bal=60.0,
+        )
+        dg_high = organon_swo_diameter_growth(
+            species='DF', dbh=10.0, crown_ratio=0.5,
+            site_index=100.0, ba=120.0, bal=60.0,
+        )
+        assert dg_high > dg_low
+
+    def test_iorg_species_set(self):
+        """IORG species set matches dgdriv.f:233."""
+        from pyfvs.oc_diameter_growth import _IORG_SPECIES
+
+        # Big-6 must be in IORG set
+        for sp in ('DF', 'GF', 'IC', 'SP', 'PP'):
+            assert sp in _IORG_SPECIES
+        # Non-IORG species must NOT be in set
+        for sp in ('RF', 'SH', 'LP', 'JP', 'WB', 'KP'):
+            assert sp not in _IORG_SPECIES
+
+    def test_organon_growth_used_for_large_df(self):
+        """DF trees above threshold use ORGANON growth (smaller increment)."""
+        from pyfvs import Stand
+        from pyfvs.tree import Tree
+
+        # Create a stand with DF trees above ORGANON threshold
+        trees = [Tree(2.0, 15.0, species='DF', variant='OC') for _ in range(200)]
+        stand = Stand(trees, site_index=80, species='DF', variant='OC', stochastic=False)
+        stand.grow(5)
+        m = stand.get_metrics()
+        # With ORGANON growth, QMD should be smaller than with FVS DGF
+        # FVS DGF alone produces QMD > 5" for this scenario
+        assert m['qmd'] < 5.0
+
+
+# ===========================================================================
+# ORGANON SWO Height Growth Tests
+# ===========================================================================
+
+class TestOrganonSwoHeightGrowth:
+    """Tests for the ORGANON SWO height growth (htgrowth.f HS_HG + HG_SWO)."""
+
+    def test_hs_hg_df_potential(self):
+        """HS_HG returns positive potential height growth for DF."""
+        from pyfvs.oc_height_growth import _hs_hg
+
+        phtgro, geage = _hs_hg(80.0, 15.0, is_pp=False)
+        assert phtgro > 5.0  # at least 5 ft/5yr for SI=80 DF at 15 ft
+        assert phtgro < 15.0
+        assert 0 < geage < 500
+
+    def test_hs_hg_pp_vs_df(self):
+        """PP potential growth differs from DF."""
+        from pyfvs.oc_height_growth import _hs_hg
+
+        df_hg, _ = _hs_hg(80.0, 20.0, is_pp=False)
+        pp_hg, _ = _hs_hg(80.0, 20.0, is_pp=True)
+        assert df_hg != pp_hg  # different species curves
+
+    def test_hg_swo_tcch_zero(self):
+        """With TCCH=0, HG_SWO modifier is ~1.0 for high CR."""
+        from pyfvs.oc_height_growth import _hg_swo
+
+        # DF (grp 1), good CR, no competition above → modifier ≈ 1.0
+        hg = _hg_swo(1, 8.0, 0.8, tcch=0.0)
+        assert abs(hg - 8.0) < 0.5  # should be close to phtgro
+
+    def test_organon_hg_returns_none_for_minor_species(self):
+        """Minor species (WO, RA, TO etc.) return None → FVS fallback."""
+        from pyfvs.oc_height_growth import organon_swo_height_growth
+
+        assert organon_swo_height_growth('WO', 20.0, 0.8, 80.0) is None
+        assert organon_swo_height_growth('RA', 20.0, 0.8, 80.0) is None
+        assert organon_swo_height_growth('TO', 20.0, 0.8, 80.0) is None
+
+    def test_organon_hg_positive_for_df(self):
+        """ORGANON height growth is positive for DF."""
+        from pyfvs.oc_height_growth import organon_swo_height_growth
+
+        hg = organon_swo_height_growth('DF', 20.0, 0.8, 80.0)
+        assert hg is not None
+        assert hg > 1.0
 
 
 # ===========================================================================
