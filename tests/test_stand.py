@@ -1202,7 +1202,7 @@ def test_stand_initialization_site_indices(site_index):
 ])
 def test_stand_density_levels(tpa, expected_min, expected_max):
     """Test stand initialization at different density levels."""
-    stand = Stand.initialize_planted(trees_per_acre=tpa, site_index=70, species='LP')
+    stand = Stand.initialize_planted(trees_per_acre=tpa, site_index=70, species='LP', random_seed=42)
 
     # After initialization, TPA should match exactly (no mortality yet)
     assert len(stand.trees) == tpa
