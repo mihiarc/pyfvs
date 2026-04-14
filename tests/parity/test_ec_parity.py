@@ -255,6 +255,7 @@ def test_ec_planted_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
+        stochastic=False,  # EC parity baseline calibrated in deterministic mode
     )
     native_result = run_native(
         variant="EC",

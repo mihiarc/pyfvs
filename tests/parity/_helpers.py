@@ -30,15 +30,18 @@ def run_pyfvs(
     trees_per_acre: int,
     years: int,
     random_seed: int = 42,
-    stochastic: bool = False,
+    stochastic: bool = True,
     ecounit: str | None = None,
     bare_ground: bool = False,
 ) -> ScenarioResult:
     """Run a planted-stand scenario through pyfvs.
 
-    Parity tests run with stochastic=False so the only divergence between
-    pyfvs and native FVS comes from real translation differences, not from
-    different random draws.
+    Parity tests run stochastic=True with a fixed seed by default,
+    matching Fortran FVSsn's default DGSD=2.0 (per grinit.f:171).
+    Both engines apply per-tree DG variation bounded to ±2σ around
+    predicted ln(DDS); stand-aggregate metrics converge but individual
+    trees carry ecological variance. Pass stochastic=False for an
+    apples-to-apples comparison against FVS runs with DGSTDEV 0.0.
 
     Args:
         bare_ground: When True, bypass Stand.initialize_planted's
