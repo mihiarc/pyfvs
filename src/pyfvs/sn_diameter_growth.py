@@ -61,7 +61,7 @@ class SNDiameterGrowthModel(ParameterizedModel):
             species_code: FVS species code (e.g., 'LP', 'SP', 'SA', 'LL')
         """
         super().__init__(species_code)
-        # Load SIGMAR (std dev of ln(DDS) residuals) for Baskerville correction
+        # Load SIGMAR (std dev of ln(DDS) residuals) for stochastic draws
         self._sigma = self._load_sigma()
 
     def calculate_dds(
@@ -155,8 +155,7 @@ class SNDiameterGrowthModel(ParameterizedModel):
         # Apply FVS bounds for ln(DDS) — lower from Fortran, upper defensive
         ln_dds = max(-9.21, min(11.0, ln_dds))
 
-        # Apply stochastic multiplier: Baskerville correction (deterministic)
-        # or random draw (stochastic) matching Fortran dgscor.f.
+        # Apply Fortran dgscor.f multiplier: 1.0 deterministic, exp(Z) stochastic.
         correction = self._stochastic_multiplier(ln_dds, rng)
 
         # Convert to DDS and scale by time step (model calibrated for 5-year growth)

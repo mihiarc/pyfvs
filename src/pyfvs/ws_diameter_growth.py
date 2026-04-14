@@ -219,7 +219,10 @@ class WSDiameterGrowthModel(ParameterizedModel):
         ln_dds += c.get('DGCASP', 0.0) * slope * math.cos(aspect)
         ln_dds += c.get('DGSASP', 0.0) * slope * math.sin(aspect)
 
-        # Stochastic or Baskerville correction
+        # Stochastic draw or deterministic Baskerville bump.
+        # TODO(parity): Fortran dgscor.f returns FRM=1.0 in deterministic
+        # mode — the +0.88*sigma^2/2 bump below is a pyfvs-only compensator
+        # and is not Fortran-faithful.  Remove as part of WS parity work.
         sigma = self._SIGMA.get(self.species_code.upper(), 0.4)
         if rng is not None:
             z = rng.gauss(0, sigma)

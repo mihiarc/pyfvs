@@ -295,13 +295,17 @@ class TestCADiameterGrowth:
 class TestCAStochasticGrowth:
     """Tests for stochastic diameter growth in CA variant."""
 
-    def test_deterministic_baskerville(self):
-        """Deterministic mode applies Baskerville correction (rng=None)."""
+    def test_deterministic_positive_dds(self):
+        """Deterministic mode returns positive DDS.
+
+        Note: CA currently applies an inline +0.88*sigma^2/2 bump in
+        deterministic mode that is NOT Fortran-faithful (dgscor.f returns
+        FRM=1.0). Flagged for CA parity follow-up.
+        """
         model = create_ca_diameter_growth_model('PP')
         dds_det = model.calculate_dds(
             dbh=8.0, crown_ratio=0.5, site_index=90, ba=150, bal=50
         )
-        # Should be positive (Baskerville adds to ln(DDS))
         assert dds_det > 0
 
     def test_stochastic_varies(self):

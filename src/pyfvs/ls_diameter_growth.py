@@ -206,8 +206,7 @@ class LSDiameterGrowthModel(ParameterizedModel):
         # that can cause runaway growth without bounds
         ln_dds = max(-5.0, min(5.0, ln_dds))
 
-        # Apply stochastic multiplier: Baskerville correction (deterministic)
-        # or random draw (stochastic) matching Fortran dgscor.f.
+        # Apply Fortran dgscor.f multiplier: 1.0 deterministic, exp(Z) stochastic.
         correction = self._stochastic_multiplier(ln_dds, rng)
 
         # Convert from ln(DDS) to DDS with correction

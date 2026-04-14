@@ -259,13 +259,20 @@ class Tree:
         # Outer cutoff: tree enters REGENT if DBH < max(xmax_dg, xmax_ht)
         outer_xmax = max(xmax, ht_xmax)
 
-        # DG weight: regent.f XDWT = (D-1.5)/1.5, clamped [0,1]
+        # DG weight: eastern variants (SN/LS/CS/NE) use a HARD SWITCH at
+        # D=XMAX per Fortran regent.f (IF(D.GE.XMX) GO TO 25 skips regent
+        # entirely, and inside regent the DG is 100% small-tree Wykoff-
+        # inverse for D<XMAX — no blending).  PN/WC/OC regent.f documents
+        # a linear XDWT blend; other variants keep the smoothstep as the
+        # best compromise.
         if initial_dbh < xmin:
             dg_weight = 0.0
         elif initial_dbh >= xmax:
             dg_weight = 1.0
         elif xmin >= xmax:
             dg_weight = 1.0
+        elif variant in ('SN', 'LS', 'CS', 'NE'):
+            dg_weight = 0.0
         elif variant in ('PN', 'WC', 'OC'):
             dg_weight = (initial_dbh - xmin) / (xmax - xmin)
         else:
@@ -1028,11 +1035,13 @@ class Tree:
         else:
             fortype_effect = 0.0
 
-        # Get ecological unit effect
-        # When ecounit is not set (tree created outside Stand context),
-        # default to '231T' matching native FVS behavior (state=0 → S231T=1).
+        # Get ecological unit effect.
+        # Fortran sn/dgf.f DGCONS examines PCOM and only sets a K-flag when
+        # the code starts with 'M' or matches specific numeric prefixes.
+        # Unrecognized/blank PCOM leaves all K-flags = 0 (ecounit effect 0).
+        # Pyfvs mirrors that: no ecounit set → empty string → 0.0 effect.
         from .ecological_unit import get_ecounit_effect
-        effective_ecounit = self._ecounit if self._ecounit is not None else '231T'
+        effective_ecounit = self._ecounit if self._ecounit is not None else ''
         ecounit_effect = get_ecounit_effect(self.species, effective_ecounit)
 
         # Get plant effect — only applied when managed flag is set

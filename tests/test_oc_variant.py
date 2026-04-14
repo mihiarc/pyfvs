@@ -322,7 +322,7 @@ class TestOCStochasticGrowth:
             val = model.calculate_dds(10.0, 0.5, 100.0, 150.0, 50.0, rng=rng)
             stoch_values.append(val)
         stoch_mean = sum(stoch_values) / len(stoch_values)
-        # Within 20% of deterministic (Baskerville correction brings them close)
+        # Within 20% of deterministic (lognormal bias on stochastic mean)
         assert abs(stoch_mean - det) / det < 0.20
 
     def test_gs_rw_stochastic(self):

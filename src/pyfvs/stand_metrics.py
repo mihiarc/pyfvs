@@ -570,11 +570,18 @@ class StandMetricsCalculator:
         return pbal
 
     def calculate_pbal_all(self, sorted_trees: List['Tree']) -> Dict[int, float]:
-        """Calculate PBAL for all trees in O(n) given a pre-sorted list.
+        """Calculate PBAL for all trees, matching Fortran PCTILE semantics.
 
-        Trees must be sorted ascending by DBH. Returns a dict mapping
-        tree id() to PBAL value. Trees with the same DBH get the same
-        PBAL (BA of trees with strictly larger DBH).
+        Fortran pctile.f sorts trees DESCENDING by BA via a stable INDEX
+        array, then assigns PCT(I) = cumulative BA from smallest up to
+        and including tree I (in desc-sort position) / total_BA * 100.
+        PBAL(I) = PBA * (1 - PCT/100) = BA of trees STRICTLY ABOVE tree I
+        in the desc-sort order.
+
+        Critical: ties are NOT grouped.  Fortran's stable sort gives tied
+        trees unique positions, so the desc-first tied tree gets PBAL=0
+        and the desc-last tied tree gets PBAL≈BA.  Mean PBAL across tied
+        trees is BA/2 — this variance matters for density-dependent DG.
 
         Args:
             sorted_trees: List of Tree objects sorted ascending by DBH
@@ -585,27 +592,15 @@ class StandMetricsCalculator:
         if not sorted_trees:
             return {}
 
-        bas = [calculate_tree_basal_area(t.dbh) for t in sorted_trees]
-        total_ba = sum(bas)
+        # pyfvs passes ascending-sort; Fortran PCTILE uses descending.
+        # Python's reversed() preserves stable ordering within the
+        # original ascending sort, which mirrors Fortran's stable INDEX.
+        descending = list(reversed(sorted_trees))
         pbal_map: Dict[int, float] = {}
-
-        i = 0
-        cum_ba_le = 0.0  # cumulative BA of trees with DBH <= current group
-        while i < len(sorted_trees):
-            current_dbh = sorted_trees[i].dbh
-            group_start = i
-            group_ba = 0.0
-            while i < len(sorted_trees) and sorted_trees[i].dbh == current_dbh:
-                group_ba += bas[i]
-                i += 1
-            # PBAL = BA of trees with strictly larger DBH
-            pbal_value = total_ba - cum_ba_le - group_ba
-            if pbal_value < 1e-10:
-                pbal_value = 0.0
-            for j in range(group_start, i):
-                pbal_map[id(sorted_trees[j])] = pbal_value
-            cum_ba_le += group_ba
-
+        cum_above = 0.0
+        for tree in descending:
+            pbal_map[id(tree)] = cum_above
+            cum_above += calculate_tree_basal_area(tree.dbh)
         return pbal_map
 
 

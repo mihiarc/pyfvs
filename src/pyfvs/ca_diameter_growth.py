@@ -306,7 +306,10 @@ class CADiameterGrowthModel(ParameterizedModel):
         if dgsasp != 0:
             ln_dds += dgsasp * slope_pct * math.sin(aspect)
 
-        # Stochastic or Baskerville correction
+        # Stochastic draw or deterministic Baskerville bump.
+        # TODO(parity): Fortran dgscor.f returns FRM=1.0 in deterministic
+        # mode — the +0.88*sigma^2/2 bump below is a pyfvs-only compensator
+        # and is not Fortran-faithful.  Remove as part of CA parity work.
         sigma = self._SIGMA.get(
             self.species_code.upper() if self.species_code else 'PP', 0.45
         )

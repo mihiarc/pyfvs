@@ -301,12 +301,10 @@ class PNDiameterGrowthModel(ParameterizedModel):
         # Matches LS/CS bounds: ln(DDS)=5 → DDS=148 sq in (~2.2" growth/decade).
         ln_dds = max(-5.0, min(5.0, ln_dds))
 
-        # Apply stochastic multiplier: Baskerville correction (deterministic)
-        # or random draw (stochastic) matching Fortran dgscor.f.
-        bask = self._stochastic_multiplier(ln_dds, rng)
+        # Apply Fortran dgscor.f multiplier: 1.0 deterministic, exp(Z) stochastic.
+        correction = self._stochastic_multiplier(ln_dds, rng)
 
-        # Convert from ln(DDS) to DDS with correction
-        dds = math.exp(ln_dds) * bask
+        dds = math.exp(ln_dds) * correction
 
         # Scale by time step (base cycle is 10 years)
         dds = dds * (time_step / 10.0)

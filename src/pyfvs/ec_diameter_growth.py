@@ -85,7 +85,6 @@ class ECDiameterGrowthModel(ParameterizedModel):
     COEFFICIENT_FILE = "ec/ec_diameter_growth_coefficients.json"
     COEFFICIENT_KEY = "species_coefficients"
     DEFAULT_SPECIES = "DF"
-    _use_baskerville = True
 
     def __init__(self, species_code: str = "DF"):
         super().__init__(species_code)
@@ -184,7 +183,12 @@ class ECDiameterGrowthModel(ParameterizedModel):
             # Unknown species (shouldn't happen given the loader fallback)
             ln_dds = conspp + c.get("DGLD", 0.0) * math.log(dbh)
 
-        # Stochastic / Baskerville correction
+        # Stochastic draw or deterministic Baskerville bump.
+        # TODO(parity): Fortran dgscor.f returns FRM=1.0 in deterministic
+        # mode — the +0.88*sigma^2/2 bump below is a pyfvs-only compensator
+        # and is not Fortran-faithful.  Remove as part of EC parity work.
+        # (Comment previously said "same coefficient PN/CA use" but PN does
+        # not apply Baskerville in deterministic mode.)
         if rng is not None:
             z = rng.gauss(0, self._sigma)
             z = max(-2 * self._sigma, min(2 * self._sigma, z))
@@ -192,7 +196,6 @@ class ECDiameterGrowthModel(ParameterizedModel):
                 z *= max(0.0, 1.0 - (ln_dds + z - 4.0) / 2.0)
             ln_dds += z
         else:
-            # Baskerville bias correction with the same coefficient PN/CA use
             ln_dds += 0.88 * self._sigma * self._sigma / 2.0
 
         # Floor at -9.21 (Fortran ec/dgf.f:562)

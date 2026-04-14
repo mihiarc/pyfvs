@@ -6,7 +6,8 @@ Verifies that:
 3. Different seeds produce different results
 4. Random draws are bounded within +/-2*sigma
 5. NE and OP variants are unaffected by stochastic flag
-6. CS has no Baskerville in deterministic mode but draws noise in stochastic
+6. Deterministic mode returns multiplier 1.0 (Fortran dgscor.f FRM=1.0)
+   while stochastic mode draws per-tree noise
 """
 import math
 import random
@@ -139,7 +140,7 @@ class TestStochasticDivergence:
 # =========================================================================
 
 class TestDeterministicUnchanged:
-    """Stochastic=False must produce deterministic Baskerville-corrected results."""
+    """Stochastic=False must produce deterministic results matching Fortran dgscor.f FRM=1.0 branch."""
 
     def test_sn_stochastic_is_default(self):
         """SN: stochastic=True is the default."""
@@ -165,20 +166,18 @@ class TestDeterministicUnchanged:
         assert m['basal_area'] > 0
         assert m['qmd'] > 0
 
-    def test_sn_model_rng_none_uses_baskerville(self):
-        """SN model: rng=None uses deterministic Baskerville correction."""
+    def test_sn_model_rng_none_returns_positive_dds(self):
+        """SN model: rng=None returns deterministic positive DDS (Fortran-faithful, no Baskerville)."""
         model = create_sn_diameter_growth_model('LP')
         dds_det = model.calculate_dds(
             dbh=8.0, crown_ratio=0.7, site_index=70,
             ba=100, pbal=50, rng=None
         )
-        # Should be > 0 and include Baskerville boost
         assert dds_det > 0
 
-    def test_cs_deterministic_no_baskerville(self):
-        """CS model: deterministic mode has no Baskerville (correction=1.0)."""
+    def test_cs_deterministic_multiplier_unity(self):
+        """CS deterministic mode: multiplier is 1.0, matching Fortran dgscor.f."""
         model = create_cs_diameter_growth_model('WO')
-        # _stochastic_multiplier with rng=None should return 1.0 for CS
         mult = model._stochastic_multiplier(2.0, rng=None)
         assert mult == 1.0
 
@@ -260,16 +259,39 @@ class TestUnaffectedVariants:
     def test_ne_stochastic_same_as_deterministic(self):
         """NE variant: stochastic flag has no effect on diameter growth.
 
-        Both runs use the same random_seed so mortality is identical.
-        NE doesn't use rng for diameter growth, so results should match.
+        NE uses a BA-increment model with no per-tree rng draw, so
+        diameter-growth trajectories must be identical under stochastic
+        vs deterministic mode (starting from the same seed).  Mortality
+        DOES differ between modes (Fortran-faithful deterministic mode
+        uses expected-value mortality; stochastic uses Bernoulli), so
+        stand-level BA/QMD can diverge slightly — this test targets the
+        DG path only via an explicit `apply_mortality=False` flag would
+        be ideal; absent that, compare per-tree DBH trajectories from
+        two runs that skip mortality entirely by using a tiny TPA that
+        stays below the DBHSTAGE threshold for the cycle.
         """
-        m_det = _run_stand_deterministic(400, 60, 'RM', 'NE', 20, global_seed=500)
-        m_sto = _run_stand_stochastic(400, 60, 'RM', 'NE', 20, seed=500, global_seed=500)
+        # Run both modes with a small, size-matched monoculture. With TPA
+        # small enough and cycle short enough that no mortality fires,
+        # differences collapse to the DG path only.
+        from pyfvs.tree import Tree
+        trees_det = [Tree(dbh=10.0, height=60.0, species='RM', age=30,
+                          variant='NE') for _ in range(3)]
+        stand_det = Stand(trees_det, site_index=60, species='RM', variant='NE',
+                          stochastic=False, random_seed=500)
+        stand_det.age = 30
+        stand_det.grow(20)
 
-        # NE doesn't use rng for diameter growth, so with same mortality
-        # seed, results should be identical
-        assert m_det['basal_area'] == pytest.approx(m_sto['basal_area'], rel=1e-10)
-        assert m_det['qmd'] == pytest.approx(m_sto['qmd'], rel=1e-10)
+        trees_sto = [Tree(dbh=10.0, height=60.0, species='RM', age=30,
+                          variant='NE') for _ in range(3)]
+        stand_sto = Stand(trees_sto, site_index=60, species='RM', variant='NE',
+                          stochastic=True, random_seed=500)
+        stand_sto.age = 30
+        stand_sto.grow(20)
+
+        # With no mortality firing, NE DG should produce byte-identical DBH.
+        det_dbhs = sorted(t.dbh for t in stand_det.trees)
+        sto_dbhs = sorted(t.dbh for t in stand_sto.trees)
+        assert det_dbhs == pytest.approx(sto_dbhs, rel=1e-10)
 
     def test_op_stochastic_same_as_deterministic(self):
         """OP variant: stochastic flag has no effect on diameter growth."""
@@ -299,7 +321,7 @@ class TestUnaffectedVariants:
 # =========================================================================
 
 class TestCSSpecialCase:
-    """CS: no Baskerville deterministic, but does draw noise stochastic."""
+    """CS: deterministic multiplier=1.0 (Fortran-faithful), stochastic draws noise."""
 
     def test_cs_stochastic_differs_from_deterministic(self):
         """CS stochastic should differ from CS deterministic at model level."""
@@ -344,8 +366,14 @@ class TestCSSpecialCase:
 class TestModelLevelStochastic:
     """Direct model-level tests for stochastic behavior."""
 
-    def test_sn_stochastic_mean_near_baskerville(self):
-        """Mean of many stochastic draws should approximate Baskerville correction."""
+    def test_sn_stochastic_mean_near_deterministic(self):
+        """Mean of many stochastic draws should be within 15% of deterministic DDS.
+
+        Both pyfvs and Fortran FVS exhibit a lognormal bias: E[exp(Z)] > 1 when
+        Z ~ N(0, sigma^2), so stochastic mean is systematically higher than
+        deterministic exp(ln_dds). Tolerance accommodates this bias (~exp(sigma^2/2))
+        and truncation/suppression effects.
+        """
         model = create_sn_diameter_growth_model('LP')
         rng = random.Random(12345)
 
@@ -364,10 +392,6 @@ class TestModelLevelStochastic:
         )
 
         mean_stochastic = sum(stochastic_dds) / len(stochastic_dds)
-
-        # Mean of stochastic should be within ~15% of deterministic
-        # (they approximate the same expected value, but from different
-        # directions -- Baskerville is an analytic approximation)
         assert abs(mean_stochastic - det_dds) / det_dds < 0.15
 
     def test_wc_stochastic_produces_variation(self):

@@ -340,7 +340,7 @@ class TestWSStochasticGrowth:
             )
             stoch_dgs.append(dg)
         mean_stoch = sum(stoch_dgs) / len(stoch_dgs)
-        # Should be within 15% of deterministic (Baskerville vs stochastic mean)
+        # Should be within 15% of deterministic (lognormal bias on stochastic mean)
         assert abs(mean_stoch - det_dg) / det_dg < 0.15
 
     def test_stand_stochastic_mode(self):

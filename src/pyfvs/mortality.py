@@ -241,6 +241,7 @@ class MortalityModel:
         random_seed: Optional[int] = None,
         pre_growth_qmd: float = 0.0,
         pre_growth_tpa: int = 0,
+        stochastic: bool = True,
         **kwargs,
     ) -> MortalityResult:
         """Apply FVS mortality matching Fortran morts.f + varmrt.f.
@@ -262,6 +263,11 @@ class MortalityModel:
             random_seed: Optional seed for reproducibility
             pre_growth_qmd: QMD of staged trees before growth (DQ0)
             pre_growth_tpa: Count of staged trees before growth
+            stochastic: When True (default), apply Bernoulli per-tree mortality
+                using the RNG. When False, use Fortran-faithful expected-value
+                mortality: kill round(sum of per-tree rip_i) trees deterministically.
+                Fortran morts.f always uses expected-value (fractional PROB
+                reduction), so stochastic=False is the more faithful mode.
 
         Returns:
             MortalityResult with survivors and mortality count
@@ -282,7 +288,7 @@ class MortalityModel:
             coefficients = self.get_coefficients()
             tree_data = self._calculate_tree_percentiles(trees)
             return self._apply_background_mortality(
-                tree_data, coefficients, cycle_length, rng=rng
+                tree_data, coefficients, cycle_length, rng=rng, stochastic=stochastic,
             )
 
         # DQ0: pre-growth QMD of staged trees (from stand.py)
@@ -337,12 +343,13 @@ class MortalityModel:
         if density_active and tokill >= 0.5:
             # Density mortality: distribute TOKILL using VARMRT
             result = self._apply_density_mortality_fortran(
-                tree_data, coefficients, cycle_length, round(tokill), rng=rng
+                tree_data, coefficients, cycle_length, round(tokill),
+                rng=rng, stochastic=stochastic,
             )
         else:
             # Background mortality only
             result = self._apply_background_mortality(
-                tree_data, coefficients, cycle_length, rng=rng
+                tree_data, coefficients, cycle_length, rng=rng, stochastic=stochastic,
             )
 
         # Save staged TPA for next cycle's trajectory change detection
@@ -532,36 +539,60 @@ class MortalityModel:
         coefficients: Dict[str, Any],
         cycle_length: int,
         *,
-        rng: random.Random = None
+        rng: random.Random = None,
+        stochastic: bool = True,
     ) -> MortalityResult:
         """Apply background mortality only (below SDI threshold).
 
         Uses equations 5.0.1 and 5.0.2 from morts.f.
+
+        Fortran morts.f applies FRACTIONAL mortality: each tree's PROB is
+        reduced by WKI = P*(1-(1-rip)^FINT). With integer pyfvs trees, we
+        emulate this two ways:
+          - stochastic=True: Bernoulli per-tree (variance around expected).
+          - stochastic=False: deterministic expected value — kill exactly
+            round(sum(rip_i)) trees, selecting the highest-rip trees first
+            (tie-break by smallest DBH). This matches Fortran's deterministic
+            FRM=1.0 branch for dgscor.f and is used by parity tests.
 
         Args:
             tree_data: List of (tree, percentile) tuples
             coefficients: Mortality coefficients
             cycle_length: Cycle length in years
             rng: Local random number generator
+            stochastic: Bernoulli per-tree if True, expected-value if False
 
         Returns:
             MortalityResult
         """
         if rng is None:
             rng = random.Random()
-        survivors = []
-        trees_died = []
 
-        for tree, pct in tree_data:
-            # Delegate per-tree rate computation to the virtual hook so LS/OC
-            # subclasses can use their 4-group / 7-group halved logistic.
+        # Compute per-tree rip (background mortality rate for the cycle).
+        trees_with_rip: List[Tuple['Tree', float]] = []
+        for tree, _ in tree_data:
             rip = self._get_background_rate_for_tree(tree, cycle_length)
+            trees_with_rip.append((tree, rip))
 
-            # Apply mortality stochastically
-            if rng.random() > rip:
-                survivors.append(tree)
-            else:
-                trees_died.append(tree)
+        if stochastic:
+            survivors = []
+            trees_died = []
+            for tree, rip in trees_with_rip:
+                if rng.random() > rip:
+                    survivors.append(tree)
+                else:
+                    trees_died.append(tree)
+        else:
+            # Deterministic: kill the integer-rounded expected count, picking
+            # highest-rip trees first (tie-break by smallest DBH ascending so
+            # smaller trees within a tied group die first).
+            total_kills = int(round(sum(rip for _, rip in trees_with_rip)))
+            ranked = sorted(
+                trees_with_rip,
+                key=lambda tr: (-tr[1], tr[0].dbh),
+            )
+            trees_died = [t for t, _ in ranked[:total_kills]]
+            survivors = [t for t, _ in ranked[total_kills:]]
 
         return MortalityResult(
             survivors=survivors,
@@ -576,7 +607,8 @@ class MortalityModel:
         cycle_length: int,
         tokill: int,
         *,
-        rng: random.Random = None
+        rng: random.Random = None,
+        stochastic: bool = True,
     ) -> MortalityResult:
         """Apply Fortran-style density mortality (morts.f + varmrt.f).
 
@@ -592,6 +624,10 @@ class MortalityModel:
             cycle_length: Cycle length in years
             tokill: Target number of trees to kill
             rng: Local random number generator
+            stochastic: Bernoulli-weighted selection if True, deterministic
+                top-N-by-efficiency selection if False (Fortran VARMRT is
+                deterministic — it distributes exactly TOKILL across trees
+                weighted by efficiency).
 
         Returns:
             MortalityResult
@@ -619,6 +655,21 @@ class MortalityModel:
             # Combined efficiency (varmrt.f line 123)
             eff = peff * varadj * 0.1
             efftr.append(eff)
+
+        if not stochastic:
+            # Deterministic: kill exactly tokill trees, highest-efficiency
+            # first. Tie-break by smallest DBH ascending so smaller trees
+            # within a tied efficiency group die first.
+            indexed = list(zip(range(tpa), tree_data, efftr))
+            indexed.sort(key=lambda x: (-x[2], x[1][0].dbh))
+            killed_idx = {i for i, _, _ in indexed[:tokill]}
+            survivors = [t for i, (t, _) in enumerate(tree_data) if i not in killed_idx]
+            trees_died = [t for i, (t, _) in enumerate(tree_data) if i in killed_idx]
+            return MortalityResult(
+                survivors=survivors,
+                mortality_count=len(trees_died),
+                trees_died=trees_died
+            )
 
         # Normalize efficiencies to get per-tree kill probability
         total_eff = sum(efftr)

@@ -71,7 +71,7 @@ metrics = stand.get_metrics()  # keys: tpa, basal_area, qmd, volume, top_height
 # Reproducible stochastic run
 stand = Stand.initialize_planted(500, 70, 'LP', random_seed=42)
 
-# Deterministic mode (Baskerville correction, no randomness)
+# Deterministic mode (matches Fortran dgscor.f DGSD<1.0 branch: FRM=1.0)
 stand = Stand.initialize_planted(500, 70, 'LP', stochastic=False)
 
 # Thinning

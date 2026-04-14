@@ -236,8 +236,9 @@ def test_oc_fix_halves_dds_vs_unconverted():
     Mathematical sanity check on the fix itself, independent of any native
     FVS behavior. Without the fix, the deterministic DDS for a non-tanoak
     species would be exp(ln_dds_10), which is exactly 2x what the fix
-    produces (exp(ln_dds_10 - ln(2))). Allow ~5% slack for the Baskerville
-    correction interaction with the conversion.
+    produces (exp(ln_dds_10 - ln(2))). No lognormal correction is applied
+    in deterministic mode (matches Fortran dgscor.f FRM=1.0 branch), so
+    pre-fix vs post-fix differ by exactly the 2x factor.
     """
     import math
 
@@ -253,8 +254,7 @@ def test_oc_fix_halves_dds_vs_unconverted():
 
     # What pyfvs OC produced before the fix: same equation, no -ln(2)
     # adjustment. Reconstruct by undoing the fix in real space (multiply
-    # the result by 2). The Baskerville correction is applied AFTER the
-    # conversion in pyfvs, so it scales with the result.
+    # the result by 2).
     pre_fix_dds_estimate = fixed_dds * 2.0
 
     # Sanity bounds on the fixed value: a healthy DF at SI=80, BA=120

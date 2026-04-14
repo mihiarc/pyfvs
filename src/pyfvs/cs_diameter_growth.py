@@ -2,7 +2,7 @@
 Central States (CS) variant diameter growth model.
 
 Thin subclass of the Lake States (LS) model — identical ln(DDS) equation,
-different coefficients and no Baskerville correction.
+different coefficients.
 
 CS equation (same form as LS):
     ln(DDS) = INTERC + VDBHC/D + DBHC*D + DBH2C*D² + RDBHC*RELDBH
@@ -10,7 +10,6 @@ CS equation (same form as LS):
 
 Key differences from LS:
     - 96 species covering IL, IN, IA, MO (Midwest hardwood forests)
-    - No Baskerville correction (already overshoots native without it)
     - Different species coefficient file
 
 Source: FVS Central States Variant dgf.f, USDA Forest Service
@@ -26,13 +25,12 @@ class CSDiameterGrowthModel(LSDiameterGrowthModel):
     """Central States variant diameter growth model.
 
     Inherits the ln(DDS) equation from LSDiameterGrowthModel, overriding
-    only the coefficient file, default species, and Baskerville flag.
+    only the coefficient file and default species.
     """
 
     COEFFICIENT_FILE = 'cs/cs_diameter_growth_coefficients.json'
     COEFFICIENT_KEY = 'coefficients'
     DEFAULT_SPECIES = 'WO'  # White Oak is the default site species for CS
-    _use_baskerville = False  # CS already overshoots native without correction
 
     # Fallback parameters for key CS species (from dgf.f)
     FALLBACK_PARAMETERS = {

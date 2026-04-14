@@ -62,28 +62,29 @@ def test_sn_gold_standard_lp_si70_25yr(require_native_variant, parity_tolerance)
     assert_metrics_close(pyfvs_result, native_result, parity_tolerance)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Longer-cycle / off-baseline SN scenarios diverge by small but "
-        "measurable amounts after 25-50 year runs. Specific divergences "
-        "observed at first parity run: "
-        "(lp-si90-50yr) TPA 6.4%, BA 16%, QMD 11%, volume 12% — likely "
-        "compounding small mortality + DDS errors over 10 cycles. "
-        "(sp-si65-25yr) BA 5.9% — just outside 5% tolerance. "
-        "(sa-si75-25yr) TPA 2.9%, BA 5.5% — just outside tolerances. "
-        "These are within expected stand-level model variation but tight "
-        "enough that they should be tracked. The gold-standard case "
-        "(lp-si70-25yr) does pass, confirming the SN port is structurally "
-        "sound. Investigate after CR translation lands."
-    ),
-)
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
         ("LP", 90, 400, 50),    # loblolly, high site, longer rotation
         ("SP", 65, 500, 25),    # shortleaf pine, moderate site
-        ("SA", 75, 500, 25),    # slash pine, moderate-high site
+        pytest.param(
+            "SA", 75, 500, 25,  # slash pine, moderate-high site
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason=(
+                    "After Fortran-faithful fixes (ecounit='' default, "
+                    "Fortran PCTILE PBAL, hard-switch DG per regent.f, "
+                    "deterministic expected-value mortality per morts.f, "
+                    "BACHLO(0.5,0.25) ESTAB variation per estab.f), SA "
+                    "SI=75 25yr has BA -5.4%, QMD -3.7% — BA just outside "
+                    "5% tol. LP and SP scenarios now pass parity tolerance. "
+                    "SA grows slightly too slow in pyfvs (coefficients "
+                    "match Fortran). Candidate sources: SA-specific crown "
+                    "ratio trajectory, bark ratio, or the year-5→10 blend "
+                    "zone small-tree HTG cascade."
+                ),
+            ),
+        ),
     ],
     ids=["lp-si90-50yr", "sp-si65-25yr", "sa-si75-25yr"],
 )
@@ -95,11 +96,12 @@ def test_sn_off_baseline_parity(
     trees_per_acre,
     years,
 ):
-    """Non-gold-standard SN scenarios — currently XFAIL.
+    """Non-gold-standard SN scenarios.
 
-    See xfail reason for the specific divergences observed and likely
-    causes. These are tracked as known small issues. When fixed, the
-    xfail markers should be removed (strict=True will surface that).
+    LP SI=90 50yr and SP SI=65 25yr pass parity tolerance after the
+    Fortran-faithful fixes (ecounit default, Fortran PCTILE PBAL,
+    hard-switch DG, deterministic mortality). SA SI=75 25yr still
+    xfails — see parametrize xfail reason.
     """
     require_native_variant("SN")
 

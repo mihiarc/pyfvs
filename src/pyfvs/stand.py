@@ -86,8 +86,9 @@ class Stand:
             ecounit: Ecological unit code (e.g., "M221", "232")
             variant: FVS variant code (e.g., 'SN', 'LS'). If None, uses default.
             stochastic: Enable stochastic diameter growth mode. When True,
-                per-tree per-cycle random draws match native FVS dgscor.f behavior.
-                When False, uses deterministic Baskerville bias correction.
+                per-tree per-cycle random draws match native FVS dgscor.f
+                (DGSD>=1.0 branch). When False, matches Fortran's deterministic
+                branch (DGSD<1.0): FRM=1.0, no Baskerville correction.
             random_seed: Seed for reproducible stochastic runs. Only used when
                 stochastic=True. If None, uses non-reproducible random state.
             bare_ground: When True, the first growth cycle runs establishment-
@@ -318,7 +319,7 @@ class Stand:
             forest_type: FVS forest type group (e.g., "FTYLPN")
             variant: FVS variant code (e.g., 'SN', 'LS'). If None, uses default.
             stochastic: Enable stochastic diameter growth mode (default True).
-                Set to False for deterministic Baskerville correction.
+                Set to False for Fortran-faithful deterministic mode (FRM=1.0).
             random_seed: Seed for reproducible stochastic runs.
 
         Returns:
@@ -645,30 +646,86 @@ class Stand:
         age, then derives DBH from height-diameter allometry.  The trees
         enter the next regular growth cycle at that size.
 
-        This method replicates that behaviour using the same
-        variant-dispatched computation as initialize_planted(), via the
-        shared helper compute_establishment_tree_state().
+        Fortran estab.f:485-487 adds per-tree height variation via
+        BACHLO(0.5, 0.25, ESRANN) truncated to [0, 1.5] on top of the
+        site-curve height, then caps at HHTMAX.  We mirror that behaviour
+        here: in stochastic mode we draw from a truncated N(0.5, 0.25),
+        in deterministic mode we use quantile sampling of that same
+        distribution so the top-40/acre mean shift matches Fortran's
+        expected value without introducing reproducibility hazards.
         """
         self.age += years
 
         if not self.trees:
             return
 
-        # No height variation here: native FVS ESTAB with PLANT keyword
-        # produces uniform trees in a monoculture (all capped at HHTMAX).
-        # initialize_planted() adds variation as a user-convenience
-        # substitute for DGSCOR stochastic differentiation — that's a
-        # separate design choice, not something the bare-ground parity
-        # path should replicate.
-        for tree in self.trees:
-            ht, dbh = compute_establishment_tree_state(
+        from .establishment import get_hhtmax
+        from statistics import NormalDist
+
+        # Precompute base height and DBH per species (all identical in a
+        # single-species planted stand, but compute per-tree for mixed).
+        # Fortran BACHLO(mean=0.5, sd=0.25) truncated to [0, 1.5].
+        n = len(self.trees)
+        normal = NormalDist(0.5, 0.25)
+        if self.stochastic and self._rng is not None:
+            # Sample from truncated N(0.5, 0.25) using the stand RNG, the
+            # same algorithm as Fortran BACHLO.
+            def _draw() -> float:
+                for _ in range(100):
+                    x = self._rng.gauss(0.5, 0.25)
+                    if 0.0 <= x <= 1.5:
+                        return x
+                return 0.5
+            variations = [_draw() for _ in range(n)]
+        else:
+            # Deterministic quantile sampling preserves the distribution
+            # tail that matters for top-40 height and PBAL variation.
+            variations = []
+            for i in range(n):
+                q = (i + 0.5) / n
+                x = normal.inv_cdf(q)
+                variations.append(max(0.0, min(1.5, x)))
+
+        for tree, variation in zip(self.trees, variations):
+            base_ht, base_dbh = compute_establishment_tree_state(
                 species=tree.species,
                 site_index=self.site_index,
                 variant=self.variant,
                 cycle_length=base_cycle,
             )
-            tree.height = ht
-            tree.dbh = dbh
+            # Fortran estab.f applies BACHLO variation on top of the raw
+            # ESSUBH height (HHT = HHT + RAN), then applies HHTMAX cap.
+            # compute_establishment_tree_state already caps at HHTMAX, so
+            # we UN-cap by recomputing the raw value, add variation, cap.
+            from .establishment import compute_establishment_height
+            raw_ht = compute_establishment_height(
+                species=tree.species,
+                site_index=self.site_index,
+                age=base_cycle + 2,  # matches ESSUBH age=TIME+TRAGE=5+2=7
+                variant=self.variant,
+            )
+            # Strip the HHTMAX cap from compute_establishment_height so
+            # we apply variation on the uncapped site-curve value.
+            hhtmax = get_hhtmax(tree.species, self.variant)
+            if hhtmax > 0 and raw_ht > hhtmax:
+                # Already capped — use capped for variation base.
+                ht_before_cap = hhtmax + variation
+            else:
+                ht_before_cap = raw_ht + variation
+            if hhtmax > 0 and ht_before_cap > hhtmax:
+                ht_before_cap = hhtmax
+            tree.height = max(0.5, ht_before_cap)
+
+            # DBH trajectory follows height via Curtis-Arney for SN.
+            # Re-derive using the varied height (matches Fortran regent.f
+            # path: DBH = Wykoff-inverse(new_ht) via HTDBH).
+            from .establishment import estimate_dbh_from_height
+            estab_frac = 0.25 if self.variant in ('SN', 'CA', 'OC', 'WS') else 0.0
+            uncapped = raw_ht + variation
+            hd_height = tree.height + estab_frac * (uncapped - tree.height)
+            tree.dbh = estimate_dbh_from_height(
+                hd_height, tree.species, self.variant
+            )
             tree.age = base_cycle
 
     def _grow_single_cycle(self, years: int):
@@ -793,6 +850,7 @@ class Stand:
             pre_growth_qmd=pre_growth_qmd,
             pre_growth_tpa=pre_growth_tpa,
             site_index=self.site_index,
+            stochastic=self.stochastic,
         )
 
         self.trees = result.survivors

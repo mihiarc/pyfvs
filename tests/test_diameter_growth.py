@@ -151,10 +151,10 @@ class TestCSDiameterGrowth:
         model = create_cs_diameter_growth_model('WO')
         assert isinstance(model, LSDiameterGrowthModel)
 
-    def test_no_baskerville(self):
-        """CS should NOT use Baskerville correction."""
+    def test_deterministic_multiplier_is_unity(self):
+        """CS deterministic mode returns multiplier 1.0, matching Fortran dgscor.f."""
         model = create_cs_diameter_growth_model('WO')
-        assert model._use_baskerville is False
+        assert model._stochastic_multiplier(ln_dds=2.0, rng=None) == 1.0
 
     def test_cs_uses_own_coefficients(self):
         """CS and LS should have different coefficients."""
