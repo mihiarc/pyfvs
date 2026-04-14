@@ -67,24 +67,7 @@ def test_sn_gold_standard_lp_si70_25yr(require_native_variant, parity_tolerance)
     [
         ("LP", 90, 400, 50),    # loblolly, high site, longer rotation
         ("SP", 65, 500, 25),    # shortleaf pine, moderate site
-        pytest.param(
-            "SA", 75, 500, 25,  # slash pine, moderate-high site
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "After Fortran-faithful fixes (ecounit='' default, "
-                    "Fortran PCTILE PBAL, hard-switch DG per regent.f, "
-                    "deterministic expected-value mortality per morts.f, "
-                    "BACHLO(0.5,0.25) ESTAB variation per estab.f), SA "
-                    "SI=75 25yr has BA -5.4%, QMD -3.7% — BA just outside "
-                    "5% tol. LP and SP scenarios now pass parity tolerance. "
-                    "SA grows slightly too slow in pyfvs (coefficients "
-                    "match Fortran). Candidate sources: SA-specific crown "
-                    "ratio trajectory, bark ratio, or the year-5→10 blend "
-                    "zone small-tree HTG cascade."
-                ),
-            ),
-        ),
+        ("SA", 75, 500, 25),    # slash pine, moderate-high site
     ],
     ids=["lp-si90-50yr", "sp-si65-25yr", "sa-si75-25yr"],
 )
@@ -96,12 +79,12 @@ def test_sn_off_baseline_parity(
     trees_per_acre,
     years,
 ):
-    """Non-gold-standard SN scenarios.
+    """Non-gold-standard SN scenarios — all pass within tolerance.
 
-    LP SI=90 50yr and SP SI=65 25yr pass parity tolerance after the
-    Fortran-faithful fixes (ecounit default, Fortran PCTILE PBAL,
-    hard-switch DG, deterministic mortality). SA SI=75 25yr still
-    xfails — see parametrize xfail reason.
+    After six Fortran-faithful fixes (ecounit default, Fortran PCTILE
+    PBAL, hard-switch DG, deterministic mortality, BACHLO ESTAB height
+    variation, regent.f LESTB initial crown ratio assignment) all three
+    off-baseline scenarios match native FVS within parity tolerance.
     """
     require_native_variant("SN")
 

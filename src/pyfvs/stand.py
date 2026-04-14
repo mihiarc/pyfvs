@@ -728,6 +728,40 @@ class Stand:
             )
             tree.age = base_cycle
 
+        # Crown ratio assignment per Fortran regent.f:178-185 (LESTB branch):
+        #   CR = 0.89722 - 0.0000461*PCCF + 0.07985*RAN  (RAN ~ N(0,1) in [-1,1])
+        #   clamp [0.20, 0.90]
+        # Applied only for SN-family variants that use regent.f's LESTB path.
+        if self.variant in ('SN', 'LS', 'CS', 'NE'):
+            # Sample per-tree variation: stochastic via RNG, deterministic via
+            # quantile sampling of N(0,1) truncated to [-1, 1].
+            if self.stochastic and self._rng is not None:
+                def _rand_norm_trunc() -> float:
+                    for _ in range(100):
+                        r = self._rng.gauss(0.0, 1.0)
+                        if -1.0 <= r <= 1.0:
+                            return r
+                    return 0.0
+                cr_variations = [_rand_norm_trunc() for _ in range(n)]
+            else:
+                cr_variations = []
+                for i in range(n):
+                    q = (i + 0.5) / n
+                    r = normal.inv_cdf(q) * 2 - 1  # shift N(0.5,0.25) to N(0,0.5)
+                    # Use a fresh standard normal quantile instead
+                    from statistics import NormalDist as _ND
+                    r = _ND(0.0, 1.0).inv_cdf(q)
+                    cr_variations.append(max(-1.0, min(1.0, r)))
+
+            # Compute stand CCF for PCCF proxy. In monoculture the point CCF
+            # equals the stand CCF; when multiple plots are present Fortran
+            # uses per-plot PCCF which pyfvs does not track.
+            stand_ccf = self._metrics.calculate_ccf(self.trees)
+            for tree, rand in zip(self.trees, cr_variations):
+                cr = 0.89722 - 0.0000461 * stand_ccf + 0.07985 * rand
+                cr = max(0.20, min(0.90, cr))
+                tree.crown_ratio = cr
+
     def _grow_single_cycle(self, years: int):
         """Execute a single growth cycle (internal helper).
 
