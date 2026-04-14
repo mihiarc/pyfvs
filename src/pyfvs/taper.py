@@ -219,8 +219,10 @@ class ClarkTaperModel(TaperModel):
         'CH', 'AS', 'PY', 'CW',
     }
 
-    def __init__(self, species_code: str, variant: str):
+    def __init__(self, species_code: str, variant: str,
+                 forest_group: str = '4'):
         super().__init__(species_code, variant)
+        self.forest_group = forest_group
         self._coefficients = self._load_coefficients()
         # Tree-level intermediates (computed in initialize_tree)
         self._dbhib = 0.0   # DIB at breast height
@@ -234,7 +236,15 @@ class ClarkTaperModel(TaperModel):
         self._T = 0.0
 
     def _load_coefficients(self) -> Dict:
-        """Load Clark coefficients for the species and variant."""
+        """Load Clark coefficients for the species and variant.
+
+        For R8 (SN): uses the TOTAL-array coefficients (r, c, e, p, a, b)
+        from ``species_coefficients`` keyed by FVS code, then overlays
+        forest-group-specific A4/B4/A17/B17 from ``forest_group_coefficients``
+        keyed by (group, FIA code). Mirrors ``R8PREPCOEF`` in
+        ``volume/NVEL/r8clkdib.f`` — species aliasing (:34-51) followed by
+        binary search, with group=9 as the universal fallback (:82-97).
+        """
         if self.variant == 'SN':
             coef_file = self.COEFFICIENT_FILE_R8
         else:
@@ -249,20 +259,58 @@ class ClarkTaperModel(TaperModel):
         group_mapping = data.get('group_mapping', {})
 
         # Direct species lookup
+        resolved = None
         if self.species_code in species_coeffs:
-            return species_coeffs[self.species_code]
+            resolved = species_coeffs[self.species_code]
+        else:
+            mapped = group_mapping.get(self.species_code)
+            if mapped and mapped in species_coeffs:
+                resolved = species_coeffs[mapped]
 
-        # Try group mapping
-        mapped = group_mapping.get(self.species_code)
-        if mapped and mapped in species_coeffs:
-            return species_coeffs[mapped]
+        if resolved is None:
+            default_key = (
+                'DEFAULT_HARDWOOD' if self.species_code in self._HARDWOOD_SPECIES
+                else 'DEFAULT_SOFTWOOD'
+            )
+            if default_key in species_coeffs:
+                resolved = species_coeffs[default_key]
+            else:
+                return self._fallback_coefficients()
 
-        # Fallback defaults
-        default_key = 'DEFAULT_HARDWOOD' if self.species_code in self._HARDWOOD_SPECIES else 'DEFAULT_SOFTWOOD'
-        if default_key in species_coeffs:
-            return species_coeffs[default_key]
+        # R8: overlay forest-group-specific A4/B4/A17/B17 from R8CF table.
+        if self.variant == 'SN':
+            r8cf = self._resolve_r8cf(data, resolved.get('fia_code'))
+            if r8cf is not None:
+                resolved = {**resolved, **r8cf}
 
-        return self._fallback_coefficients()
+        return resolved
+
+    def _resolve_r8cf(self, data: Dict, fia_code) -> Optional[Dict]:
+        """Look up A4/B4/A17/B17 from forest_group_coefficients.
+
+        Mirrors R8PREPCOEF in volume/NVEL/r8clkdib.f:
+            1. apply species alias (r8clkdib.f:34-51)
+            2. try (forest_group, aliased_fia)
+            3. on miss retry with group='9' (r8clkdib.f:82-97)
+            4. on miss return None so caller falls back to legacy placeholders
+        """
+        fgc = data.get('forest_group_coefficients')
+        if not fgc or fia_code is None:
+            return None
+
+        fia_key = str(int(fia_code))
+        aliases = data.get('species_aliases', {})
+        aliased = aliases.get(fia_key, fia_key)
+
+        primary = fgc.get(self.forest_group, {}).get(aliased)
+        if primary is not None:
+            return primary
+
+        fallback = fgc.get('9', {}).get(aliased)
+        if fallback is not None:
+            return fallback
+
+        return None
 
     def _fallback_coefficients(self) -> Dict:
         """Hardcoded fallback coefficients (generic softwood)."""
@@ -306,9 +354,10 @@ class ClarkTaperModel(TaperModel):
         if form_class is not None and form_class > 0:
             self._dib17 = dbh * form_class / 100.0
         elif height > 17.3:
-            # DIB at 17.3 ft
+            # DIB at 17.3 ft — uses DBH OB per Fortran r8clkdib.f:359:
+            #   DIB17 = DBHOB * (A17 + B17 * (17.3/TOPHT)**2)
             ratio_sq = (17.3 / height) ** 2
-            self._dib17 = self._dbhib * (coef['a17'] + coef['b17'] * ratio_sq)
+            self._dib17 = dbh * (coef['a17'] + coef['b17'] * ratio_sq)
             self._dib17 = max(0.1, self._dib17)
         else:
             # Very short tree: approximate
@@ -1215,7 +1264,8 @@ _taper_model_cache: Dict[str, TaperModel] = {}
 
 
 def create_taper_model(species_code: str,
-                       variant: Optional[str] = None) -> Optional[TaperModel]:
+                       variant: Optional[str] = None,
+                       forest_group: str = '4') -> Optional[TaperModel]:
     """Create a taper model for a species and variant.
 
     Returns a cached TaperModel instance, or None if no taper model
@@ -1231,6 +1281,9 @@ def create_taper_model(species_code: str,
         species_code: FVS species code (e.g., 'LP', 'DF').
         variant: FVS variant code (e.g., 'SN', 'PN'). If None,
                  uses the current default variant.
+        forest_group: R8 forest group ('1'–'7' or '9'). Only used by
+                 ClarkTaperModel for SN; default '4' matches native
+                 FVSsn Alabama/Bankhead FORKOD fallback.
 
     Returns:
         TaperModel instance, or None if taper is not supported
@@ -1239,7 +1292,7 @@ def create_taper_model(species_code: str,
     if variant is None:
         variant = get_default_variant()
 
-    cache_key = f"{variant}:{species_code}"
+    cache_key = f"{variant}:{forest_group}:{species_code}"
     if cache_key in _taper_model_cache:
         return _taper_model_cache[cache_key]
 
@@ -1260,6 +1313,8 @@ def create_taper_model(species_code: str,
             model = candidate
         else:
             return None
+    elif taper_cls is ClarkTaperModel:
+        model = ClarkTaperModel(species_code, variant, forest_group=forest_group)
     else:
         model = taper_cls(species_code, variant)
 

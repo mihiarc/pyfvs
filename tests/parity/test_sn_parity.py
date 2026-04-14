@@ -104,3 +104,100 @@ def test_sn_off_baseline_parity(
         years=years,
     )
     assert_metrics_close(pyfvs_result, native_result, parity_tolerance)
+
+
+@pytest.mark.parametrize(
+    "species,site_index,trees_per_acre,years",
+    [
+        # Tier 1 — finish southern pines (same code path as LP/SP/SA)
+        pytest.param("LL", 70, 500, 25, id="ll-si70-25yr"),
+        pytest.param("VP", 60, 500, 25, id="vp-si60-25yr"),
+        pytest.param(
+            "WP", 70, 500, 25, id="wp-si70-25yr",
+            marks=pytest.mark.xfail(
+                reason="Growth under-prediction: BA ~12%, QMD ~6% below native. "
+                "WP is a non-southern-pine conifer; shares SN DG form but "
+                "likely diverges on some coefficient path.",
+                strict=True,
+            ),
+        ),
+        # Tier 2 — major southern hardwoods (exercise hardwood DG branch)
+        pytest.param(
+            "YP", 80, 400, 25, id="yp-si80-25yr",
+            marks=pytest.mark.xfail(
+                reason="Largest divergence: BA -25%, QMD -13%, volume -27%. "
+                "Yellow-poplar is fastest-growing SE hardwood; likely "
+                "hardwood ln(DDS) RELDBH/competition branch drift.",
+                strict=True,
+            ),
+        ),
+        pytest.param(
+            "SU", 75, 500, 25, id="su-si75-25yr",
+            marks=pytest.mark.xfail(
+                reason="BA -9.7% under native. Hardwood path — same family "
+                "of drift as YP/WO, milder magnitude.",
+                strict=True,
+            ),
+        ),
+        pytest.param(
+            "WO", 65, 400, 25, id="wo-si65-25yr",
+            marks=pytest.mark.xfail(
+                reason="BA -7% and volume -11.5%. Upland oak, hardwood path. "
+                "Same family as YP/SU drift.",
+                strict=True,
+            ),
+        ),
+        pytest.param(
+            "RM", 65, 500, 25, id="rm-si65-25yr",
+            marks=pytest.mark.xfail(
+                reason="Volume-only drift: -20.9% below native after R8CF port. "
+                "BA/QMD/top_height in tolerance. VP/HM closed with the same fix "
+                "but RM still diverges — suggests a hardwood-specific volume "
+                "correction beyond R8CF (possibly the TOTHT FCMIN minimum "
+                "form-class clamp in r8vol2.f:745-764 that pyfvs does not apply).",
+                strict=True,
+            ),
+        ),
+        # Tier 3 — non-pine conifer / bottomland
+        pytest.param("BY", 70, 400, 25, id="by-si70-25yr"),
+        pytest.param("HM", 55, 500, 25, id="hm-si55-25yr"),
+    ],
+)
+def test_sn_expanded_species_parity(
+    require_native_variant,
+    parity_tolerance,
+    species,
+    site_index,
+    trees_per_acre,
+    years,
+):
+    """Expanded SN species parity — beyond the LP/SP/SA yellow pines.
+
+    Exercises three groups:
+      - remaining southern pines (LL/VP/WP), same code path as LP/SP/SA
+      - major hardwoods (YP/SU/WO/RM), which hit the hardwood ln(DDS) branch
+      - non-pine conifer (HM) and bottomland conifer (BY)
+
+    Currently passing: LL (longleaf pine), BY (bald cypress). Remaining
+    species are xfailed with per-species drift signatures documenting the
+    specific divergence. These xfails must be closed by Fortran-faithful
+    fixes to pyfvs, not by compensating coefficient tweaks.
+    """
+    require_native_variant("SN")
+
+    pyfvs_result = run_pyfvs(
+        variant="SN",
+        species=species,
+        site_index=site_index,
+        trees_per_acre=trees_per_acre,
+        years=years,
+        bare_ground=True,
+    )
+    native_result = run_native(
+        variant="SN",
+        species=species,
+        site_index=site_index,
+        trees_per_acre=trees_per_acre,
+        years=years,
+    )
+    assert_metrics_close(pyfvs_result, native_result, parity_tolerance)

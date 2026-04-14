@@ -75,12 +75,19 @@ class TestClarkTaperModel:
         assert isinstance(model, ClarkTaperModel)
 
     def test_lp_coefficients_loaded(self):
-        """LP R8 coefficients are species-specific (not fallback)."""
+        """LP R8 coefficients are species-specific (not fallback).
+
+        A4/B4 come from the R8CF forest-group table at group 4 (Alabama
+        Bankhead default, r8dib.f). R comes from the forest-invariant
+        TOTAL array (r8clkcoef.inc).
+        """
         model = create_taper_model('LP', 'SN')
         assert model is not None
         coef = model._coefficients
-        # LP-specific R8 coefficients
-        assert coef['b4'] == pytest.approx(0.92, abs=0.01)
+        # LP group-4 A4/B4 from volume/NVEL/r8dib.f
+        assert coef['a4'] == pytest.approx(-0.12527, abs=0.0001)
+        assert coef['b4'] == pytest.approx(0.87509, abs=0.0001)
+        # R from TOTAL array (volume/NVEL/r8clkcoef.inc)
         assert coef['r'] == pytest.approx(31.66, abs=1.0)
 
     def test_rm_r9_coefficients_loaded(self):
