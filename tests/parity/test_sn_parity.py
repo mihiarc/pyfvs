@@ -150,11 +150,18 @@ def test_sn_off_baseline_parity(
         pytest.param(
             "RM", 65, 500, 25, id="rm-si65-25yr",
             marks=pytest.mark.xfail(
-                reason="Volume-only drift: -20.9% below native after R8CF port. "
-                "BA/QMD/top_height in tolerance. VP/HM closed with the same fix "
-                "but RM still diverges — suggests a hardwood-specific volume "
-                "correction beyond R8CF (possibly the TOTHT FCMIN minimum "
-                "form-class clamp in r8vol2.f:745-764 that pyfvs does not apply).",
+                reason="Volume-only drift: -13.6% below native (down from "
+                "-20.9% after adding the r8prep.f:346-367 FCMIN minimum "
+                "form-class clamp). BA/QMD/top_height in tolerance. "
+                "Residual drift root cause: pyfvs's deterministic mode "
+                "produces near-zero DBH variance (range 3.70-3.80) while "
+                "native has ecological variance (3.20-4.90). Volume is "
+                "convex in DBH, so Jensen's inequality accounts for the "
+                "~3pp gap between per-tree drift (-10.8%) and stand drift "
+                "(-13.6%). Root fix is in growth-path variance (FRM=1.0 "
+                "deterministic adjustment removes per-tree noise), not "
+                "volume. RM is hit hardest because its very negative B17 "
+                "(-1.619) amplifies sensitivity to the FCMIN clamp.",
                 strict=True,
             ),
         ),

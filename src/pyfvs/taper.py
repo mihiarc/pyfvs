@@ -359,11 +359,74 @@ class ClarkTaperModel(TaperModel):
             ratio_sq = (17.3 / height) ** 2
             self._dib17 = dbh * (coef['a17'] + coef['b17'] * ratio_sq)
             self._dib17 = max(0.1, self._dib17)
+            # R8 minimum form-class clamp per r8prep.f:346-367.
+            if self.variant == 'SN':
+                self._dib17 = self._apply_r8_fcmin_clamp(
+                    self._dib17, dbh, height, coef,
+                )
         else:
             # Very short tree: approximate
             self._dib17 = self._dbhib * 0.90
 
         self._compute_derived()
+
+    @staticmethod
+    def _apply_r8_fcmin_clamp(dib17: float, dbh: float, height: float,
+                              coef: Dict) -> float:
+        """R8 minimum form-class clamp per Fortran r8prep.f:346-367.
+
+        Below a total height of 47.5 ft, FVSsn bounds DIB17 below by a
+        species-group- and height-dependent minimum form class FCMIN.
+        Three hardwood species (FIA 221 bald cypress, 222 pond cypress,
+        544 tupelo gum) are explicitly excluded from the clamp.
+        Without the clamp, very negative B17 coefficients (e.g. RM's
+        -1.619) drive dib17 well below the minimum and under-predict
+        cubic volume.
+        """
+        if height >= 47.5:
+            return dib17
+
+        fia = coef.get('fia_code')
+        if fia in (221, 222, 544):
+            return dib17
+
+        spgrp = coef.get('spgrp')
+        if spgrp not in (100, 300, 500):
+            return dib17
+
+        if spgrp == 100:
+            # Softwoods
+            if height < 32.5:
+                fcmin = 56
+            elif height < 37.5:
+                fcmin = 64
+            elif height < 42.5:
+                fcmin = 66
+            else:
+                fcmin = 67
+        elif spgrp == 300:
+            # Hardwoods
+            if height < 32.5:
+                fcmin = 57
+            elif height < 37.5:
+                fcmin = 60
+            elif height < 42.5:
+                fcmin = 64
+            else:
+                fcmin = 67
+        else:
+            # SPGRP == 500 — "other" (e.g. oaks, hickories, walnuts)
+            if height < 32.5:
+                fcmin = 58
+            elif height < 37.5:
+                fcmin = 65
+            elif height < 42.5:
+                fcmin = 67
+            else:
+                fcmin = 69
+
+        fcdib = dbh * fcmin * 0.01
+        return max(dib17, fcdib)
 
     def _compute_derived(self):
         """Compute derived variables used in DIB prediction and volume."""

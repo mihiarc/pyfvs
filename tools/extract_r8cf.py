@@ -26,6 +26,7 @@ R8CF_N_COLS = 18
 # Columns of interest (1-indexed as in Fortran; 0-indexed here).
 COL_GROUP = 0      # R8CF(I,1) — forest group
 COL_SPECIES = 1    # R8CF(I,2) — FIA species code
+COL_SPGRP = 2      # R8CF(I,3) — species group (100 softwood / 300 hardwood / 500 other)
 COL_A4 = 3         # R8CF(I,4) — DIB at 4.5ft intercept
 COL_B4 = 4         # R8CF(I,5) — DIB at 4.5ft slope
 COL_A17 = 13       # R8CF(I,14) — DIB at 17.3ft intercept
@@ -107,6 +108,7 @@ def build_fragment(rows: List[List[float]]) -> Dict:
             "b4": row[COL_B4],
             "a17": row[COL_A17],
             "b17": row[COL_B17],
+            "spgrp": int(round(row[COL_SPGRP])),
         }
         fgc.setdefault(group, {})[species] = entry
     return fgc
