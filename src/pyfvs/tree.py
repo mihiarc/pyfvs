@@ -372,7 +372,7 @@ class Tree:
         # Get species-specific parameters - prefer variant-specific JSON file
         # which has Fortran LTBHEC-matched coefficients, then fall back to
         # species config YAML (which may have older publication coefficients).
-        p = self._load_variant_small_tree_coefficients(variant)
+        p = self._load_variant_small_tree_coefficients(variant, ecounit=self._ecounit)
         if not p:
             p = self.species_params.get('small_tree_height_growth', {})
         if not p:
@@ -506,7 +506,7 @@ class Tree:
         # effects only apply in the large-tree DDS model (DGF).
         self._update_dbh_from_height()
 
-    def _load_variant_small_tree_coefficients(self, variant: str) -> dict:
+    def _load_variant_small_tree_coefficients(self, variant: str, ecounit: str = None) -> dict:
         """Load variant-specific NC-128 small tree height growth coefficients.
 
         Looks for {variant}_small_tree_height_growth.json in the variant's
@@ -520,6 +520,7 @@ class Tree:
             Coefficient dict with keys c1-c5 and bh, or empty dict if not found.
         """
         from .config_loader import load_coefficient_file
+        from .establishment import _apply_ecounit_overrides
         variant_lower = variant.lower()
         # Try variant-specific file first
         filenames = [
@@ -531,7 +532,9 @@ class Tree:
                 data = load_coefficient_file(filename, variant=variant)
                 coeffs = data.get('nc128_height_growth_coefficients', {})
                 if self.species in coeffs:
-                    return coeffs[self.species]
+                    return _apply_ecounit_overrides(
+                        coeffs[self.species], self.species, variant, ecounit
+                    )
             except FVSError:
                 continue
         return {}

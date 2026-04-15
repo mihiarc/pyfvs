@@ -692,6 +692,7 @@ class Stand:
                 site_index=self.site_index,
                 variant=self.variant,
                 cycle_length=base_cycle,
+                ecounit=self.ecounit,
             )
             # Fortran estab.f applies BACHLO variation on top of the raw
             # ESSUBH height (HHT = HHT + RAN), then applies HHTMAX cap.
@@ -703,6 +704,7 @@ class Stand:
                 site_index=self.site_index,
                 age=base_cycle + 2,  # matches ESSUBH age=TIME+TRAGE=5+2=7
                 variant=self.variant,
+                ecounit=self.ecounit,
             )
             # Strip the HHTMAX cap from compute_establishment_height so
             # we apply variation on the uncapped site-curve value.

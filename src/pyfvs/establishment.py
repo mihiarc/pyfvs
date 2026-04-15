@@ -171,7 +171,34 @@ def get_essubh_height(species: str, variant: str) -> float:
     return 1.0  # Generic fallback for other variants
 
 
-def load_small_tree_coefficients(species: str, variant: str) -> dict:
+def _is_mountain_ecounit(ecounit: str) -> bool:
+    """Fortran htcalc.f convention: PCOM starts with 'M' = mountain ecounit."""
+    return bool(ecounit) and ecounit.startswith('M')
+
+
+# Fortran sn/htcalc.f:147-156 — when ISPC=45 (YP) and PCOM doesn't start
+# with 'M' (non-mountain), use a different Chapman-Richards coefficient set.
+# Default LTBHEC table value for YP is the mountain set.
+_SN_YP_NONMOUNTAIN = {
+    'c1': 1.1789, 'c2': 1.0, 'c3': -0.0339,
+    'c4': 0.8117, 'c5': -0.0001, 'bh': 0.0,
+}
+
+
+def _apply_ecounit_overrides(coeffs: dict, species: str, variant: str,
+                             ecounit: str = None) -> dict:
+    """Swap NC-128 coefficients for ecounit-conditional Fortran branches.
+
+    Currently handles SN YP nonmountain (htcalc.f:150). Returns a fresh
+    dict if a swap applies, else the original `coeffs`.
+    """
+    if variant == 'SN' and species == 'YP' and not _is_mountain_ecounit(ecounit):
+        return _SN_YP_NONMOUNTAIN.copy()
+    return coeffs
+
+
+def load_small_tree_coefficients(species: str, variant: str,
+                                 ecounit: str = None) -> dict:
     """Load variant-specific NC-128 small tree height growth coefficients.
 
     Replicates Tree._load_variant_small_tree_coefficients() at module level
@@ -180,6 +207,9 @@ def load_small_tree_coefficients(species: str, variant: str) -> dict:
     Args:
         species: Species code (e.g., 'LP', 'DF')
         variant: FVS variant code (e.g., 'SN', 'LS')
+        ecounit: Ecological unit code (e.g., 'M231', '232', None). Used
+            for Fortran htcalc.f branches that swap coefficients based
+            on mountain vs non-mountain ecounit (currently only SN YP).
 
     Returns:
         Coefficient dict with keys c1-c5 and bh, or empty dict if not found.
@@ -194,14 +224,15 @@ def load_small_tree_coefficients(species: str, variant: str) -> dict:
             data = load_coefficient_file(filename, variant=variant)
             coeffs = data.get('nc128_height_growth_coefficients', {})
             if species in coeffs:
-                return coeffs[species]
+                return _apply_ecounit_overrides(coeffs[species], species, variant, ecounit)
         except FVSError:
             continue
     return {}
 
 
 def compute_establishment_height(species: str, site_index: float,
-                                  age: float, variant: str) -> float:
+                                  age: float, variant: str,
+                                  ecounit: str = None) -> float:
     """Compute tree height from Chapman-Richards at a given age.
 
     Matches Fortran ESSUBH -> HTCALC(MODE1=1): place tree on the site curve
@@ -212,11 +243,13 @@ def compute_establishment_height(species: str, site_index: float,
         site_index: Site index in feet
         age: Establishment age in years
         variant: FVS variant code
+        ecounit: Ecological unit code; used for SN YP nonmountain branch
+            in htcalc.f.
 
     Returns:
         Height in feet at the given age on the site curve.
     """
-    p = load_small_tree_coefficients(species, variant)
+    p = load_small_tree_coefficients(species, variant, ecounit=ecounit)
     if not p:
         # Fallback: use default SN LP coefficients
         p = {'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374,
@@ -431,7 +464,7 @@ def compute_western_establishment_height(species: str, site_index: float,
 
 def compute_establishment_tree_state(
     species: str, site_index: float, variant: str, cycle_length: int,
-    height_multiplier: float = 1.0,
+    height_multiplier: float = 1.0, ecounit: str = None,
 ) -> Tuple[float, float]:
     """Compute (height, dbh) for a tree at the end of the establishment cycle.
 
@@ -458,7 +491,7 @@ def compute_establishment_tree_state(
     if variant in ('SN', 'OP', 'CA', 'OC', 'WS', 'LS'):
         establishment_age = cycle_length + 2
         base_height = compute_establishment_height(
-            species, site_index, establishment_age, variant
+            species, site_index, establishment_age, variant, ecounit=ecounit
         )
     elif variant in ('CS', 'NE'):
         base_height = compute_essubh_height(
@@ -466,7 +499,7 @@ def compute_establishment_tree_state(
         )
         carmean_age = ESSUBH_DEFAULT_CARAGE
         h_at_carage = compute_establishment_height(
-            species, site_index, carmean_age, variant
+            species, site_index, carmean_age, variant, ecounit=ecounit
         )
         csne_essubh_height = (h_at_carage / carmean_age) * 5.0
     elif variant in ('PN', 'WC'):
@@ -476,7 +509,7 @@ def compute_establishment_tree_state(
     else:
         establishment_age = cycle_length + 2
         base_height = compute_establishment_height(
-            species, site_index, establishment_age, variant
+            species, site_index, establishment_age, variant, ecounit=ecounit
         )
 
     # --- Apply HHTMAX cap and height variation ---
