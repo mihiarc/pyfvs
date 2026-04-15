@@ -319,34 +319,29 @@ class CrownRatioModel(ParameterizedModel):
                                 height_growth: float, cycle_length: int = 5) -> float:
         """Calculate crown ratio change with bounds checking.
 
+        Mirrors Fortran crown.f:310-314 — change is bounded to a 1%-per-year
+        PROPORTION of current CR (not an absolute amount):
+
+            CHG = CRNEW - ICR
+            PDIFPY = CHG / ICR / FINT
+            IF PDIFPY > 0.01: CHG = ICR * 0.01 * FINT
+            IF PDIFPY < -0.01: CHG = ICR * (-0.01) * FINT
+
         Args:
             current_cr: Current crown ratio (proportion)
             predicted_cr: Predicted crown ratio at end of cycle (proportion)
-            height_growth: Height growth during cycle (feet)
+            height_growth: Height growth during cycle (feet, unused in
+                Fortran — kept for backwards-compat signature)
             cycle_length: Length of projection cycle (years)
 
         Returns:
             New crown ratio (proportion)
         """
-        # Calculate potential change
+        # Proportional 1%-per-year bound matching Fortran crown.f
+        max_change = current_cr * 0.01 * cycle_length
         change = predicted_cr - current_cr
-
-        # Check that change doesn't exceed what's possible with height growth
-        # Assume all height growth produces new crown
-        max_possible_change = height_growth / 100.0  # Rough approximation
-
-        # Bound change to 1% per year for cycle length
-        max_annual_change = 0.01
-        max_cycle_change = max_annual_change * cycle_length
-
-        # Apply bounds
-        bounded_change = max(-max_cycle_change,
-                           min(max_cycle_change,
-                               min(change, max_possible_change)))
-
+        bounded_change = max(-max_change, min(max_change, change))
         new_cr = current_cr + bounded_change
-
-        # Final bounds
         return max(0.05, min(0.95, new_cr))
 
 
