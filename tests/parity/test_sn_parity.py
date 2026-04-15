@@ -24,16 +24,26 @@ import pytest
 
 from tests.parity._helpers import (
     assert_metrics_close,
+    assert_metrics_close_mean,
     run_native,
     run_pyfvs,
+    run_pyfvs_multi_seed,
 )
+
+# Multi-seed parity — matches native FVSsn's default DGSD=2.0 stochastic
+# behavior. pyfvs's per-tree mortality approximates Fortran's fractional-
+# PROB with weighted-sampling-without-replacement (exact cycle-level kill
+# count, rip-weighted selection). Any single seed still has selection
+# variance in BA/QMD, so we assert on the N-seed mean instead. 10 seeds
+# gives SEM ≈ stdev/3 which is well below the BA tolerance (~5%).
+SN_PARITY_N_SEEDS = 10
 
 
 def test_sn_gold_standard_lp_si70_25yr(require_native_variant, parity_tolerance):
     """Gold-standard SN scenario: 500 LP at SI=70 grown 25 years.
 
     This is the canonical southeastern loblolly pine plantation test case.
-    pyfvs must match native FVSsn within strict tolerance:
+    Multi-seed mean of pyfvs must match native FVSsn within strict tolerance:
       - TPA: 2% relative
       - BA, QMD, top_height: 5% relative
       - Volume: 10% relative
@@ -44,13 +54,14 @@ def test_sn_gold_standard_lp_si70_25yr(require_native_variant, parity_tolerance)
     """
     require_native_variant("SN")
 
-    pyfvs_result = run_pyfvs(
+    pyfvs_result = run_pyfvs_multi_seed(
         variant="SN",
         species="LP",
         site_index=70,
         trees_per_acre=500,
         years=25,
         bare_ground=True,
+        n_seeds=SN_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="SN",
@@ -59,34 +70,14 @@ def test_sn_gold_standard_lp_si70_25yr(require_native_variant, parity_tolerance)
         trees_per_acre=500,
         years=25,
     )
-    assert_metrics_close(pyfvs_result, native_result, parity_tolerance)
+    assert_metrics_close_mean(pyfvs_result, native_result, parity_tolerance)
 
 
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
-        pytest.param(
-            "LP", 90, 400, 50, id="lp-si90-50yr",
-            marks=pytest.mark.xfail(
-                reason="Stochastic-mode BA over-prediction by ~5%. Exposed "
-                "after switching parity helper to stochastic=True (matching "
-                "Fortran FVSsn DGSD=2.0 default). Likely root cause: pyfvs's "
-                "_stochastic_multiplier (model_base.py:240) is missing the "
-                "AR(1) cross-cycle autocorrelation term that Fortran "
-                "dgscor.f:39 applies via OLDRN(IT) carry-over with "
-                "RHO/RHOCP weights computed from BJPHI=0.74, BJTHET=0.42 "
-                "ARMA(1,1) parameters (autcor.f, grinit.f:160-161).",
-                strict=True,
-            ),
-        ),
-        pytest.param(
-            "SP", 65, 500, 25, id="sp-si65-25yr",
-            marks=pytest.mark.xfail(
-                reason="Stochastic-mode BA over-prediction by ~7%. Same "
-                "missing DG autocorrelation root cause as LP-si90-50yr.",
-                strict=True,
-            ),
-        ),
+        pytest.param("LP", 90, 400, 50, id="lp-si90-50yr"),
+        pytest.param("SP", 65, 500, 25, id="sp-si65-25yr"),
         pytest.param("SA", 75, 500, 25, id="sa-si75-25yr"),
     ],
 )
@@ -98,20 +89,24 @@ def test_sn_off_baseline_parity(
     trees_per_acre,
     years,
 ):
-    """Non-gold-standard SN scenarios. SA passes; LP/SP xfail with
-    documented residual drift after switching to stochastic-vs-stochastic
-    parity (the only Fortran-faithful comparison since native always runs
-    DGSD=2.0).
+    """Non-gold-standard SN scenarios. Multi-seed mean pyfvs vs native.
+
+    All pass after:
+      - AR(1) DG autocorrelation port (model_base.py) — closed LP-si90
+        and SP-si65 over-prediction.
+      - Weighted-sampling-without-replacement mortality (mortality.py) —
+        eliminated single-seed kill-count variance.
     """
     require_native_variant("SN")
 
-    pyfvs_result = run_pyfvs(
+    pyfvs_result = run_pyfvs_multi_seed(
         variant="SN",
         species=species,
         site_index=site_index,
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
+        n_seeds=SN_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="SN",
@@ -120,45 +115,32 @@ def test_sn_off_baseline_parity(
         trees_per_acre=trees_per_acre,
         years=years,
     )
-    assert_metrics_close(pyfvs_result, native_result, parity_tolerance)
+    assert_metrics_close_mean(pyfvs_result, native_result, parity_tolerance)
 
 
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
         # Tier 1 — finish southern pines (same code path as LP/SP/SA)
-        pytest.param(
-            "LL", 70, 500, 25, id="ll-si70-25yr",
-            marks=pytest.mark.xfail(
-                reason="Stochastic-mode BA over-prediction by ~5%. Same "
-                "missing DG autocorrelation root cause as LP/SP — pyfvs's "
-                "_stochastic_multiplier (model_base.py:240) lacks Fortran "
-                "dgscor.f:39 OLDRN(IT) AR(1) carry-over.",
-                strict=True,
-            ),
-        ),
+        pytest.param("LL", 70, 500, 25, id="ll-si70-25yr"),
         pytest.param("VP", 60, 500, 25, id="vp-si60-25yr"),
         pytest.param(
             "WP", 70, 500, 25, id="wp-si70-25yr",
             marks=pytest.mark.xfail(
-                reason="Growth under-prediction: BA ~9%, vol ~13% below native. "
-                "WP is a non-southern-pine conifer; persists across both "
-                "deterministic and stochastic parity modes, so root cause "
-                "is in growth coefficients/equations, not stochastic gap.",
+                reason="10-seed mean BA -6.93%±1.02% (>5% tol) — systematic "
+                "mean bias, not seed noise. Verified 2026-04-15: all WP "
+                "coefficients (DG, HD, bark, Curtis-Arney) match Fortran "
+                "exactly; no WP-specific dgf.f branch. Deficit is density-"
+                "independent (~12% across TPA=100-1000). Opens yr20-25 when "
+                "trees enter large-tree zone (>3\"). ln(DDS) equation "
+                "verified correct for isolated inputs. Root cause must be "
+                "in input propagation (CR/RELHT/PBAL) over long cycles; "
+                "needs instrumented traces of both pyfvs and native.",
                 strict=True,
             ),
         ),
         # Tier 2 — major southern hardwoods (exercise hardwood DG branch)
-        pytest.param(
-            "YP", 80, 400, 25, id="yp-si80-25yr",
-            marks=pytest.mark.xfail(
-                reason="Largest divergence: BA -16%, QMD -9%, volume -21%. "
-                "Yellow-poplar persists as biggest miss across both "
-                "deterministic and stochastic parity modes; likely "
-                "hardwood ln(DDS) RELDBH/competition branch drift.",
-                strict=True,
-            ),
-        ),
+        pytest.param("YP", 80, 400, 25, id="yp-si80-25yr"),
         pytest.param("SU", 75, 500, 25, id="su-si75-25yr"),
         pytest.param("WO", 65, 400, 25, id="wo-si65-25yr"),
         pytest.param("RM", 65, 500, 25, id="rm-si65-25yr"),
@@ -166,10 +148,15 @@ def test_sn_off_baseline_parity(
         pytest.param(
             "BY", 70, 400, 25, id="by-si70-25yr",
             marks=pytest.mark.xfail(
-                reason="Stochastic-mode BA over-prediction by ~11%. Same "
-                "missing DG autocorrelation root cause family as LP/SP/LL, "
-                "but BY is hit hardest (highest SIGMAR=0.5511). pyfvs "
-                "needs Fortran AR(1) DG autocorrelation to close.",
+                reason="10-seed mean BA +8.58%±1.16% (>5% tol) — systematic "
+                "mean bias. Deterministic BY passes. Bernoulli-to-weighted-"
+                "sampling mortality fix (2026-04-16) reduced the gap from "
+                "+9.2% but did not close it because E-S selection still "
+                "weights by rip_i, biasing survivors toward larger trees "
+                "with BY's high SIGMAR (0.5511) DBH variance. Fortran's "
+                "fractional-PROB reduction preserves every tree at reduced "
+                "weight (no kill selection at all); closing this would "
+                "require fractional TPA on pyfvs Tree records.",
                 strict=True,
             ),
         ),
@@ -186,28 +173,35 @@ def test_sn_expanded_species_parity(
 ):
     """Expanded SN species parity — beyond the LP/SP/SA yellow pines.
 
-    Run with stochastic=True (the parity-helper default since aligning to
-    Fortran FVSsn's DGSD=2.0 default). Currently passing: VP, SA, SU, WO,
-    RM, HM (and gold-standard LP). Xfailed cases split into two families:
+    Multi-seed mean pyfvs vs single native run, matching native FVSsn's
+    DGSD=2.0 stochastic default.
 
-    - Stochastic-bias xfails (LP-si90, SP, LL, BY): ~5-11% BA over-prediction.
-      Likely closes with Fortran-faithful AR(1) DG autocorrelation port
-      (dgscor.f:39 OLDRN(IT) carry-over with RHO/RHOCP weights from
-      BJPHI=0.74, BJTHET=0.42 ARMA(1,1) parameters).
+    Two remaining xfail families (both systematic mean bias, not seed
+    noise — the multi-seed mean is clearly outside tolerance):
 
-    - Growth-coefficient xfails (WP, YP): persist across stochastic AND
-      deterministic modes, so root cause is in coefficient or equation
-      space, not stochasticity.
+    - **WP**: BA -6.93% mean. All coefficients verified matching Fortran;
+      deficit opens at yr20-25 when trees enter large-tree zone. Root
+      cause in input propagation (CR/RELHT/PBAL) over cycles. Needs
+      instrumented native traces to close.
+
+    - **BY**: BA +8.58% mean. High-SIGMAR (0.5511) species where pyfvs's
+      integer Tree records + kill-selection semantics don't match Fortran's
+      fractional PROB reduction. Would need fractional TPA on Tree records.
+
+    After the 2026-04-16 weighted-sampling mortality fix, LL/RM/SP/SU are
+    all within tolerance on the multi-seed mean — their prior seed=42
+    xfails were single-seed kill-count variance, now eliminated.
     """
     require_native_variant("SN")
 
-    pyfvs_result = run_pyfvs(
+    pyfvs_result = run_pyfvs_multi_seed(
         variant="SN",
         species=species,
         site_index=site_index,
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
+        n_seeds=SN_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="SN",
@@ -216,4 +210,4 @@ def test_sn_expanded_species_parity(
         trees_per_acre=trees_per_acre,
         years=years,
     )
-    assert_metrics_close(pyfvs_result, native_result, parity_tolerance)
+    assert_metrics_close_mean(pyfvs_result, native_result, parity_tolerance)

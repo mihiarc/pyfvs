@@ -3,12 +3,26 @@
 Pulled out so that individual variant tests stay focused on the *scenario*
 under test (species, density, site index, cycles) rather than the mechanics
 of running both engines and diffing their results.
+
+Two comparison modes:
+  - Single-seed (``assert_metrics_close``): compares one pyfvs run against
+    one native run. Useful for deterministic runs (stochastic=False) or as
+    a single canary for regression.
+  - Multi-seed (``run_pyfvs_multi_seed`` + ``assert_metrics_close_mean``):
+    runs N pyfvs seeds and asserts the MEAN of each metric is within
+    tolerance of the single native run. Native FVS produces a single
+    stochastic realization per library call (its internal RNG is seeded
+    per-cycle from NUMCYCLE), so a single native run already represents
+    the expected behavior with acceptable sampling noise. Multi-seed on
+    pyfvs eliminates false negatives from unlucky seed realizations while
+    keeping mean-bias detection sensitive.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict
+import statistics
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
 
 import pytest
 
@@ -20,6 +34,36 @@ class ScenarioResult:
     engine: str  # "pyfvs" or "native"
     metrics: Dict[str, float]
     n_cycles: int
+
+
+@dataclass
+class MultiSeedResult:
+    """Results of running a scenario through pyfvs at many RNG seeds."""
+
+    engine: str  # "pyfvs"
+    metrics_per_seed: List[Dict[str, float]] = field(default_factory=list)
+    seeds: List[int] = field(default_factory=list)
+    n_cycles: int = 0
+
+    @property
+    def mean_metrics(self) -> Dict[str, float]:
+        if not self.metrics_per_seed:
+            return {}
+        keys = self.metrics_per_seed[0].keys()
+        return {
+            k: statistics.mean(m[k] for m in self.metrics_per_seed)
+            for k in keys
+        }
+
+    @property
+    def stdev_metrics(self) -> Dict[str, float]:
+        if len(self.metrics_per_seed) < 2:
+            return {k: 0.0 for k in (self.metrics_per_seed[0] if self.metrics_per_seed else {})}
+        keys = self.metrics_per_seed[0].keys()
+        return {
+            k: statistics.stdev(m[k] for m in self.metrics_per_seed)
+            for k in keys
+        }
 
 
 def run_pyfvs(
@@ -94,6 +138,53 @@ def run_pyfvs(
     stand.grow(years=years)
     metrics = stand.get_metrics()
     return ScenarioResult(engine="pyfvs", metrics=metrics, n_cycles=years)
+
+
+def run_pyfvs_multi_seed(
+    *,
+    variant: str,
+    species: str,
+    site_index: float,
+    trees_per_acre: int,
+    years: int,
+    n_seeds: int = 10,
+    base_seed: int = 42,
+    ecounit: str | None = None,
+    bare_ground: bool = False,
+) -> MultiSeedResult:
+    """Run a pyfvs scenario across ``n_seeds`` sequential RNG seeds.
+
+    Always stochastic=True — multi-seed only makes sense for stochastic
+    runs. Use the single-seed ``run_pyfvs(stochastic=False, ...)`` for
+    deterministic parity.
+
+    The seed sequence is [base_seed, base_seed+1, ..., base_seed+n_seeds-1]
+    so runs are reproducible and inspectable.
+    """
+    metrics_per_seed: List[Dict[str, float]] = []
+    seeds: List[int] = []
+    for i in range(n_seeds):
+        seed = base_seed + i
+        result = run_pyfvs(
+            variant=variant,
+            species=species,
+            site_index=site_index,
+            trees_per_acre=trees_per_acre,
+            years=years,
+            random_seed=seed,
+            stochastic=True,
+            ecounit=ecounit,
+            bare_ground=bare_ground,
+        )
+        metrics_per_seed.append(result.metrics)
+        seeds.append(seed)
+
+    return MultiSeedResult(
+        engine="pyfvs",
+        metrics_per_seed=metrics_per_seed,
+        seeds=seeds,
+        n_cycles=years,
+    )
 
 
 def run_native(
@@ -174,6 +265,74 @@ def assert_metrics_close(
     if failures:
         msg = (
             f"Parity check failed after {pyfvs_result.n_cycles} years. "
+            f"{len(failures)} metric(s) out of tolerance:\n  - "
+            + "\n  - ".join(failures)
+        )
+        raise AssertionError(msg)
+
+
+def assert_metrics_close_mean(
+    pyfvs_result: MultiSeedResult,
+    native_result: ScenarioResult,
+    tolerance: Dict[str, float],
+    *,
+    skip_keys: tuple[str, ...] = (),
+) -> None:
+    """Assert the mean of pyfvs metrics across seeds is within tolerance.
+
+    Compares ``mean(pyfvs metric over N seeds)`` to the single native
+    value using the same relative tolerances as ``assert_metrics_close``.
+    The failure message reports mean±stdev across seeds, so you can see
+    at a glance whether the failure is a systematic mean-bias or a
+    sampling artifact.
+    """
+    py_mean = pyfvs_result.mean_metrics
+    py_stdev = pyfvs_result.stdev_metrics
+    nv = native_result.metrics
+    n_seeds = len(pyfvs_result.seeds)
+
+    metric_to_tol_key = {
+        "tpa": "tpa_rel",
+        "basal_area": "ba_rel",
+        "qmd": "qmd_rel",
+        "top_height": "top_height_rel",
+        "volume": "volume_rel",
+    }
+
+    failures: list[str] = []
+    for metric, tol_key in metric_to_tol_key.items():
+        if metric in skip_keys:
+            continue
+        if metric not in py_mean or metric not in nv:
+            continue
+
+        mean_val = py_mean[metric]
+        stdev_val = py_stdev.get(metric, 0.0)
+        nv_val = nv[metric]
+
+        if nv_val == 0 and mean_val == 0:
+            continue
+        if nv_val == 0:
+            failures.append(
+                f"{metric}: native=0 but pyfvs_mean={mean_val} "
+                f"(cannot compute relative tolerance)"
+            )
+            continue
+
+        rel_diff = abs(mean_val - nv_val) / abs(nv_val)
+        tol = tolerance[tol_key]
+        if rel_diff > tol:
+            rel_stdev_pct = (stdev_val / abs(nv_val)) * 100 if nv_val else 0.0
+            failures.append(
+                f"{metric}: pyfvs_mean={mean_val:.4f}±{stdev_val:.4f} "
+                f"({rel_stdev_pct:+.2f}% rel-stdev across {n_seeds} seeds), "
+                f"native={nv_val:.4f}, rel_diff={rel_diff:.4%} > tol={tol:.2%}"
+            )
+
+    if failures:
+        msg = (
+            f"Multi-seed parity check failed after {pyfvs_result.n_cycles} "
+            f"years (n_seeds={n_seeds}). "
             f"{len(failures)} metric(s) out of tolerance:\n  - "
             + "\n  - ".join(failures)
         )

@@ -533,6 +533,49 @@ class MortalityModel:
 
         return tree_data
 
+    @staticmethod
+    def _weighted_sample_without_replacement(
+        items: List[Tuple['Tree', float]],
+        n: int,
+        rng: random.Random,
+    ) -> Tuple[List['Tree'], List['Tree']]:
+        """Sample exactly `n` trees without replacement, weighted by the
+        second tuple element (rip, efftr, etc.).
+
+        Uses the Efraimidis-Spirakis algorithm: assign each item score
+        log(U)/w_i with U~Uniform(0,1), pick top-`n` by score. Trees with
+        weight <= 0 get score -inf (never selected).
+
+        This is the Fortran-faithful stochastic analogue: cycle-level kill
+        count is deterministic (matches Fortran morts.f which has no RNG),
+        but which trees die is randomized in proportion to their rates.
+        Eliminates the kill-count variance that biases stochastic runs
+        (Jensen lift on BA for high-SIGMAR species).
+
+        Returns:
+            (selected, not_selected) both as lists of Trees.
+        """
+        total = len(items)
+        if n <= 0:
+            return [], [t for t, _ in items]
+        if n >= total:
+            return [t for t, _ in items], []
+
+        scored: List[Tuple[float, 'Tree']] = []
+        for tree, w in items:
+            if w <= 0:
+                score = float('-inf')
+            else:
+                u = rng.random()
+                if u <= 0.0:
+                    u = 1e-300
+                score = math.log(u) / w
+            scored.append((score, tree))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        selected = [t for _, t in scored[:n]]
+        not_selected = [t for _, t in scored[n:]]
+        return selected, not_selected
+
     def _apply_background_mortality(
         self,
         tree_data: List[Tuple['Tree', float]],
@@ -546,21 +589,28 @@ class MortalityModel:
 
         Uses equations 5.0.1 and 5.0.2 from morts.f.
 
-        Fortran morts.f applies FRACTIONAL mortality: each tree's PROB is
-        reduced by WKI = P*(1-(1-rip)^FINT). With integer pyfvs trees, we
-        emulate this two ways:
-          - stochastic=True: Bernoulli per-tree (variance around expected).
-          - stochastic=False: deterministic expected value — kill exactly
-            round(sum(rip_i)) trees, selecting the highest-rip trees first
-            (tie-break by smallest DBH). This matches Fortran's deterministic
-            FRM=1.0 branch for dgscor.f and is used by parity tests.
+        Fortran morts.f applies FRACTIONAL mortality: each tree-record's
+        PROB is reduced by WKI = P*(1-(1-rip)^FINT) with NO RNG — the
+        cycle-level kill count is deterministic. With integer pyfvs trees,
+        we emulate this two ways that both preserve the deterministic kill
+        count round(sum(rip_i)):
+          - stochastic=True: weighted-sampling-without-replacement with
+            selection probability ∝ rip_i (Efraimidis-Spirakis). Randomizes
+            WHICH trees die while keeping total kills exact.
+          - stochastic=False: highest-rip-first deterministic selection
+            (tie-break by smallest DBH).
+
+        Previously stochastic mode used independent per-tree Bernoulli,
+        which added kill-count variance that inflated BA via Jensen on
+        high-SIGMAR species (fixed 2026-04-16).
 
         Args:
             tree_data: List of (tree, percentile) tuples
             coefficients: Mortality coefficients
             cycle_length: Cycle length in years
             rng: Local random number generator
-            stochastic: Bernoulli per-tree if True, expected-value if False
+            stochastic: Randomized weighted selection if True,
+                deterministic highest-rip-first if False
 
         Returns:
             MortalityResult
@@ -568,25 +618,19 @@ class MortalityModel:
         if rng is None:
             rng = random.Random()
 
-        # Compute per-tree rip (background mortality rate for the cycle).
         trees_with_rip: List[Tuple['Tree', float]] = []
         for tree, _ in tree_data:
             rip = self._get_background_rate_for_tree(tree, cycle_length)
             trees_with_rip.append((tree, rip))
 
+        total_kills = int(round(sum(rip for _, rip in trees_with_rip)))
+        total_kills = max(0, min(total_kills, len(trees_with_rip)))
+
         if stochastic:
-            survivors = []
-            trees_died = []
-            for tree, rip in trees_with_rip:
-                if rng.random() > rip:
-                    survivors.append(tree)
-                else:
-                    trees_died.append(tree)
+            trees_died, survivors = self._weighted_sample_without_replacement(
+                trees_with_rip, total_kills, rng,
+            )
         else:
-            # Deterministic: kill the integer-rounded expected count, picking
-            # highest-rip trees first (tie-break by smallest DBH ascending so
-            # smaller trees within a tied group die first).
-            total_kills = int(round(sum(rip for _, rip in trees_with_rip)))
             ranked = sorted(
                 trees_with_rip,
                 key=lambda tr: (-tr[1], tr[0].dbh),
@@ -671,48 +715,16 @@ class MortalityModel:
                 trees_died=trees_died
             )
 
-        # Normalize efficiencies to get per-tree kill probability
-        total_eff = sum(efftr)
-        if total_eff <= 0:
-            total_eff = 1.0
-
-        # Each tree's expected kills = tokill * (its efficiency / total)
-        # Since each tree can only die once (TPA=1), probability = min(1, expected)
-        survivors = []
-        trees_died = []
-
-        # Create (tree, pct, kill_prob) list
-        kill_probs = []
-        for i, (tree, pct) in enumerate(tree_data):
-            expected = tokill * efftr[i] / total_eff
-            prob = min(0.99, expected)  # Cap to avoid certain death
-            kill_probs.append((tree, prob))
-
-        # Apply stochastic mortality weighted by efficiency
-        for tree, prob in kill_probs:
-            if rng.random() < prob:
-                trees_died.append(tree)
-            else:
-                survivors.append(tree)
-
-        # If we killed too many or too few, adjust deterministically
-        # This ensures we hit close to the target (Fortran VARMRT iterates)
-        actual_killed = len(trees_died)
-        if actual_killed > tokill + 2:
-            # Too many died — rescue some (largest first, they had lowest prob)
-            excess = actual_killed - tokill
-            trees_died.sort(key=lambda t: t.dbh, reverse=True)
-            rescued = trees_died[:excess]
-            trees_died = trees_died[excess:]
-            survivors.extend(rescued)
-        elif actual_killed < tokill - 2 and actual_killed < tpa - 1:
-            # Too few died — kill more (smallest first, they had highest prob)
-            deficit = tokill - actual_killed
-            survivors.sort(key=lambda t: t.dbh)
-            additional = survivors[:min(deficit, len(survivors) - 1)]
-            for t in additional:
-                survivors.remove(t)
-                trees_died.append(t)
+        # Stochastic: weighted-sampling-without-replacement. Picks exactly
+        # TOKILL trees with selection probability ∝ efftr, matching
+        # Fortran VARMRT's deterministic cycle-level kill count while
+        # randomizing which trees die. Previously this used independent
+        # Bernoulli with a post-hoc kill-count correction, which added
+        # unwanted TPA variance (fixed 2026-04-16).
+        items = [(tree, efftr[i]) for i, (tree, _) in enumerate(tree_data)]
+        trees_died, survivors = self._weighted_sample_without_replacement(
+            items, tokill, rng,
+        )
 
         return MortalityResult(
             survivors=survivors,
