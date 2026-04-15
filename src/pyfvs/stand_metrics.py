@@ -472,10 +472,20 @@ class StandMetricsCalculator:
 
         return calculate_stand_basal_area(trees)
 
-    def calculate_sdi(self, trees: List['Tree']) -> float:
-        """Calculate Stand Density Index using Reineke's equation.
+    # Variants that use Zeide-form SDI per Fortran grinit.f LZEIDE flag.
+    # Reineke uses stand QMD; Zeide uses per-tree D^1.605 sum.
+    # SN/LS/CS/NE/WS/CA: LZEIDE=TRUE; PN/WC/OC/OP: LZEIDE=FALSE.
+    _ZEIDE_VARIANTS = frozenset({'SN', 'LS', 'CS', 'NE', 'WS', 'CA'})
 
-        SDI = TPA * (QMD / 10)^1.605
+    def calculate_sdi(self, trees: List['Tree']) -> float:
+        """Calculate Stand Density Index per Fortran morts.f LZEIDE branch.
+
+        Zeide variants (SN/LS/CS/NE/WS/CA): SDI = sum(P * (D/10)^1.605)
+            equivalently TPA * (DR0/10)^1.605 with DR0 = (mean D^1.605)^(1/1.605).
+        Reineke variants (PN/WC/OC/OP): SDI = TPA * (QMD/10)^1.605.
+
+        For uniform-DBH stands the two are equal; for variable stands Zeide
+        DR0 < QMD, so Zeide SDI < Reineke SDI.
 
         Args:
             trees: List of Tree objects
@@ -486,12 +496,15 @@ class StandMetricsCalculator:
         if not trees:
             return 0.0
 
+        if self.variant in self._ZEIDE_VARIANTS:
+            # Zeide: per-tree D^1.605 contribution (PROB=1 for our trees).
+            return sum((tree.dbh / 10.0) ** 1.605 for tree in trees if tree.dbh > 0)
+
+        # Reineke: stand QMD form.
         tpa = len(trees)
         qmd = self.calculate_qmd(trees)
-
         if qmd <= 0:
             return 0.0
-
         return tpa * ((qmd / 10.0) ** 1.605)
 
     def calculate_relsdi(self, trees: List['Tree'], species: str = None) -> float:
@@ -550,9 +563,13 @@ class StandMetricsCalculator:
         return self._calculate_weighted_max_sdi(species_ba, total_ba, default_species)
 
     def calculate_pbal(self, trees: List['Tree'], target_tree: 'Tree') -> float:
-        """Calculate Point Basal Area in Larger trees (PBAL).
+        """Calculate Point Basal Area in Larger trees (PBAL) for one tree.
 
-        PBAL is the basal area of trees with DBH larger than the target tree.
+        Mirrors Fortran PCTILE semantics by computing PBAL for the entire
+        stand (with proper tie-spreading) and returning the target tree's
+        value. Naive "BA of trees with strictly larger DBH" gives PBAL=0
+        for all tied trees, which contradicts Fortran where ties spread
+        across the percentile range so mean PBAL across ties = BA/2.
 
         Args:
             trees: List of all Tree objects in the stand
@@ -561,13 +578,9 @@ class StandMetricsCalculator:
         Returns:
             PBAL in square feet per acre
         """
-        target_dbh = target_tree.dbh
-        pbal = sum(
-            calculate_tree_basal_area(tree.dbh)
-            for tree in trees
-            if tree.dbh > target_dbh
-        )
-        return pbal
+        sorted_trees = sorted(trees, key=lambda t: t.dbh)
+        pbal_map = self.calculate_pbal_all(sorted_trees)
+        return pbal_map.get(id(target_tree), 0.0)
 
     def calculate_pbal_all(self, sorted_trees: List['Tree']) -> Dict[int, float]:
         """Calculate PBAL for all trees, matching Fortran PCTILE semantics.

@@ -83,15 +83,26 @@ class TestStandMetricsCalculator:
         assert ba == 0.0
 
     def test_calculate_sdi(self, calculator, sample_trees):
-        """Test SDI calculation using Reineke's equation."""
+        """Test SDI calculation, dispatched per variant LZEIDE flag.
+
+        SN (default for this fixture) uses Zeide form per Fortran
+        morts.f LZEIDE branch: SDI = sum((D/10)^1.605).
+        """
         sdi = calculator.calculate_sdi(sample_trees)
 
-        # Manual calculation
-        tpa = len(sample_trees)
-        sum_dbh_squared = sum(t.dbh ** 2 for t in sample_trees)
-        qmd = math.sqrt(sum_dbh_squared / len(sample_trees))
-        expected_sdi = tpa * ((qmd / 10.0) ** 1.605)
+        # Calculator defaults to variant='SN' (Zeide form)
+        expected_sdi = sum((t.dbh / 10.0) ** 1.605 for t in sample_trees if t.dbh > 0)
 
+        assert abs(sdi - expected_sdi) < 0.01
+
+    def test_calculate_sdi_reineke_variant(self, sample_trees):
+        """Reineke variants (PN/WC/OC/OP) use stand QMD form."""
+        from pyfvs.stand_metrics import StandMetricsCalculator
+        calc_pn = StandMetricsCalculator(default_species='DF', variant='PN')
+        sdi = calc_pn.calculate_sdi(sample_trees)
+        tpa = len(sample_trees)
+        qmd = math.sqrt(sum(t.dbh ** 2 for t in sample_trees) / tpa)
+        expected_sdi = tpa * ((qmd / 10.0) ** 1.605)
         assert abs(sdi - expected_sdi) < 0.01
 
     def test_calculate_sdi_empty(self, calculator):
