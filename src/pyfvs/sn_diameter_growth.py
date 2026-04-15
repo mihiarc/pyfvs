@@ -34,7 +34,7 @@ import math
 import random
 from typing import Dict, Any, Optional
 
-from .model_base import ParameterizedModel
+from .model_base import ParameterizedModel, StochasticDGState
 from .config_loader import load_coefficient_file
 
 
@@ -78,7 +78,9 @@ class SNDiameterGrowthModel(ParameterizedModel):
         fortype_effect: float = 0.0,
         plant_effect: float = 0.0,
         time_step: float = 5.0,
-        rng: random.Random = None
+        rng: random.Random = None,
+        state: Optional[StochasticDGState] = None,
+        prev_time_step: Optional[float] = None,
     ) -> float:
         """Calculate diameter squared increment (DDS).
 
@@ -155,8 +157,13 @@ class SNDiameterGrowthModel(ParameterizedModel):
         # Apply FVS bounds for ln(DDS) — lower from Fortran, upper defensive
         ln_dds = max(-9.21, min(11.0, ln_dds))
 
-        # Apply Fortran dgscor.f multiplier: 1.0 deterministic, exp(Z) stochastic.
-        correction = self._stochastic_multiplier(ln_dds, rng)
+        # Apply Fortran dgscor.f multiplier (incl. AR(1) carry across cycles).
+        correction = self._stochastic_multiplier(
+            ln_dds, rng,
+            state=state,
+            time_step=time_step,
+            prev_time_step=prev_time_step,
+        )
 
         # Convert to DDS and scale by time step (model calibrated for 5-year growth)
         dds = math.exp(ln_dds) * correction * (time_step / 5.0)
@@ -178,7 +185,9 @@ class SNDiameterGrowthModel(ParameterizedModel):
         fortype_effect: float = 0.0,
         plant_effect: float = 0.0,
         time_step: float = 5.0,
-        rng: random.Random = None
+        rng: random.Random = None,
+        state: Optional[StochasticDGState] = None,
+        prev_time_step: Optional[float] = None,
     ) -> float:
         """Calculate diameter growth (DG) from DDS with bark ratio conversion.
 
@@ -209,7 +218,8 @@ class SNDiameterGrowthModel(ParameterizedModel):
             dbh, crown_ratio, site_index, ba, pbal,
             relht, slope, aspect,
             ecounit_effect, fortype_effect, plant_effect,
-            time_step, rng=rng
+            time_step, rng=rng,
+            state=state, prev_time_step=prev_time_step,
         )
 
         return dds_to_diameter_growth(dds, dbh, bark_ratio)

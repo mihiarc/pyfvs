@@ -21,16 +21,109 @@ Usage:
         def __init__(self, species_code: str = "LP"):
             super().__init__(species_code)
 """
+import functools
 import logging
 import math
 import random
 from abc import ABC
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 from .config_loader import load_coefficient_file
 from .species import SpeciesCode
 
 logger = logging.getLogger("pyfvs.model_base")
+
+
+class StochasticDGState:
+    """Per-tree carry state for AR(1) DG noise (Fortran OLDRN(IT))."""
+    __slots__ = ('oldrn',)
+
+    def __init__(self, oldrn: float = 0.0):
+        self.oldrn = oldrn
+
+
+@functools.lru_cache(maxsize=8)
+def _bjrho_table(bjphi: float, bjthet: float) -> Tuple[float, ...]:
+    """ARMA(1,1) serial correlation function (40 terms). Mirror autcor.f:44-48."""
+    rho1 = (1.0 - bjphi * bjthet) * (bjphi - bjthet) / (1.0 + bjthet * (bjthet - 2.0 * bjphi))
+    table = [rho1]
+    for _ in range(1, 40):
+        table.append(table[-1] * bjphi)
+    return tuple(table)
+
+
+@functools.lru_cache(maxsize=64)
+def _autcor(new: int, nold: int, bjphi: float, bjthet: float) -> Tuple[float, float]:
+    """Variance multiplier (VMLT) and covariance (COVMLT). Mirror autcor.f:60-93."""
+    bjrho = _bjrho_table(bjphi, bjthet)
+
+    var = float(new)
+    for i in range(1, new):
+        var += 2.0 * bjrho[i - 1] * (new - i)
+    vmlt = var
+
+    L = min(new + nold - 1, 40)
+    nbig = max(new, nold)
+    nsml = min(new, nold)
+    t, dt = 0.0, 1.0
+    covar = 0.0
+    for i in range(1, L + 1):
+        t += dt
+        covar += bjrho[i - 1] * t
+        if i == nsml:
+            dt = 0.0
+        if i == nbig:
+            dt = -1.0
+
+    return vmlt, covar
+
+
+@functools.lru_cache(maxsize=256)
+def _ar1_weights(sigma: float, time_step: int, prev_time_step: int,
+                 bjphi: float, bjthet: float) -> Tuple[float, float, float]:
+    """Per-species AR(1) weights for current cycle. Mirror dgdriv.f:121-160.
+
+    Returns (rho, rhocp, ssigma):
+        rho    -- weight on previous cycle's saved FRM
+        rhocp  -- weight on fresh draw, sqrt(1-rho^2)
+        ssigma -- bounded normal std for fresh draw (cycle-scaled SIGMA)
+    """
+    if sigma <= 0.0:
+        return 0.0, 1.0, 0.0
+
+    new = max(1, int(time_step))
+    nold = max(1, int(prev_time_step))
+
+    vmlt, covmlt = _autcor(new, nold, bjphi, bjthet)
+    pvmlt, _ = _autcor(nold, nold, bjphi, bjthet)
+
+    if vmlt <= 0.0 or pvmlt <= 0.0:
+        return 0.0, 1.0, sigma
+
+    corr = covmlt / math.sqrt(vmlt * pvmlt)
+
+    sigma2 = sigma * sigma
+    vtemp = math.exp(sigma2)
+    vmltyr = pvmlt
+    vardg = (vtemp - 1.0) * vtemp / vmltyr
+
+    varyp1 = vardg * pvmlt
+    varyp2 = vardg * vmlt
+    evarp1 = (math.sqrt(1.0 + 4.0 * varyp1) + 1.0) / 2.0
+    evarp2 = (math.sqrt(1.0 + 4.0 * varyp2) + 1.0) / 2.0
+
+    sig1 = math.sqrt(math.log(evarp1)) if evarp1 > 1.0 else 0.0
+    ssigma = math.sqrt(math.log(evarp2)) if evarp2 > 1.0 else 0.0
+
+    if sig1 <= 0.0 or ssigma <= 0.0:
+        return 0.0, max(0.0, ssigma), ssigma
+
+    inner = corr * math.sqrt(max(0.0, evarp1 - 1.0) * max(0.0, evarp2 - 1.0))
+    rho = math.log(max(1e-9, 1.0 + inner)) / (sig1 * ssigma)
+    rho = max(-0.99, min(0.99, rho))
+    rhocp = math.sqrt(1.0 - rho * rho)
+
+    return rho, rhocp, ssigma
 
 
 def dds_to_diameter_growth(dds: float, dbh: float, bark_ratio: float) -> float:
@@ -237,31 +330,76 @@ class ParameterizedModel(ABC):
         variance_params = self.raw_data.get('variance_parameters', {})
         return variance_params.get(self.species_code, 0.0)
 
-    def _stochastic_multiplier(self, ln_dds: float, rng: random.Random = None) -> float:
-        """DDS multiplier matching Fortran dgscor.f.
+    def _stochastic_multiplier(
+        self,
+        ln_dds: float,
+        rng: random.Random = None,
+        state: Optional[StochasticDGState] = None,
+        time_step: float = 5.0,
+        prev_time_step: Optional[float] = None,
+        bjphi: float = 0.74,
+        bjthet: float = 0.42,
+    ) -> float:
+        """DDS multiplier matching Fortran dgscor.f, including AR(1) carry.
 
-        - Deterministic (rng=None, Fortran DGSD<1.0): returns 1.0.
-        - Stochastic (rng set, Fortran DGSD>=1.0): draw Z~N(0, sigma²)
-          bounded +/- DGSD*sigma, taper for ln_dds in [4, 5], return exp(Z);
-          for ln_dds>5 return 1.0 (dgscor.f FRM=0.0 -> EXP(0)=1.0).
+        Implements the full chain: AUTCOR (variance/covariance multipliers from
+        ARMA(1,1) parameters) -> per-species RHO/RHOCP/SSIGMA -> DGSCOR
+        (truncated normal blended with previous cycle's saved FRM via OLDRN).
+
+        - Deterministic (rng=None, Fortran DGSD<1.0): returns 1.0; resets
+          state.oldrn=0 so a later switch into stochastic doesn't blend stale
+          carry.
+        - Stochastic (rng set, Fortran DGSD>=1.0): draw eps~N(0, ssigma^2);
+          FRM = eps*RHOCP + RHO*OLDRN_in (rejected/redrawn if |FRM|>DGSD*SSIGMA);
+          tail attenuation for ln_dds in (4,5] (multiply by ln_dds-4) or zero
+          for ln_dds>5; save FRM as new OLDRN; return exp(FRM).
         """
         if self._sigma <= 0.0:
             return 1.0
 
         if rng is None:
-            # Deterministic: Fortran dgscor.f returns FRM = EXP(0) = 1.0
+            if state is not None:
+                state.oldrn = 0.0
             return 1.0
 
-        # Stochastic: draw bounded normal (dgscor.f)
-        if ln_dds > 5.0:
+        rho, rhocp, ssigma = _ar1_weights(
+            self._sigma,
+            int(time_step) if time_step > 0 else 5,
+            int(prev_time_step) if prev_time_step is not None and prev_time_step > 0
+            else (int(time_step) if time_step > 0 else 5),
+            bjphi,
+            bjthet,
+        )
+
+        if ssigma <= 0.0:
+            if state is not None:
+                state.oldrn = 0.0
             return 1.0
-        suppress = (5.0 - ln_dds) / 1.0 if ln_dds > 4.0 else 1.0
 
         dgsd = 2.0
-        z = rng.gauss(0.0, self._sigma)
-        z = max(-dgsd * self._sigma, min(dgsd * self._sigma, z))
-        z *= suppress
-        return math.exp(z)
+        bound = dgsd * ssigma
+        oldrn_in = state.oldrn if state is not None else 0.0
+
+        # dgscor.f BACHLO loop with rejection on |FRM|>DGSD*SSIG.
+        frm = 0.0
+        for _ in range(100):
+            eps = rng.gauss(0.0, ssigma)
+            frm = eps * rhocp + rho * oldrn_in
+            if abs(frm) <= bound:
+                break
+        else:
+            frm = max(-bound, min(bound, frm))
+
+        # dgscor.f:42-47 tail attenuation on ln(DDS).
+        if ln_dds > 5.0:
+            frm = 0.0
+        elif ln_dds > 4.0:
+            frm = (ln_dds - 4.0) * frm
+
+        if state is not None:
+            state.oldrn = frm
+
+        return math.exp(frm)
 
     def __repr__(self) -> str:
         """Return string representation of the model."""

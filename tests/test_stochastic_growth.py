@@ -411,14 +411,22 @@ class TestModelLevelStochastic:
         assert max(dds_values) > min(dds_values) * 1.1
 
     def test_pn_stochastic_produces_variation(self):
-        """PN model stochastic draws should have non-trivial variation."""
+        """PN model stochastic draws should have non-trivial variation.
+
+        Uses dbh=4 to keep the predicted ln(DDS) below 4.0; PN's DF
+        coefficients at dbh=8 land in the dgscor.f tail-attenuation
+        zone (4 < ln_dds <= 5) where FRM is scaled by (ln_dds-4),
+        suppressing nearly all noise. The test would still hold even
+        with full noise applied; using a smaller DBH just exercises
+        the un-attenuated branch.
+        """
         model = create_pn_diameter_growth_model('DF')
         rng = random.Random(42)
 
         dds_values = []
         for _ in range(100):
             dds = model.calculate_dds(
-                dbh=8.0, crown_ratio=0.6, site_index=120,
+                dbh=4.0, crown_ratio=0.6, site_index=120,
                 ba=150, bal=80, rng=rng
             )
             dds_values.append(dds)

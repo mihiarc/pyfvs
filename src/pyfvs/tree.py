@@ -41,6 +41,13 @@ class Tree:
         self._forest_type = None
         self._managed = False  # Only apply plant effect when MANAGD equivalent is set
 
+        # Per-tree carry state for AR(1) DG noise (Fortran OLDRN(IT) in dgscor.f).
+        from .model_base import StochasticDGState
+        self._dg_state = StochasticDGState()
+        # Previous cycle length (years), for AUTCOR PVMLT computation. None on
+        # first cycle -> AUTCOR uses NEW=NOLD path matching Fortran LSTART init.
+        self._prev_cycle_length: Optional[float] = None
+
         # Set up logging
         self.logger = get_logger(__name__)
 
@@ -1069,8 +1076,11 @@ class Tree:
             fortype_effect=fortype_effect,
             plant_effect=plant_effect,
             time_step=time_step,
-            rng=rng
+            rng=rng,
+            state=self._dg_state,
+            prev_time_step=self._prev_cycle_length,
         )
+        self._prev_cycle_length = time_step
 
         # Apply increment to DBH
         self.dbh = self.dbh + diameter_increment
