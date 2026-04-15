@@ -334,7 +334,9 @@ HARDWOOD_SPECIES = {
 }
 
 # FVS merchantability specifications
-STUMP_HEIGHT = 1.0  # feet
+STUMP_HEIGHT = 0.5  # feet — matches Fortran STMP(ISPC) default 0.5 for total-cubic
+                    # (product code '02') per SN grinit.f:86 and fvsvol.f:183.
+                    # Board-foot product uses SCFSTMP=1.0 separately.
 MIN_MERCH_DBH = 5.0  # inches
 MIN_MERCH_TOP = 4.0  # inches DOB
 
