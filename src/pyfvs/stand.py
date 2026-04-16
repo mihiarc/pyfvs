@@ -732,10 +732,16 @@ class Stand:
             # compute_establishment_tree_state already caps at HHTMAX, so
             # we UN-cap by recomputing the raw value, add variation, cap.
             from .establishment import compute_establishment_height
+            # LS uses base_cycle - 5 (regent.f:118-124 LESTB shortens growth
+            # period by 5 yrs for 10-yr cycle variants). Other variants keep
+            # cycle + 2 per ESSUBH age=TIME+TRAGE.
+            _estab_age = (
+                max(1, base_cycle - 4) if self.variant == 'LS' else base_cycle + 2
+            )
             raw_ht = compute_establishment_height(
                 species=tree.species,
                 site_index=self.site_index,
-                age=base_cycle + 2,  # matches ESSUBH age=TIME+TRAGE=5+2=7
+                age=_estab_age,
                 variant=self.variant,
                 ecounit=self.ecounit,
             )

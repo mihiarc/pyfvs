@@ -489,7 +489,20 @@ def compute_establishment_tree_state(
     csne_essubh_height = None
 
     if variant in ('SN', 'OP', 'CA', 'OC', 'WS', 'LS'):
-        establishment_age = cycle_length + 2
+        # Fortran regent.f:118-124 (LESTB branch) shortens the establishment
+        # cycle height growth period by 5 years: FNT = FINT - 5, or
+        # LSKIPH=TRUE when FINT<=5. For 5-yr cycle variants (SN/OP/CA/OC/WS)
+        # the net end-of-cycle state is site curve at cycle+2 (matches SN
+        # ESSUBH age=TIME+TRAGE=5+2=7).
+        # For LS (10-yr cycle), the tree effectively grows FNT=5 years, so
+        # the equivalent site-curve age at end of cycle 1 is cycle_length-5
+        # (= 5), not cycle_length+2 (= 12). The prior (cycle+2) formula
+        # placed LS plantation trees ~2x too tall after cycle 1, compounding
+        # to +70-300% BA drift vs native FVSls (SY yr10 BA was +372%).
+        if variant == 'LS':
+            establishment_age = max(1, cycle_length - 4)
+        else:
+            establishment_age = cycle_length + 2
         base_height = compute_establishment_height(
             species, site_index, establishment_age, variant, ecounit=ecounit
         )
