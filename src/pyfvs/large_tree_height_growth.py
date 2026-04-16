@@ -677,10 +677,14 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
                               species_code: Optional[str] = None,
                               tree_age: Optional[float] = None,
                               tree_height: Optional[float] = None,
-                              variant: str = 'SN') -> float:
+                              variant: str = 'SN',
+                              rmsqd: Optional[float] = None) -> float:
         """Calculate periodic height growth for large trees.
 
-        Main equation 4.7.2.1: HTG = POTHTG * (0.25 * HGMDCR + 0.75 * HGMDRH)
+        SN/CS/NE: HTG = POTHTG * (0.25 * HGMDCR + 0.75 * HGMDRH)
+        LS (Fortran ls/htgf.f:104-109): HTG = POTHTG * GMOD where
+            GMOD = (1 - (1-BALMOD)*(1-RELHTA)) * 0.8
+            BALMOD is the species-specific competition modifier from balmod.f
 
         Args:
             dbh: Diameter at breast height (inches)
@@ -695,6 +699,8 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             tree_age: Tree age (years) - if not provided, estimated from height
             tree_height: Current tree height (feet) - if not provided, estimated from DBH
             variant: FVS variant code (e.g., 'SN', 'LS', 'CS', 'NE')
+            rmsqd: Stand root-mean-square diameter (~QMD, inches). Required for
+                LS BALMOD; other variants ignore it.
 
         Returns:
             Periodic height growth (feet)
@@ -708,16 +714,25 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             basal_area, pbal, slope, aspect, tree_age, tree_height,
             variant=variant
         )
-        
-        # Apply height growth modifier.
-        # LS/CS/NE Fortran htgf.f uses eastern GMOD formula:
-        #   GMOD = (1.0 - ((1.0-BALMOD)*(1.0-RELHTA))) * 0.8
-        # which caps at 0.80 for dominant trees (RELHTA >= 1.0).
-        # Native FVS compensates with OLDRN stochastic autocorrelation
-        # that boosts dominant trees by ~25%, giving effective ~1.0.
-        # Since PyFVS is deterministic, we use the SN formula which
-        # gives ~0.98 for dominant trees — a better approximation of
-        # the combined (1+OLDRN)*GMOD effect.
+
+        # LS variant — Fortran-faithful BALMOD modifier from ls/htgf.f.
+        if variant == 'LS':
+            from .ls_balmod import ls_balmod
+
+            # RMSQD fallback: use tree DBH as stand QMD proxy when caller
+            # didn't thread it through. Conservative — only reached if
+            # stand-level plumbing is incomplete.
+            if rmsqd is None or rmsqd <= 0.0:
+                rmsqd = max(1.0, dbh)
+
+            balmod = ls_balmod(species_code, dbh, basal_area, rmsqd)
+            # htgf.f:108: RELHTA = MIN(HT/AVH, 1.0). pyfvs passes HT/AVH
+            # (possibly >1 for dominant trees) — clamp to match Fortran.
+            relhta = max(0.0, min(1.0, relative_height))
+            gmod = (1.0 - (1.0 - balmod) * (1.0 - relhta)) * 0.8
+            return max(0.1, pothtg * gmod)
+
+        # SN (and other non-LS variants): shade-tolerance modifier.
         hgmdcr = self.calculate_crown_ratio_modifier(crown_ratio)
         hgmdrh = self.calculate_relative_height_modifier(
             relative_height, species_code
@@ -797,7 +812,8 @@ def calculate_large_tree_height_growth(species_code: str, dbh: float, crown_rati
                                      slope: float = 0.0, aspect: float = 0.0,
                                      tree_age: Optional[float] = None,
                                      tree_height: Optional[float] = None,
-                                     variant: str = 'SN') -> float:
+                                     variant: str = 'SN',
+                                     rmsqd: Optional[float] = None) -> float:
     """Standalone function to calculate large tree height growth.
 
     Args:
@@ -821,7 +837,8 @@ def calculate_large_tree_height_growth(species_code: str, dbh: float, crown_rati
     return model.calculate_height_growth(
         dbh, crown_ratio, relative_height, site_index,
         basal_area, pbal, slope, aspect, species_code, tree_age, tree_height,
-        variant=variant
+        variant=variant,
+        rmsqd=rmsqd,
     )
 
 

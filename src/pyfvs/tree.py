@@ -768,7 +768,8 @@ class Tree:
             pbal=pbal,
             relht=relht,
             time_step=time_step,
-            variant=variant
+            variant=variant,
+            rmsqd=qmd_ge5,
         )
 
     def _update_height_large_tree_variant(self, variant: str, site_index: float) -> None:
@@ -1233,7 +1234,8 @@ class Tree:
         relht: float = 1.0,
         time_step: int = 5,
         competition_factor: float = 0.0,
-        variant: str = 'SN'
+        variant: str = 'SN',
+        rmsqd: float = None,
     ):
         """Update height using FVS large-tree height growth model (Section 4.7.2).
 
@@ -1259,7 +1261,9 @@ class Tree:
         """
         from .large_tree_height_growth import calculate_large_tree_height_growth
 
-        # Calculate height growth using the module (variant-aware)
+        # Calculate height growth using the module (variant-aware).
+        # `rmsqd` is threaded from Stand via _grow_large_tree_standard for
+        # LS BALMOD. For other variants rmsqd is ignored.
         htg = calculate_large_tree_height_growth(
             species_code=self.species,
             dbh=self.dbh,
@@ -1272,7 +1276,8 @@ class Tree:
             aspect=aspect,
             tree_age=self.age,
             tree_height=self.height,
-            variant=variant
+            variant=variant,
+            rmsqd=rmsqd,
         )
 
         # Scale for time step (module returns 5-year growth)
