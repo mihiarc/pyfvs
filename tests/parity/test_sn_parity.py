@@ -127,15 +127,17 @@ def test_sn_off_baseline_parity(
         pytest.param(
             "WP", 70, 500, 25, id="wp-si70-25yr",
             marks=pytest.mark.xfail(
-                reason="10-seed mean BA -6.93%±1.02% (>5% tol) — systematic "
-                "mean bias, not seed noise. Verified 2026-04-15: all WP "
-                "coefficients (DG, HD, bark, Curtis-Arney) match Fortran "
-                "exactly; no WP-specific dgf.f branch. Deficit is density-"
-                "independent (~12% across TPA=100-1000). Opens yr20-25 when "
-                "trees enter large-tree zone (>3\"). ln(DDS) equation "
-                "verified correct for isolated inputs. Root cause must be "
-                "in input propagation (CR/RELHT/PBAL) over long cycles; "
-                "needs instrumented traces of both pyfvs and native.",
+                reason="10-seed mean BA -7.03% (>5% tol). Native DGSTDEV=0 "
+                "diagnostic 2026-04-16: native_det=67.76, pyfvs_det=61.04 "
+                "(-9.92% det-mode under-prediction). This is primarily a "
+                "DETERMINISTIC issue, not a Jensen mismatch. Jensen_lift "
+                "native=+2.22%, pyfvs=+5.50% (+3.28pp excess but secondary). "
+                "All WP coefficients (DG, HD, bark, Curtis-Arney) verified "
+                "matching Fortran; ln(DDS) correct for isolated inputs; "
+                "density-independent (~12% across TPA=100-1000). Root cause "
+                "must be in input propagation (CR/RELHT/PBAL) over long "
+                "cycles or a latent DG coefficient handling difference; "
+                "needs instrumented native-side traces to close.",
                 strict=True,
             ),
         ),
@@ -146,18 +148,19 @@ def test_sn_off_baseline_parity(
         pytest.param(
             "RM", 65, 500, 25, id="rm-si65-25yr",
             marks=pytest.mark.xfail(
-                reason="10-seed mean BA +5.58% (>5% tol) — exposed 2026-04-16 "
-                "when Fortran-faithful HTG noise (regent.f:252-260) was "
-                "added to pyfvs's small-tree path. Prior to the fix, pyfvs "
-                "RM coincidentally passed because missing HTG noise offset "
-                "a separate hidden Jensen-lift source elsewhere in the "
-                "stochastic pipeline. With noise added, DBH distribution "
-                "correctly widens (Fortran fidelity) and RM's hidden over-"
-                "prediction becomes visible. Det RM passes (BA -3.66%); "
-                "the stoch over-prediction is a double-Jensen artifact "
-                "that needs the second Jensen source identified and fixed. "
-                "Honest exposure preferred over coincidental pass per "
-                "feedback_oc_parity memory.",
+                reason="10-seed mean BA +5.58% (>5% tol). Native DGSTDEV=0 "
+                "diagnostic 2026-04-16: det matches (pyfvs_det=34.19, "
+                "native_det=34.24, -0.17%). Entire gap is Jensen-lift mismatch: "
+                "native_JL=+3.62%, pyfvs_JL=+9.60% (+5.98pp excess). "
+                "Decomposition: E-S weighted-sampling mortality contributes "
+                "~2pp (stoch_dg+det_mort→BA 36.63; stoch_dg+es_mort→BA 37.47). "
+                "Remaining ~4pp is DG-side. Cycle-5 FRM capture shows E[FRM]=1.135 "
+                "matching theoretical truncated-log-normal for σ=0.593 — "
+                "per-cycle variance correct. Source is unclear: not AR(1) port "
+                "(variance matches theory), not truncation (DGSD=2.0 in both), "
+                "not per-tree HTG noise (matches regent.f:252-260). Switching "
+                "mortality to DET-always would close RM but opens LP-si90 "
+                "(+5.40% vs native) — net parity-negative per isolation test.",
                 strict=True,
             ),
         ),
@@ -165,15 +168,16 @@ def test_sn_off_baseline_parity(
         pytest.param(
             "BY", 70, 400, 25, id="by-si70-25yr",
             marks=pytest.mark.xfail(
-                reason="10-seed mean BA +8.58%±1.16% (>5% tol) — systematic "
-                "mean bias. Deterministic BY passes. Bernoulli-to-weighted-"
-                "sampling mortality fix (2026-04-16) reduced the gap from "
-                "+9.2% but did not close it because E-S selection still "
-                "weights by rip_i, biasing survivors toward larger trees "
-                "with BY's high SIGMAR (0.5511) DBH variance. Fortran's "
-                "fractional-PROB reduction preserves every tree at reduced "
-                "weight (no kill selection at all); closing this would "
-                "require fractional TPA on pyfvs Tree records.",
+                reason="10-seed mean BA +8.74% (>5% tol). Native DGSTDEV=0 "
+                "diagnostic 2026-04-16: pyfvs_det=52.35 vs native_det=50.10 "
+                "(+4.49% det-mode over-prediction, part of gap). "
+                "Jensen native=+3.41%, pyfvs=+7.61% (+4.20pp excess). "
+                "Decomposition: E-S mortality contributes ~2pp (isolation test: "
+                "stoch_dg+det_mort→BA 55.21; stoch_dg+es_mort→BA 56.34). "
+                "High SIGMAR (0.5511) + mixed det/Jensen bias; would need "
+                "fractional TPA on Tree records to fully resolve the E-S "
+                "survivor-selection asymmetry, and a separate investigation "
+                "to explain the det-mode over-prediction.",
                 strict=True,
             ),
         ),
