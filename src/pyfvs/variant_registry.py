@@ -148,6 +148,16 @@ REGISTRY: Dict[str, VariantConfig] = {
         taper_class=ClarkTaperModel,
         dg_module='ls_diameter_growth',
         dg_factory='create_ls_diameter_growth_model',
+        # Fortran ls/regent.f:98 DATA XMIN/MAXSP*3.0/, XMAX/MAXSP*5.0/.
+        # Trees with DBH in [3, 5) are in the DG blend zone (regent.f:375
+        # XWT*DG_large + (1-XWT)*DG_small). Pyfvs previously used xmin=
+        # xmax=3.0 from generic species config -> no blend zone, trees
+        # switched immediately to weak large-tree DG equation at D=3.
+        # For hardwoods like PL where the large-tree equation produces
+        # 10x less growth than Wykoff-inverse-from-HT, this caused BA
+        # to under-predict by 30-60% at yr30.
+        transition_xmin=3.0,
+        transition_xmax=5.0,
         hhtmax=_LS_HHTMAX,
         hhtmax_default=_LS_HHTMAX_DEFAULT,
         sdi_maximums=StandMetricsCalculator.LS_SDI_MAXIMUMS,
