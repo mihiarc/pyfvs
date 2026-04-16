@@ -1,0 +1,26 @@
+metadata:
+  code: PA
+  fia_code: 545
+  scientific_name: ''
+  common_name: pumpkin ash
+  valid_site_species: false
+  fvs_index: 45
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 251.4042514
+    p3: 3.26919806
+    p4: -0.35905996
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0008992
+    B2: 0.0925395
+mortality:
+  shade_tolerance: 0.3

@@ -1,0 +1,26 @@
+metadata:
+  code: BM
+  fia_code: 314
+  scientific_name: ''
+  common_name: black maple
+  valid_site_species: false
+  fvs_index: 28
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 209.8555358
+    p3: 2.95281334
+    p4: -0.36787496
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0007439
+    B2: 0.0706905
+mortality:
+  shade_tolerance: 0.9

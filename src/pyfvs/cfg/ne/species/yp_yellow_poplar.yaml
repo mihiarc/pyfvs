@@ -1,0 +1,26 @@
+metadata:
+  code: YP
+  fia_code: 621
+  scientific_name: ''
+  common_name: yellow-poplar
+  valid_site_species: false
+  fvs_index: 46
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 625.7696614
+    p3: 3.87320571
+    p4: -0.23349496
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0008815
+    B2: 0.1419212
+mortality:
+  shade_tolerance: 0.5

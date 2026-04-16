@@ -1,0 +1,26 @@
+metadata:
+  code: CT
+  fia_code: 651
+  scientific_name: ''
+  common_name: cucumbertree
+  valid_site_species: false
+  fvs_index: 48
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 660.1996521
+    p3: 3.92077102
+    p4: -0.21124354
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0008815
+    B2: 0.1419212
+mortality:
+  shade_tolerance: 0.5

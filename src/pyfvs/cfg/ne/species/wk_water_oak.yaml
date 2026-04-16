@@ -1,0 +1,26 @@
+metadata:
+  code: WK
+  fia_code: 827
+  scientific_name: ''
+  common_name: water oak
+  valid_site_species: false
+  fvs_index: 62
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 470.0617193
+    p3: 3.78892643
+    p4: -0.25123824
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0008769
+    B2: 0.0866621
+mortality:
+  shade_tolerance: 0.3

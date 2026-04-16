@@ -1,0 +1,26 @@
+metadata:
+  code: WR
+  fia_code: 374
+  scientific_name: ''
+  common_name: water birch
+  valid_site_species: false
+  fvs_index: 74
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 170.5253403
+    p3: 2.68833651
+    p4: -0.40080716
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0009567
+    B2: 0.1038458
+mortality:
+  shade_tolerance: 0.3

@@ -1,0 +1,26 @@
+metadata:
+  code: PB
+  fia_code: 375
+  scientific_name: ''
+  common_name: paper birch
+  valid_site_species: false
+  fvs_index: 33
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 170.5253403
+    p3: 2.68833651
+    p4: -0.40080716
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0009766
+    B2: 0.0832328
+mortality:
+  shade_tolerance: 0.3

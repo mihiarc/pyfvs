@@ -699,11 +699,11 @@ class Stand:
         if not self.trees:
             return
 
-        # Fortran cs/regent.f:118-124 has the same LESTB FNT-5 shortening
-        # as ls/regent.f (10-yr cycle variants grow only 5 yrs during the
-        # establishment cycle; the first 5 yrs are pre-growth/planting).
-        # Route CS through the same dedicated essubh-then-grow-forward path.
-        if self.variant in ('LS', 'CS'):
+        # Fortran cs/regent.f:118-124 and ne/regent.f:118-124 share the
+        # LESTB FNT-5 shortening with ls/regent.f (10-yr cycle variants
+        # grow only 5 yrs during the establishment cycle). Route LS/CS/NE
+        # through the same dedicated essubh-then-grow-forward path.
+        if self.variant in ('LS', 'CS', 'NE'):
             self._grow_establishment_cycle_ls(base_cycle)
             return
 

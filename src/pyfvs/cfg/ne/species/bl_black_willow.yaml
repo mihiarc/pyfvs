@@ -1,0 +1,26 @@
+metadata:
+  code: BL
+  fia_code: 922
+  scientific_name: ''
+  common_name: black willow
+  valid_site_species: false
+  fvs_index: 91
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 408.2772475
+    p3: 3.81808285
+    p4: -0.27210505
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0009567
+    B2: 0.1038458
+mortality:
+  shade_tolerance: 0.3

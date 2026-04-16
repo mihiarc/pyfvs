@@ -1,0 +1,26 @@
+metadata:
+  code: MV
+  fia_code: 653
+  scientific_name: ''
+  common_name: sweetbay
+  valid_site_species: false
+  fvs_index: 82
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 184.1931837
+    p3: 2.84569124
+    p4: -0.36952511
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0009567
+    B2: 0.1038458
+mortality:
+  shade_tolerance: 0.7

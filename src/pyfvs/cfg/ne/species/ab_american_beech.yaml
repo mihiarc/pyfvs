@@ -1,0 +1,26 @@
+metadata:
+  code: AB
+  fia_code: 531
+  scientific_name: ''
+  common_name: american beech
+  valid_site_species: false
+  fvs_index: 40
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 526.1392688
+    p3: 3.89232121
+    p4: -0.22587084
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0006911
+    B2: 0.0730441
+mortality:
+  shade_tolerance: 0.9

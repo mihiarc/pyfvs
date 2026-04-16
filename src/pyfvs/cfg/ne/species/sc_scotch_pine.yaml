@@ -1,0 +1,26 @@
+metadata:
+  code: SC
+  fia_code: 130
+  scientific_name: ''
+  common_name: scotch pine
+  valid_site_species: false
+  fvs_index: 24
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 450
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 142.7468108
+    p3: 3.97260802
+    p4: -0.5870983
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0006634
+    B2: 0.108347
+mortality:
+  shade_tolerance: 0.3

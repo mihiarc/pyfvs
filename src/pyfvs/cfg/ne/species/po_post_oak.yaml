@@ -1,0 +1,26 @@
+metadata:
+  code: PO
+  fia_code: 835
+  scientific_name: ''
+  common_name: post oak
+  valid_site_species: false
+  fvs_index: 58
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 765.2907525
+    p3: 4.22375114
+    p4: -0.18974706
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0007417
+    B2: 0.0867535
+mortality:
+  shade_tolerance: 0.3

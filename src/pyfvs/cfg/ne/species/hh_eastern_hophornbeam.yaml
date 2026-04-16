@@ -1,0 +1,26 @@
+metadata:
+  code: HH
+  fia_code: 701
+  scientific_name: ''
+  common_name: eastern hophornbeam
+  valid_site_species: false
+  fvs_index: 106
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 109.7324294
+    p3: 2.25025802
+    p4: -0.41297463
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0003604
+    B2: 0.0328767
+mortality:
+  shade_tolerance: 0.9

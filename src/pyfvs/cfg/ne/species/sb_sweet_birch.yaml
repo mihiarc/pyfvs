@@ -1,0 +1,26 @@
+metadata:
+  code: SB
+  fia_code: 372
+  scientific_name: ''
+  common_name: sweet birch
+  valid_site_species: false
+  fvs_index: 31
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 68.92234069
+    p3: 43.33832185
+    p4: -2.44448482
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0006668
+    B2: 0.0768212
+mortality:
+  shade_tolerance: 0.5

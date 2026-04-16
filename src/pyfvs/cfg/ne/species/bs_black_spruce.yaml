@@ -1,0 +1,26 @@
+metadata:
+  code: BS
+  fia_code: 95
+  scientific_name: ''
+  common_name: black spruce
+  valid_site_species: false
+  fvs_index: 6
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 450
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 2163.946776
+    p3: 6.26880851
+    p4: -0.2161439
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0008236
+    B2: 0.0549439
+mortality:
+  shade_tolerance: 0.7

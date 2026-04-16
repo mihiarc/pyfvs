@@ -1,0 +1,26 @@
+metadata:
+  code: YY
+  fia_code: 332
+  scientific_name: ''
+  common_name: yellow buckeye
+  valid_site_species: false
+  fvs_index: 73
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 293.5715132
+    p3: 3.52261899
+    p4: -0.35122247
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0009567
+    B2: 0.1038458
+mortality:
+  shade_tolerance: 0.5

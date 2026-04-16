@@ -1,0 +1,26 @@
+metadata:
+  code: PS
+  fia_code: 521
+  scientific_name: ''
+  common_name: persimmon
+  valid_site_species: false
+  fvs_index: 76
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 484.7529797
+    p3: 3.93933286
+    p4: -0.25998833
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.0009567
+    B2: 0.1038458
+mortality:
+  shade_tolerance: 0.5

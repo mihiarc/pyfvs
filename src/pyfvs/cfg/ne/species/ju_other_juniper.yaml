@@ -1,0 +1,26 @@
+metadata:
+  code: JU
+  fia_code: 57
+  scientific_name: ''
+  common_name: other cedar/juniper
+  valid_site_species: false
+  fvs_index: 15
+site_index:
+  min: 30
+  max: 90
+density:
+  sdi_max: 450
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 926.1802712
+    p3: 4.46209203
+    p4: -0.20053974
+    dbw: 0.1
+diameter_growth:
+  model: ne_twigs
+  coefficients:
+    B1: 0.000905
+    B2: 0.0517297
+mortality:
+  shade_tolerance: 0.2
