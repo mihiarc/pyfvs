@@ -1,0 +1,35 @@
+metadata:
+  code: BO
+  fia_code: 837
+  scientific_name: ''
+  common_name: black oak
+  valid_site_species: false
+  fvs_index: 50
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 224.716279
+    p3: 3.11648501
+    p4: -0.35982064
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 1.897
+    VDBHC: -5.7203
+    DBHC: 0.0
+    DBH2C: 0.00346
+    RDBHC: 0.93903
+    RDBHSQC: -0.05092
+    CRWNC: 0.03088
+    CRSQC: -0.00016
+    SBAC: -0.00176
+    BALC: 0.0
+    SITEC: 0.0054
+mortality:
+  shade_tolerance: 0.5

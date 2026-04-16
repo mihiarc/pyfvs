@@ -1,0 +1,35 @@
+metadata:
+  code: EC
+  fia_code: 742
+  scientific_name: ''
+  common_name: eastern cottonwood
+  valid_site_species: false
+  fvs_index: 28
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 190.9797059
+    p3: 3.69278884
+    p4: -0.52730469
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 1.8151
+    VDBHC: 0.0
+    DBHC: 0.09153
+    DBH2C: 0.0
+    RDBHC: 1.0209
+    RDBHSQC: -0.03235
+    CRWNC: 0.0
+    CRSQC: 0.00031
+    SBAC: 0.0
+    BALC: -0.00428
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.1

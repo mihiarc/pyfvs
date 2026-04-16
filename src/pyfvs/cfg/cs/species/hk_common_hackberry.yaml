@@ -1,0 +1,35 @@
+metadata:
+  code: HK
+  fia_code: 462
+  scientific_name: ''
+  common_name: common hackberry
+  valid_site_species: false
+  fvs_index: 35
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 484.7529797
+    p3: 3.93933286
+    p4: -0.25998833
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 1.2352
+    VDBHC: -5.2144
+    DBHC: 0.183
+    DBH2C: -0.00314
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.02814
+    CRSQC: -0.00011
+    SBAC: -0.00439
+    BALC: 0.00331
+    SITEC: 0.00447
+mortality:
+  shade_tolerance: 0.5

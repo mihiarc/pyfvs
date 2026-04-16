@@ -1,0 +1,35 @@
+metadata:
+  code: CO
+  fia_code: 832
+  scientific_name: ''
+  common_name: chestnut oak
+  valid_site_species: false
+  fvs_index: 59
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 94.54465221
+    p3: 3.42034111
+    p4: -0.818759
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: -1.7361
+    VDBHC: 0.0
+    DBHC: 0.26087
+    DBH2C: 0.0
+    RDBHC: 1.7666
+    RDBHSQC: -0.11006
+    CRWNC: 0.01933
+    CRSQC: 0.0
+    SBAC: 0.0
+    BALC: 0.0
+    SITEC: 0.00774
+mortality:
+  shade_tolerance: 0.5

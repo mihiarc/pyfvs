@@ -1,0 +1,35 @@
+metadata:
+  code: DO
+  fia_code: 835
+  scientific_name: ''
+  common_name: bottomland post oak
+  valid_site_species: false
+  fvs_index: 58
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 765.2907525
+    p3: 4.22375114
+    p4: -0.18974706
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 1.3692
+    VDBHC: -5.0352
+    DBHC: 0.12165
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: -0.03038
+    CRWNC: 0.01313
+    CRSQC: 0.0
+    SBAC: 0.0
+    BALC: -0.00351
+    SITEC: 0.00915
+mortality:
+  shade_tolerance: 0.5

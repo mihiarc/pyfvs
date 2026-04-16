@@ -1,0 +1,35 @@
+metadata:
+  code: SS
+  fia_code: 931
+  scientific_name: ''
+  common_name: sassafras
+  valid_site_species: false
+  fvs_index: 69
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 755.1038099
+    p3: 4.39496421
+    p4: -0.21778831
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.3841
+    VDBHC: -10.282
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.03201
+    CRSQC: -0.00026
+    SBAC: 0.0
+    BALC: -0.0017
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.3

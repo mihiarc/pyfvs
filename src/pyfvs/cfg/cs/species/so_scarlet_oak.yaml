@@ -1,0 +1,35 @@
+metadata:
+  code: SO
+  fia_code: 806
+  scientific_name: ''
+  common_name: scarlet oak
+  valid_site_species: false
+  fvs_index: 51
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 196.0564703
+    p3: 3.0067167
+    p4: -0.38499624
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 2.0352
+    VDBHC: -5.2884
+    DBHC: 0.0
+    DBH2C: 0.0051307
+    RDBHC: 1.1685
+    RDBHSQC: -0.071643
+    CRWNC: 0.03738
+    CRSQC: -0.000312
+    SBAC: 0.0024
+    BALC: -0.0013941
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.5

@@ -46,7 +46,11 @@ CS_SPECIES = [
     "SO", "BJ", "CK", "SW", "BR", "SN", "PO", "DO", "CO", "PN",   # 51-60
     "CB", "QI", "OV", "WK", "NK", "WL", "QS", None, "SS", "OB",   # 61-70 (68 blank)
     "CA", "PS", "HL", "BP", "BT", "QA", "BK", None, "SY", "BY",   # 71-80 (78 blank)
-    "RB", "SU", "WI", "BL", "OH", "AH", "RD", "DW", "HT", "KC",   # 81-90
+    # Fortran cs/blkdat.f JSP position 85 is 'OH' (oak hardwood); pyfvs
+    # cs_species_config.yaml labels it 'NC' (non-commercial species) with
+    # FIA code 998. Both refer to the same Fortran species slot. Using NC
+    # here since that's the pyfvs-side code the species config indexes.
+    "RB", "SU", "WI", "BL", "NC", "AH", "RD", "DW", "HT", "KC",   # 81-90
     "OO", "CT", "MV", "MB", "HH", "SD",                            # 91-96
 ]
 assert len(CS_SPECIES) == 96

@@ -1,0 +1,35 @@
+metadata:
+  code: LP
+  fia_code: 131
+  scientific_name: ''
+  common_name: loblolly pine
+  valid_site_species: false
+  fvs_index: 5
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 450
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 243.860648
+    p3: 4.28460566
+    p4: -0.47130185
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 2.7633
+    VDBHC: -10.45
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.05754
+    CRSQC: -0.00041
+    SBAC: -0.00324
+    BALC: 0.0
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.3

@@ -1,0 +1,35 @@
+metadata:
+  code: TL
+  fia_code: 693
+  scientific_name: ''
+  common_name: tupelo
+  valid_site_species: false
+  fvs_index: 10
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 319.9788466
+    p3: 3.67313408
+    p4: -0.30651323
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: -0.28233
+    VDBHC: 0.0
+    DBHC: 0.0
+    DBH2C: 0.01581
+    RDBHC: 3.37463
+    RDBHSQC: -0.26631
+    CRWNC: 0.0165
+    CRSQC: 0.0
+    SBAC: 0.0
+    BALC: 0.0
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.5

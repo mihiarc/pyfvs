@@ -1,0 +1,35 @@
+metadata:
+  code: SW
+  fia_code: 804
+  scientific_name: ''
+  common_name: swamp white oak
+  valid_site_species: false
+  fvs_index: 54
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 182.6306309
+    p3: 3.12897883
+    p4: -0.46391125
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 0.93769
+    VDBHC: -5.1193
+    DBHC: 0.09743
+    DBH2C: 0.0
+    RDBHC: 0.47749
+    RDBHSQC: -0.02443
+    CRWNC: 0.0114
+    CRSQC: 0.0
+    SBAC: 0.0
+    BALC: -0.00092
+    SITEC: 0.0124
+mortality:
+  shade_tolerance: 0.5

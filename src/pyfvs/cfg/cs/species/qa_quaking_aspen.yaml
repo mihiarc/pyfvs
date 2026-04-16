@@ -1,0 +1,35 @@
+metadata:
+  code: QA
+  fia_code: 746
+  scientific_name: ''
+  common_name: quaking aspen
+  valid_site_species: false
+  fvs_index: 76
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 337.6684758
+    p3: 3.62726466
+    p4: -0.32083172
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.022
+    VDBHC: -13.627
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.04569
+    CRSQC: -0.00037
+    SBAC: -0.00288
+    BALC: 0.0
+    SITEC: 0.00766
+mortality:
+  shade_tolerance: 0.1

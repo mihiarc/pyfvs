@@ -1,0 +1,35 @@
+metadata:
+  code: QS
+  fia_code: 838
+  scientific_name: ''
+  common_name: shumard oak
+  valid_site_species: false
+  fvs_index: 67
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 215.0009406
+    p3: 3.14204012
+    p4: -0.39067352
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.985
+    VDBHC: -13.519
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.03135
+    CRSQC: -0.00019
+    SBAC: 0.0
+    BALC: -0.00233
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.5

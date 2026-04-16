@@ -1,0 +1,35 @@
+metadata:
+  code: WH
+  fia_code: 404
+  scientific_name: ''
+  common_name: water hickory
+  valid_site_species: false
+  fvs_index: 20
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 337.6684758
+    p3: 3.62726466
+    p4: -0.32083172
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: -0.64747
+    VDBHC: 0.0
+    DBHC: 0.26917
+    DBH2C: -0.00342
+    RDBHC: 0.48856
+    RDBHSQC: -0.03745
+    CRWNC: 0.02673
+    CRSQC: -0.00021
+    SBAC: -0.0023
+    BALC: 0.0
+    SITEC: 0.00744
+mortality:
+  shade_tolerance: 0.5

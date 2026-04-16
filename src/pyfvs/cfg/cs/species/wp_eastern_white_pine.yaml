@@ -1,0 +1,35 @@
+metadata:
+  code: WP
+  fia_code: 129
+  scientific_name: ''
+  common_name: eastern white pine
+  valid_site_species: false
+  fvs_index: 7
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 450
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 2108.844224
+    p3: 5.65948135
+    p4: -0.18563136
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: -0.7079
+    VDBHC: 0.0
+    DBHC: 0.07533
+    DBH2C: 0.0
+    RDBHC: 2.12877
+    RDBHSQC: -0.05909
+    CRWNC: 0.0659
+    CRSQC: -0.00046
+    SBAC: 0.0
+    BALC: 0.0
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.5

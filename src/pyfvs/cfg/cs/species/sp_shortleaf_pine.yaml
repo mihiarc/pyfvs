@@ -1,0 +1,35 @@
+metadata:
+  code: SP
+  fia_code: 110
+  scientific_name: ''
+  common_name: shortleaf pine
+  valid_site_species: false
+  fvs_index: 3
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 450
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 444.0921666
+    p3: 4.11876312
+    p4: -0.30617043
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 0.64882
+    VDBHC: 0.0
+    DBHC: 0.0
+    DBH2C: 0.01234
+    RDBHC: 2.87386
+    RDBHSQC: -0.20916
+    CRWNC: 0.02252
+    CRSQC: 0.0
+    SBAC: -0.00162
+    BALC: -0.00318
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.3

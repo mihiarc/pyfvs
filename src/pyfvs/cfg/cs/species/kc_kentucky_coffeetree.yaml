@@ -1,0 +1,35 @@
+metadata:
+  code: KC
+  fia_code: 571
+  scientific_name: ''
+  common_name: kentucky coffeetree
+  valid_site_species: false
+  fvs_index: 90
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 526.1392688
+    p3: 3.89232121
+    p4: -0.22587084
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 2.9591
+    VDBHC: -9.5199
+    DBHC: 0.20178
+    DBH2C: 0.0
+    RDBHC: 0.54649
+    RDBHSQC: -0.04667
+    CRWNC: 0.03012
+    CRSQC: 0.0
+    SBAC: 0.0
+    BALC: -0.00169
+    SITEC: 0.00356
+mortality:
+  shade_tolerance: 0.3

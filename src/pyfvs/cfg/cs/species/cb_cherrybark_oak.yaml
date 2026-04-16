@@ -1,0 +1,35 @@
+metadata:
+  code: CB
+  fia_code: 813
+  scientific_name: ''
+  common_name: cherrybark oak
+  valid_site_species: false
+  fvs_index: 61
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 182.6306309
+    p3: 3.12897883
+    p4: -0.46391125
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.985
+    VDBHC: -13.519
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.03135
+    CRSQC: -0.00019
+    SBAC: 0.0
+    BALC: -0.00233
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.5

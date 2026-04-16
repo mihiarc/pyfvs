@@ -1,0 +1,35 @@
+metadata:
+  code: OO
+  fia_code: 660
+  scientific_name: ''
+  common_name: osage-orange
+  valid_site_species: false
+  fvs_index: 91
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 109.7324294
+    p3: 2.25025802
+    p4: -0.41297463
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: -0.18599
+    VDBHC: 0.0
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.04276
+    CRSQC: -0.00024
+    SBAC: -0.00704
+    BALC: 0.00554
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.3

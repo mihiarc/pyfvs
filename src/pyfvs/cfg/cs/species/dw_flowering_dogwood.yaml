@@ -1,0 +1,35 @@
+metadata:
+  code: DW
+  fia_code: 491
+  scientific_name: ''
+  common_name: flowering dogwood
+  valid_site_species: false
+  fvs_index: 88
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 863.0501053
+    p3: 4.38560239
+    p4: -0.14812185
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.0308
+    VDBHC: -8.1059
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.00489
+    CRSQC: 0.0
+    SBAC: -0.00179
+    BALC: 0.0
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.8

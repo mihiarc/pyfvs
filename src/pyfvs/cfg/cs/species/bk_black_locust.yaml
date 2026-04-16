@@ -1,0 +1,35 @@
+metadata:
+  code: BK
+  fia_code: 901
+  scientific_name: ''
+  common_name: black locust
+  valid_site_species: false
+  fvs_index: 77
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 880.2844971
+    p3: 4.59642097
+    p4: -0.21824277
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.022
+    VDBHC: -13.627
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.04569
+    CRSQC: -0.00037
+    SBAC: -0.00288
+    BALC: 0.0
+    SITEC: 0.00766
+mortality:
+  shade_tolerance: 0.5

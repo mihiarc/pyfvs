@@ -1,0 +1,35 @@
+metadata:
+  code: SV
+  fia_code: 317
+  scientific_name: ''
+  common_name: silver maple
+  valid_site_species: false
+  fvs_index: 31
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 80.51179925
+    p3: 26.98331005
+    p4: -2.02202808
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 2.2302
+    VDBHC: -6.9962
+    DBHC: 0.11324
+    DBH2C: -0.00186
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.03114
+    CRSQC: -0.00014
+    SBAC: 0.0
+    BALC: -0.00171
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.85

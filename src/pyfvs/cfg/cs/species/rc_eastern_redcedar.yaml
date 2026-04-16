@@ -1,0 +1,35 @@
+metadata:
+  code: RC
+  fia_code: 68
+  scientific_name: ''
+  common_name: eastern redcedar
+  valid_site_species: false
+  fvs_index: 1
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 450
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 926.1802712
+    p3: 4.46209203
+    p4: -0.20053974
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.0982
+    VDBHC: -8.5844
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.01628
+    CRSQC: 0.0
+    SBAC: -0.00386
+    BALC: 0.0
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.8

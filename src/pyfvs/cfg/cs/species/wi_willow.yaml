@@ -1,0 +1,35 @@
+metadata:
+  code: WI
+  fia_code: 920
+  scientific_name: ''
+  common_name: willow
+  valid_site_species: false
+  fvs_index: 83
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 408.2772475
+    p3: 3.81808285
+    p4: -0.27210505
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.8669
+    VDBHC: -8.87037
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.02034
+    CRSQC: 0.0
+    SBAC: 0.0
+    BALC: -0.00535
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.1

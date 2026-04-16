@@ -1,0 +1,35 @@
+metadata:
+  code: BW
+  fia_code: 951
+  scientific_name: ''
+  common_name: american basswood
+  valid_site_species: false
+  fvs_index: 42
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 293.5715132
+    p3: 3.52261899
+    p4: -0.35122247
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 3.7179
+    VDBHC: -8.9697
+    DBHC: 0.0
+    DBH2C: 0.0
+    RDBHC: 0.0
+    RDBHSQC: 0.0
+    CRWNC: 0.01517
+    CRSQC: 0.0
+    SBAC: 0.0
+    BALC: -0.00278
+    SITEC: 0.0
+mortality:
+  shade_tolerance: 0.5

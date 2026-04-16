@@ -1,0 +1,35 @@
+metadata:
+  code: SK
+  fia_code: 812
+  scientific_name: ''
+  common_name: southern red oak
+  valid_site_species: false
+  fvs_index: 49
+site_index:
+  min: 40
+  max: 100
+density:
+  sdi_max: 400
+height_diameter:
+  model: curtis_arney
+  curtis_arney:
+    p2: 150.4300023
+    p3: 3.13270999
+    p4: -0.49925872
+    dbw: 0.1
+diameter_growth:
+  model: cs_linear_dds
+  coefficients:
+    INTERC: 0.02098
+    VDBHC: 0.0
+    DBHC: 0.14061
+    DBH2C: 0.0
+    RDBHC: 1.2101
+    RDBHSQC: -0.05494
+    CRWNC: 0.01366
+    CRSQC: 0.0
+    SBAC: 0.0
+    BALC: 0.0
+    SITEC: 0.00955
+mortality:
+  shade_tolerance: 0.5
