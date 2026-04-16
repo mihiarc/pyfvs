@@ -51,6 +51,27 @@ class LSDiameterGrowthModel(ParameterizedModel):
     COEFFICIENT_KEY = 'coefficients'
     DEFAULT_SPECIES = 'RN'  # Red Pine is the default site species for LS
 
+    # Fortran dgf.f:382-390 — per-species QMDGE5 caps applied before RELDBH.
+    # Without these, species like BH/PH/SH (with negative RDBHSQC) produce
+    # ~+200% BA over-prediction. Species codes map to LS JSP positions
+    # 1,2,10,37,38,39,59 (cap 13"), 11 (cap 15"), 17,30,31,32,33 (cap 25").
+    _QMDGE5_CAPS = {
+        # Cap to 13"
+        'JP': 13.0, 'SC': 13.0, 'TA': 13.0,
+        'BH': 13.0, 'PH': 13.0, 'SH': 13.0, 'BG': 13.0,
+        # Cap to 15"
+        'WC': 15.0,
+        # Cap to 25"
+        'EC': 25.0, 'WO': 25.0, 'SW': 25.0, 'BR': 25.0, 'CK': 25.0,
+    }
+
+    # Fortran dgf.f:394-400 — per-species crown-ratio upper bounds.
+    _CR_PCT_CAPS = {
+        'EC': 60.0,  # eastern cottonwood
+        'SY': 85.0,  # sycamore
+        'BL': 85.0,  # black locust
+    }
+
     # Fallback parameters for key LS species (from dgf.f)
     FALLBACK_PARAMETERS = {
         'JP': {  # Jack Pine
@@ -161,22 +182,40 @@ class LSDiameterGrowthModel(ParameterizedModel):
         crsqc = p.get('CRSQC', 0.0)
         sitec = p.get('SITEC', 0.0)
 
-        # Convert crown ratio to percentage (LS uses 0-100)
-        cr_pct = min(99.0, max(1.0, crown_ratio * 100.0))
+        # Convert crown ratio to percentage (LS uses 0-100).
+        # Fortran dgf.f:375 sets CR=10 when CR<=0 (not 1). Match that floor,
+        # then apply per-species upper cap (dgf.f:394-400).
+        cr_pct = max(10.0, crown_ratio * 100.0)
+        cr_cap = self._CR_PCT_CAPS.get(self.species_code)
+        if cr_cap is not None and cr_pct > cr_cap:
+            cr_pct = cr_cap
 
-        # Calculate RELDBH and RELDBHSQ (relative diameter terms)
-        # Fortran dgf.f line 406-407:
-        #   RELDBH = D / QMDGE5
-        #   RELDBHSQ = D*D / QMDGE5  (NOT (D/QMDGE5)^2)
-        if qmd_ge5 is not None and qmd_ge5 > 0:
-            reldbh = dbh / qmd_ge5
-            reldbh_sq = (dbh * dbh) / qmd_ge5
+        # Fortran dgf.f:382-390 — per-species QMDGE5 cap applied BEFORE RELDBH.
+        # This prevents runaway over-prediction for species like BH/PH/SH
+        # (short-stature hardwoods) whose RDBHSQC is large and negative.
+        qmdge5_for_reldbh = qmd_ge5
+        qmdge5_cap = self._QMDGE5_CAPS.get(self.species_code)
+        if (qmdge5_for_reldbh is not None and qmdge5_cap is not None
+                and qmdge5_for_reldbh > qmdge5_cap):
+            qmdge5_for_reldbh = qmdge5_cap
+
+        # Calculate RELDBH and RELDBHSQ (relative diameter terms).
+        # Fortran dgf.f:404-407 — when QMDGE5 <= 0 (all trees under 5") both
+        # RELDBH and RELDBHSQ are ZERO, not 1. The prior pyfvs fallback
+        # (reldbh=1.0) silently added RDBHC*1.0 to ln(DDS) for every tree in
+        # early cycles of bare-ground plantations — massive over-prediction
+        # for species with large positive RDBHC (e.g., BH/PH/SH: 4.09180).
+        if qmdge5_for_reldbh is not None and qmdge5_for_reldbh > 0:
+            reldbh = dbh / qmdge5_for_reldbh
+            reldbh_sq = (dbh * dbh) / qmdge5_for_reldbh
         else:
-            reldbh = 1.0
-            reldbh_sq = dbh  # D^2/D = D when assuming qmd_ge5 = D
+            reldbh = 0.0
+            reldbh_sq = 0.0
 
-        # Apply FVS bounds
-        ba_bounded = max(0.0, ba)  # LS doesn't have a minimum BA like SN
+        # Apply FVS bounds. Fortran dgf.f:359 floors BAGE5 to 10 when <=0;
+        # pyfvs passes full stand BA here (not BAGE5 strictly — pending
+        # architectural work), so we at least apply the same floor.
+        ba_bounded = max(10.0, ba)
         bal_bounded = max(0.0, bal)
 
         # Prevent division by zero for small trees

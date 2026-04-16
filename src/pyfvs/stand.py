@@ -235,17 +235,23 @@ class Stand:
         diameter growth equation. QMDGE5 is the quadratic mean diameter of
         all trees with DBH >= 5 inches.
 
+        Fortran dgf.f:350-358 computes QMDGE5 only from trees with D >= 5"
+        and leaves it at 0.0 when no such trees exist. The LS DG equation
+        (dgf.f:404-407) then zeroes the RELDBH and RELDBHSQ terms. Do NOT
+        fall back to overall QMD — that silently activates the RELDBH term
+        for plantations before any tree crosses 5", which for species with
+        large positive RDBHC (e.g., BH/PH/SH: 4.09) causes ~+150% BA
+        over-prediction.
+
         Returns:
-            QMD of trees >= 5" DBH, or overall QMD if no trees >= 5"
+            QMD of trees >= 5" DBH, or 0.0 if no such trees (Fortran-faithful).
         """
         import math
         trees_ge5 = [t for t in self.trees if t.dbh >= 5.0]
 
         if not trees_ge5:
-            # Fall back to overall QMD if no trees >= 5"
-            return self.calculate_qmd()
+            return 0.0
 
-        # QMD = sqrt(sum(D^2) / n)
         sum_dbh_sq = sum(t.dbh ** 2 for t in trees_ge5)
         return math.sqrt(sum_dbh_sq / len(trees_ge5))
 
