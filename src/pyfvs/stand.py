@@ -152,6 +152,33 @@ class Stand:
         self._competition = CompetitionCalculator(self._metrics, species)
         self._output = StandOutputGenerator(self._metrics, self._competition, species)
 
+        # Fortran LS/CS cratet.f dubs ICR for trees with missing/default CR by
+        # calling CROWN at init: CR = 10*(BCR1/(1+BCR2*BA) + BCR3*(1-exp(BCR4*D))).
+        # Bare-ground plantation trees arrive at small DBH with the Tree default
+        # crown_ratio=0.85; without dubbing, the 1%/year CR change cap
+        # (crown.f:310-314) keeps CR artificially high for 30+ years, which
+        # inflates LS DG via the CRWNC*CR term. Dub here to match Fortran init.
+        if bare_ground and self.variant in ('LS', 'CS'):
+            self._dub_initial_crown_ratios()
+
+    def _dub_initial_crown_ratios(self) -> None:
+        """Dub initial crown ratio per Fortran LS/CS crown.f TWIGS equation.
+
+        Called for bare-ground LS/CS plantations where trees are initialized
+        with the Tree default crown_ratio=0.85. Fortran cratet.f would instead
+        dub ICR from the TWIGS CR equation at stand init.
+        """
+        from .crown_ratio import create_crown_ratio_model, LSCrownRatioModel
+        # Approximate BA at init. For bare-ground plantations with DBH~0.1"
+        # this is effectively zero; computing it correctly keeps the path
+        # general. Each Tree record represents one TPA in initialize_planted.
+        total_ba = sum(0.005454 * (t.dbh ** 2) for t in self.trees)
+        for tree in self.trees:
+            model = create_crown_ratio_model(tree.species, variant=self.variant)
+            if not isinstance(model, LSCrownRatioModel):
+                continue
+            tree.crown_ratio = model.predict_crown_ratio(tree.dbh, total_ba)
+
     def _load_growth_params(self):
         """Load growth model parameters from configuration."""
         try:

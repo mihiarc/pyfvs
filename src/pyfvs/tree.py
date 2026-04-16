@@ -340,7 +340,7 @@ class Tree:
         self.age = initial_age + time_step
         
         # Update crown ratio using Weibull model (pass time_step for proper scaling)
-        self._update_crown_ratio_weibull(rank, relsdi, competition_factor, time_step)
+        self._update_crown_ratio_weibull(rank, relsdi, competition_factor, time_step, ba=ba)
     
     def _grow_small_tree(self, site_index, competition_factor, time_step=5, ba=0.0, pbal=0.0, avg_height=0.0, rng=None):
         """Implement small tree height growth model.
@@ -1127,7 +1127,7 @@ class Tree:
             variant='SN'
         )
     
-    def _update_crown_ratio_weibull(self, rank, relsdi, competition_factor, time_step=5):
+    def _update_crown_ratio_weibull(self, rank, relsdi, competition_factor, time_step=5, ba=0.0):
         """Update crown ratio using Weibull-based model with FVS-style change calculation.
 
         FVS calculates crown ratio CHANGE, not absolute CR:
@@ -1144,6 +1144,7 @@ class Tree:
             relsdi: Relative stand density index (0-12)
             competition_factor: Competition factor (0-1)
             time_step: Growth cycle length in years (default 5)
+            ba: Stand basal area (sq ft/acre) — required for LS/CS TWIGS.
         """
         from .crown_ratio import create_crown_ratio_model
 
@@ -1155,8 +1156,12 @@ class Tree:
         ccf = 100.0 + 100.0 * competition_factor
 
         try:
-            # Predict crown ratio for current conditions (end of growth cycle)
-            predicted_cr = cr_model.predict_individual_crown_ratio(rank, relsdi, ccf)
+            # Predict crown ratio for current conditions (end of growth cycle).
+            # LS/CS TWIGS needs actual tree DBH and stand BA; other variant CR
+            # models ignore these kwargs.
+            predicted_cr = cr_model.predict_individual_crown_ratio(
+                rank, relsdi, ccf, dbh=self.dbh, ba=ba
+            )
 
             # FVS-style change calculation (crown.f lines 310-314):
             # PDIFPY = CHG / REAL(ICR(I)) / FINT

@@ -223,13 +223,15 @@ class CrownRatioModel(ParameterizedModel):
         return max(0.3, min(1.0, scale))
 
     def predict_individual_crown_ratio(self, tree_rank: float, relsdi: float,
-                                     ccf: float = 100.0) -> float:
+                                     ccf: float = 100.0, **kwargs) -> float:
         """Predict individual tree crown ratio using Weibull distribution.
 
         Args:
             tree_rank: Tree's rank in diameter distribution (0-1, where 0=smallest, 1=largest)
             relsdi: Relative stand density index
             ccf: Crown competition factor (default: 100)
+            **kwargs: Absorbs variant-specific kwargs (dbh, ba) used by LS/CS
+                TWIGS and PN/WC/WS/CA/OC signatures. Ignored here.
 
         Returns:
             Crown ratio as proportion (0-1)
