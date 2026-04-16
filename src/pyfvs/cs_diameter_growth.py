@@ -32,6 +32,47 @@ class CSDiameterGrowthModel(LSDiameterGrowthModel):
     COEFFICIENT_KEY = 'coefficients'
     DEFAULT_SPECIES = 'WO'  # White Oak is the default site species for CS
 
+    # Fortran cs/dgf.f:461-476 per-species QMDGE5 caps. These override the
+    # LS-inherited _QMDGE5_CAPS (which apply LS values to CS species that
+    # share codes) — many LS caps don't apply to CS and vice versa. For
+    # example LS caps SH=13, but CS Fortran caps SH=25.
+    _QMDGE5_CAPS = {
+        # cs/dgf.f:462 CASE(50) BO: 12
+        'BO': 12.0,
+        # cs/dgf.f:464 CASE(3, 10:13) SP, TL, TS, WT, BG: 13
+        'SP': 13.0, 'TL': 13.0, 'TS': 13.0, 'WT': 13.0, 'BG': 13.0,
+        # cs/dgf.f:466 CASE(14:17, 28, 53:56) HS, SH, SL, MH, EC, CK, SW, BR, SN: 25
+        'HS': 25.0, 'SH': 25.0, 'SL': 25.0, 'MH': 25.0,
+        'EC': 25.0, 'CK': 25.0, 'SW': 25.0, 'BR': 25.0, 'SN': 25.0,
+        # cs/dgf.f:468 CASE(24) AB: 40
+        'AB': 40.0,
+        # cs/dgf.f:470 CASE(51) SO: 11
+        'SO': 11.0,
+        # cs/dgf.f:472 CASE(44:46, 59) AS, WA, GA, CO: 20
+        'AS': 20.0, 'WA': 20.0, 'GA': 20.0, 'CO': 20.0,
+        # cs/dgf.f:474 CASE(48:49) RO, SK: 30
+        'RO': 30.0, 'SK': 30.0,
+        # cs/dgf.f:476 CASE(91) OO: 17
+        'OO': 17.0,
+    }
+
+    # Fortran cs/dgf.f:482-493 per-species CR caps (percentage, 0-100).
+    _CR_PCT_CAPS = {
+        # cs/dgf.f:483 CASE(7) WP: 50
+        'WP': 50.0,
+        # cs/dgf.f:485 CASE(8:10) WN, BN, TL: 75
+        'WN': 75.0, 'BN': 75.0, 'TL': 75.0,
+        # cs/dgf.f:487 CASE(28, 41) EC, YP: 60
+        'EC': 60.0, 'YP': 60.0,
+        # cs/dgf.f:489 CASE(44:46) AS, WA, GA: 80
+        'AS': 80.0, 'WA': 80.0, 'GA': 80.0,
+        # cs/dgf.f:491 CASE(32, 78:84) BC, SY, BY, RB, SU, WI, BL: 85
+        # (Fortran position 78 is a blank — OL in pyfvs; rows 79-84 are
+        # SY, BY, RB, SU, WI, BL)
+        'BC': 85.0, 'SY': 85.0, 'BY': 85.0, 'RB': 85.0,
+        'SU': 85.0, 'WI': 85.0, 'BL': 85.0,
+    }
+
     # Fallback parameters for key CS species (from dgf.f)
     FALLBACK_PARAMETERS = {
         'WO': {  # White Oak
