@@ -224,6 +224,11 @@ REGISTRY: Dict[str, VariantConfig] = {
         taper_class=ClarkTaperModel,
         dg_module='cs_diameter_growth',
         dg_factory='create_cs_diameter_growth_model',
+        # Fortran cs/regent.f:98 DATA XMIN/MAXSP*3.0/, XMAX/MAXSP*5.0/
+        # — identical to LS. Trees with DBH in [3, 5) are in the DG blend
+        # zone (regent.f:374 XWT*DG_large + (1-XWT)*DG_small).
+        transition_xmin=3.0,
+        transition_xmax=5.0,
         hhtmax=_CS_HHTMAX,
         hhtmax_default=_CS_HHTMAX_DEFAULT,
         sdi_maximums=StandMetricsCalculator.CS_SDI_MAXIMUMS,
