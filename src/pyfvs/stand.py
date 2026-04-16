@@ -686,10 +686,21 @@ class Stand:
         in deterministic mode we use quantile sampling of that same
         distribution so the top-40/acre mean shift matches Fortran's
         expected value without introducing reproducibility hazards.
+
+        LS is handled by a dedicated path: Fortran regent.f LESTB shortens
+        LS HTG to FNT=FINT-5 years. Rather than placing trees on the site
+        curve (which requires a species-specific age adjustment to match
+        Fortran's growth-from-HHT semantics), we initialize each tree at
+        its essubh HHT and then grow it forward `FNT` years through the
+        small-tree growth path.
         """
         self.age += years
 
         if not self.trees:
+            return
+
+        if self.variant == 'LS':
+            self._grow_establishment_cycle_ls(base_cycle)
             return
 
         from .establishment import get_hhtmax
@@ -802,6 +813,91 @@ class Stand:
                 cr = 0.89722 - 0.0000461 * stand_ccf + 0.07985 * rand
                 cr = max(0.20, min(0.90, cr))
                 tree.crown_ratio = cr
+
+    def _grow_establishment_cycle_ls(self, base_cycle: int) -> None:
+        """LS-specific establishment: grow trees forward from essubh HHT.
+
+        Fortran regent.f:118-124 sets FNT = FINT - 5 for 10-yr cycle LS,
+        giving 5 years of actual growth during the establishment cycle
+        (first 5 years are pre-growth/planting). htgf.f:116 additionally
+        scales HTG by SCALE = FNT / REGYR = 0.5.
+
+        This method mirrors that flow directly:
+        1. Initialize each tree at essubh HHT (Fortran essubh.f) plus
+           BACHLO(0.5, 0.25) height variation.
+        2. Invoke Tree._grow_small_tree for (base_cycle - 5) years, which
+           uses the NC-128 forward Chapman-Richards increment.
+        3. Update DBH via the variant H-D inverse (Wykoff or Curtis-Arney
+           per IWYKCA flag) inside _grow_small_tree.
+        4. Assign crown ratio per Fortran regent.f:178-185 LESTB formula.
+        """
+        from .establishment import get_essubh_height, get_hhtmax
+        from statistics import NormalDist
+
+        n = len(self.trees)
+        normal = NormalDist(0.5, 0.25)
+
+        # BACHLO variation samples (shared between initial HHT placement
+        # and subsequent CR sampling).
+        if self.stochastic and self._rng is not None:
+            def _draw_bachlo() -> float:
+                for _ in range(100):
+                    x = self._rng.gauss(0.5, 0.25)
+                    if 0.0 <= x <= 1.5:
+                        return x
+                return 0.5
+            variations = [_draw_bachlo() for _ in range(n)]
+        else:
+            variations = []
+            for i in range(n):
+                q = (i + 0.5) / n
+                x = normal.inv_cdf(q)
+                variations.append(max(0.0, min(1.5, x)))
+
+        fnt = max(1, base_cycle - 5)  # LS 10-yr cycle -> 5 yrs growth
+        for tree, variation in zip(self.trees, variations):
+            hht = get_essubh_height(tree.species, self.variant)
+            hhtmax = get_hhtmax(tree.species, self.variant)
+            start_ht = hht + variation
+            if hhtmax > 0 and start_ht > hhtmax:
+                start_ht = hhtmax
+            tree.height = max(0.5, start_ht)
+            tree.dbh = 0.1
+            tree.age = 1
+            # _grow_small_tree advances tree.height via forward Chapman-
+            # Richards and updates tree.dbh via the variant H-D inverse.
+            # Competition factor is 0 at establishment (stand is bare).
+            tree._grow_small_tree(
+                site_index=self.site_index,
+                competition_factor=0.0,
+                time_step=fnt,
+                ba=0.0,
+                pbal=0.0,
+                avg_height=0.0,
+                rng=self._rng if self.stochastic else None,
+            )
+            tree.age = base_cycle  # align tree age with stand clock
+
+        # Crown ratio per Fortran regent.f:178-185 (LESTB branch):
+        #   CR = 0.89722 - 0.0000461*PCCF + 0.07985*RAN (RAN ~ N(0,1) in [-1,1])
+        if self.stochastic and self._rng is not None:
+            def _rand_norm_trunc() -> float:
+                for _ in range(100):
+                    r = self._rng.gauss(0.0, 1.0)
+                    if -1.0 <= r <= 1.0:
+                        return r
+                return 0.0
+            cr_variations = [_rand_norm_trunc() for _ in range(n)]
+        else:
+            from statistics import NormalDist as _ND
+            cr_variations = [
+                max(-1.0, min(1.0, _ND(0.0, 1.0).inv_cdf((i + 0.5) / n)))
+                for i in range(n)
+            ]
+        stand_ccf = self._metrics.calculate_ccf(self.trees)
+        for tree, rand in zip(self.trees, cr_variations):
+            cr = 0.89722 - 0.0000461 * stand_ccf + 0.07985 * rand
+            tree.crown_ratio = max(0.20, min(0.90, cr))
 
     def _grow_single_cycle(self, years: int):
         """Execute a single growth cycle (internal helper).
