@@ -238,12 +238,13 @@ class LSDiameterGrowthModel(ParameterizedModel):
             sitec * site_index
         )
 
-        # Apply bounds on ln(DDS) to prevent extreme values
-        # ln(DDS) = -5 corresponds to DDS = 0.007 sq in (minimal growth)
-        # ln(DDS) = 5 corresponds to DDS = 148 sq in (~2.2" growth per decade for 10" tree)
-        # This is necessary because some species (e.g., Jack Pine) have positive DBH² coefficients
-        # that can cause runaway growth without bounds
-        ln_dds = max(-5.0, min(5.0, ln_dds))
+        # Fortran dgf.f:452 floors DDS at -9.21 (exp ~= 1e-4) before the
+        # OB->IB conversion; no upper cap. pyfvs previously capped to [-5,5]
+        # which masked real coefficient behavior for small trees (early
+        # plantation cycles had ln_dds ~ -10 clipped to -5, producing
+        # ~67x more DDS than Fortran). Use Fortran's lower floor only.
+        if ln_dds < -9.21:
+            ln_dds = -9.21
 
         # Apply Fortran dgscor.f multiplier: 1.0 deterministic, exp(Z) stochastic.
         correction = self._stochastic_multiplier(ln_dds, rng)
