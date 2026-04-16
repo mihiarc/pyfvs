@@ -177,8 +177,13 @@ class HeightDiameterModel(ParameterizedModel):
         def _get(key_upper, key_lower, default):
             return flat_coeffs.get(key_upper, flat_coeffs.get(key_lower, default))
 
+        # IWYKCA flag (LS htdbh.f:290): 0 = use Wykoff, 1 = use Curtis-Arney.
+        # Only LS JSON populates this per-species per Fortran blkdat.f/htdbh.f.
+        # Other variants omit it; default None preserves Curtis-Arney behavior.
+        iwykca = flat_coeffs.get('IWYKCA', None)
         return {
             'model': 'curtis_arney',  # Default model
+            'iwykca': iwykca,
             'curtis_arney': {
                 'p2': _get('P2', 'p2', 243.860648),
                 'p3': _get('P3', 'p3', 4.28460566),
@@ -284,6 +289,11 @@ class HeightDiameterModel(ParameterizedModel):
         Dbreak is 3.0" for SN/LS/NE/etc. (hardcoded in SN htdbh.f) and a
         per-species SPLINE value for OC (2, 3, 5, or 6 from OC htdbh.f).
 
+        For LS species, Fortran htdbh.f dispatches on the IWYKCA flag:
+        IWYKCA=0 uses the Wykoff inverse `D = B2/(ln(H-4.5)-B1) - 1` with
+        blkdat.f HT1/HT2 coefficients. When this model carries IWYKCA=0
+        in hd_params, we use the Wykoff inverse to match Fortran behavior.
+
         Args:
             target_height: Target height (feet)
             model: Model to use (ignored, always uses curtis_arney inverse).
@@ -294,6 +304,12 @@ class HeightDiameterModel(ParameterizedModel):
         Returns:
             Estimated DBH (inches)
         """
+        # Fortran LS htdbh.f:319-340 dispatch: IWYKCA=0 => Wykoff, 1 => CA.
+        if self.hd_params.get('iwykca') == 0:
+            dbw = self.hd_params['curtis_arney']['dbw']
+            d = self.wykoff_inverse_dbh(target_height, dbh_min=dbw)
+            # Fortran line 343: IF(MODE.NE.0 .AND. D.LT.DB) D=DB
+            return max(d, dbw)
         params = self.hd_params['curtis_arney']
         p2 = params['p2']
         p3 = params['p3']

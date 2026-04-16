@@ -4,9 +4,9 @@
     "variant_name": "Lake States",
     "description": "Height-diameter coefficients for the Lake States (LS) variant of FVS",
     "source": "FVS Lake States Variant htdbh.f, USDA Forest Service",
-    "model": "curtis_arney",
-    "equation": "HT = 4.5 + P2 * exp(-P3 * DBH^P4)",
-    "notes": "Curtis-Arney model with P2, P3, P4 coefficients; Dbw is transition diameter"
+    "model": "wykoff_or_curtis_arney",
+    "equation": "Wykoff: HT=4.5+exp(Wykoff_B1 + Wykoff_B2/(DBH+1)); Curtis-Arney: HT=4.5+P2*exp(-P3*DBH^P4)",
+    "notes": "Fortran LS htdbh.f dispatches on IWYKCA flag (0=Wykoff, 1=Curtis-Arney). Wykoff_B1=HT1, Wykoff_B2=HT2 from blkdat.f."
   },
   "coefficients": {
     "JP": {
@@ -16,7 +16,10 @@
       "P2": 266.456,
       "P3": 3.993,
       "P4": -0.386,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 0
     },
     "SC": {
       "species_index": 2,
@@ -25,7 +28,10 @@
       "P2": 142.747,
       "P3": 3.973,
       "P4": -0.587,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5457,
+      "Wykoff_B2": -6.8,
+      "IWYKCA": 0
     },
     "RN": {
       "species_index": 3,
@@ -34,7 +40,10 @@
       "P2": 266.456,
       "P3": 3.993,
       "P4": -0.386,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 1
     },
     "RP": {
       "species_index": 4,
@@ -43,7 +52,10 @@
       "P2": 266.456,
       "P3": 3.993,
       "P4": -0.386,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 1
     },
     "WP": {
       "species_index": 5,
@@ -52,7 +64,10 @@
       "P2": 2108.844,
       "P3": 5.659,
       "P4": -0.186,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.609,
+      "Wykoff_B2": -6.1896,
+      "IWYKCA": 1
     },
     "WS": {
       "species_index": 6,
@@ -61,7 +76,10 @@
       "P2": 2163.947,
       "P3": 6.269,
       "P4": -0.216,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 1
     },
     "NS": {
       "species_index": 7,
@@ -70,7 +88,10 @@
       "P2": 2163.947,
       "P3": 6.269,
       "P4": -0.216,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 1
     },
     "BF": {
       "species_index": 8,
@@ -79,7 +100,10 @@
       "P2": 2163.947,
       "P3": 6.269,
       "P4": -0.216,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 1
     },
     "BS": {
       "species_index": 9,
@@ -88,7 +112,10 @@
       "P2": 2163.947,
       "P3": 6.269,
       "P4": -0.216,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 1
     },
     "TA": {
       "species_index": 10,
@@ -97,7 +124,10 @@
       "P2": 2163.947,
       "P3": 6.269,
       "P4": -0.216,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 1
     },
     "WC": {
       "species_index": 11,
@@ -106,7 +136,10 @@
       "P2": 2163.947,
       "P3": 6.269,
       "P4": -0.216,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 0
     },
     "EH": {
       "species_index": 12,
@@ -115,7 +148,10 @@
       "P2": 266.456,
       "P3": 3.993,
       "P4": -0.386,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5084,
+      "Wykoff_B2": -6.0116,
+      "IWYKCA": 1
     },
     "OS": {
       "species_index": 13,
@@ -124,16 +160,22 @@
       "P2": 212.793,
       "P3": 3.472,
       "P4": -0.326,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.0374,
+      "Wykoff_B2": -4.2964,
+      "IWYKCA": 0
     },
     "RC": {
       "species_index": 14,
       "common_name": "eastern redcedar",
       "fia_code": 68,
-      "P2": 926.180,
+      "P2": 926.18,
       "P3": 4.462,
       "P4": -0.201,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.4718,
+      "Wykoff_B2": -5.0078,
+      "IWYKCA": 0
     },
     "BA": {
       "species_index": 15,
@@ -142,7 +184,10 @@
       "P2": 178.931,
       "P3": 4.929,
       "P4": -0.638,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.6155,
+      "Wykoff_B2": -6.2945,
+      "IWYKCA": 0
     },
     "GA": {
       "species_index": 16,
@@ -151,7 +196,10 @@
       "P2": 178.931,
       "P3": 4.929,
       "P4": -0.638,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.6155,
+      "Wykoff_B2": -6.2945,
+      "IWYKCA": 0
     },
     "EC": {
       "species_index": 17,
@@ -160,7 +208,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.9396,
+      "Wykoff_B2": -8.1838,
+      "IWYKCA": 0
     },
     "SV": {
       "species_index": 18,
@@ -169,7 +220,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5991,
+      "Wykoff_B2": -6.6706,
+      "IWYKCA": 1
     },
     "RM": {
       "species_index": 19,
@@ -178,7 +232,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.3379,
+      "Wykoff_B2": -3.8214,
+      "IWYKCA": 0
     },
     "BC": {
       "species_index": 20,
@@ -187,34 +244,46 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.3286,
+      "Wykoff_B2": -4.0922,
+      "IWYKCA": 0
     },
     "AE": {
       "species_index": 21,
       "common_name": "american elm",
       "fia_code": 972,
       "P2": 644.357,
-      "P3": 3.920,
+      "P3": 3.92,
       "P4": -0.214,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.6008,
+      "Wykoff_B2": -7.2732,
+      "IWYKCA": 0
     },
     "RL": {
       "species_index": 22,
       "common_name": "rock elm",
       "fia_code": 975,
       "P2": 644.357,
-      "P3": 3.920,
+      "P3": 3.92,
       "P4": -0.214,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.6238,
+      "Wykoff_B2": -7.4847,
+      "IWYKCA": 0
     },
     "RE": {
       "species_index": 23,
       "common_name": "slippery elm",
       "fia_code": 977,
       "P2": 644.357,
-      "P3": 3.920,
+      "P3": 3.92,
       "P4": -0.214,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.3744,
+      "Wykoff_B2": -4.5257,
+      "IWYKCA": 0
     },
     "YB": {
       "species_index": 24,
@@ -223,7 +292,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4388,
+      "Wykoff_B2": -4.0872,
+      "IWYKCA": 0
     },
     "BW": {
       "species_index": 25,
@@ -232,7 +304,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.582,
+      "Wykoff_B2": -5.0903,
+      "IWYKCA": 0
     },
     "SM": {
       "species_index": 26,
@@ -241,7 +316,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4834,
+      "Wykoff_B2": -4.5431,
+      "IWYKCA": 0
     },
     "BM": {
       "species_index": 27,
@@ -250,7 +328,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4834,
+      "Wykoff_B2": -4.5431,
+      "IWYKCA": 1
     },
     "AB": {
       "species_index": 28,
@@ -259,7 +340,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4772,
+      "Wykoff_B2": -4.7206,
+      "IWYKCA": 0
     },
     "WA": {
       "species_index": 29,
@@ -268,7 +352,10 @@
       "P2": 178.931,
       "P3": 4.929,
       "P4": -0.638,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5959,
+      "Wykoff_B2": -6.4497,
+      "IWYKCA": 0
     },
     "WO": {
       "species_index": 30,
@@ -276,8 +363,11 @@
       "fia_code": 802,
       "P2": 765.291,
       "P3": 4.224,
-      "P4": -0.190,
-      "Dbw": 0.2
+      "P4": -0.19,
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5463,
+      "Wykoff_B2": -5.2287,
+      "IWYKCA": 0
     },
     "SW": {
       "species_index": 31,
@@ -285,8 +375,11 @@
       "fia_code": 804,
       "P2": 765.291,
       "P3": 4.224,
-      "P4": -0.190,
-      "Dbw": 0.2
+      "P4": -0.19,
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.7342,
+      "Wykoff_B2": -6.2674,
+      "IWYKCA": 0
     },
     "BR": {
       "species_index": 32,
@@ -294,8 +387,11 @@
       "fia_code": 823,
       "P2": 765.291,
       "P3": 4.224,
-      "P4": -0.190,
-      "Dbw": 0.2
+      "P4": -0.19,
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5225,
+      "Wykoff_B2": -4.9401,
+      "IWYKCA": 0
     },
     "CK": {
       "species_index": 33,
@@ -303,8 +399,11 @@
       "fia_code": 826,
       "P2": 765.291,
       "P3": 4.224,
-      "P4": -0.190,
-      "Dbw": 0.2
+      "P4": -0.19,
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.342,
+      "Wykoff_B2": -5.1193,
+      "IWYKCA": 0
     },
     "RO": {
       "species_index": 34,
@@ -312,8 +411,11 @@
       "fia_code": 833,
       "P2": 765.291,
       "P3": 4.224,
-      "P4": -0.190,
-      "Dbw": 0.2
+      "P4": -0.19,
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5202,
+      "Wykoff_B2": -4.8896,
+      "IWYKCA": 0
     },
     "BO": {
       "species_index": 35,
@@ -321,8 +423,11 @@
       "fia_code": 837,
       "P2": 765.291,
       "P3": 4.224,
-      "P4": -0.190,
-      "Dbw": 0.2
+      "P4": -0.19,
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4747,
+      "Wykoff_B2": -4.8698,
+      "IWYKCA": 0
     },
     "NP": {
       "species_index": 36,
@@ -331,7 +436,10 @@
       "P2": 266.456,
       "P3": 3.993,
       "P4": -0.386,
-      "Dbw": 0.1
+      "Dbw": 0.1,
+      "Wykoff_B1": 4.5225,
+      "Wykoff_B2": -4.9401,
+      "IWYKCA": 0
     },
     "BH": {
       "species_index": 37,
@@ -340,7 +448,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5128,
+      "Wykoff_B2": -4.9918,
+      "IWYKCA": 0
     },
     "PH": {
       "species_index": 38,
@@ -349,7 +460,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5128,
+      "Wykoff_B2": -4.9918,
+      "IWYKCA": 0
     },
     "SH": {
       "species_index": 39,
@@ -358,7 +472,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5128,
+      "Wykoff_B2": -4.9918,
+      "IWYKCA": 0
     },
     "BT": {
       "species_index": 40,
@@ -367,7 +484,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.9396,
+      "Wykoff_B2": -8.1838,
+      "IWYKCA": 0
     },
     "QA": {
       "species_index": 41,
@@ -376,7 +496,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5128,
+      "Wykoff_B2": -4.9918,
+      "IWYKCA": 0
     },
     "BP": {
       "species_index": 42,
@@ -385,7 +508,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5959,
+      "Wykoff_B2": -6.4497,
+      "IWYKCA": 0
     },
     "PB": {
       "species_index": 43,
@@ -394,7 +520,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4388,
+      "Wykoff_B2": -4.0872,
+      "IWYKCA": 0
     },
     "BN": {
       "species_index": 45,
@@ -403,7 +532,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5018,
+      "Wykoff_B2": -5.6123,
+      "IWYKCA": 0
     },
     "WN": {
       "species_index": 46,
@@ -412,7 +544,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5018,
+      "Wykoff_B2": -5.6123,
+      "IWYKCA": 0
     },
     "HH": {
       "species_index": 47,
@@ -421,7 +556,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.0322,
+      "Wykoff_B2": -3.0833,
+      "IWYKCA": 0
     },
     "BK": {
       "species_index": 48,
@@ -430,7 +568,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4299,
+      "Wykoff_B2": -4.992,
+      "IWYKCA": 1
     },
     "OH": {
       "species_index": 49,
@@ -439,7 +580,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 0
     },
     "BE": {
       "species_index": 50,
@@ -448,7 +592,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.5018,
+      "Wykoff_B2": -5.6123,
+      "IWYKCA": 0
     },
     "ST": {
       "species_index": 51,
@@ -457,7 +604,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 0
     },
     "MM": {
       "species_index": 52,
@@ -466,7 +616,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 0
     },
     "AH": {
       "species_index": 53,
@@ -475,7 +628,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.0322,
+      "Wykoff_B2": -3.0833,
+      "IWYKCA": 1
     },
     "AC": {
       "species_index": 54,
@@ -484,7 +640,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.9396,
+      "Wykoff_B2": -8.1838,
+      "IWYKCA": 0
     },
     "HK": {
       "species_index": 55,
@@ -493,7 +652,10 @@
       "P2": 575.247,
       "P3": 4.512,
       "P4": -0.285,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 1
     },
     "DW": {
       "species_index": 56,
@@ -502,7 +664,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 3.7301,
+      "Wykoff_B2": -2.7758,
+      "IWYKCA": 0
     },
     "HT": {
       "species_index": 57,
@@ -511,7 +676,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 0
     },
     "AP": {
       "species_index": 58,
@@ -520,7 +688,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 3.9678,
+      "Wykoff_B2": -3.251,
+      "IWYKCA": 0
     },
     "BG": {
       "species_index": 59,
@@ -529,16 +700,22 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.3802,
+      "Wykoff_B2": -4.7903,
+      "IWYKCA": 1
     },
     "SY": {
       "species_index": 60,
       "common_name": "sycamore",
       "fia_code": 731,
       "P2": 644.357,
-      "P3": 3.920,
+      "P3": 3.92,
       "P4": -0.214,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.6355,
+      "Wykoff_B2": -5.2776,
+      "IWYKCA": 0
     },
     "PR": {
       "species_index": 61,
@@ -547,7 +724,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 1
     },
     "CC": {
       "species_index": 62,
@@ -556,7 +736,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 0
     },
     "PL": {
       "species_index": 63,
@@ -565,7 +748,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 3.9678,
+      "Wykoff_B2": -3.251,
+      "IWYKCA": 0
     },
     "WI": {
       "species_index": 64,
@@ -574,7 +760,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4911,
+      "Wykoff_B2": -5.7928,
+      "IWYKCA": 0
     },
     "BL": {
       "species_index": 65,
@@ -583,7 +772,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4911,
+      "Wykoff_B2": -5.7928,
+      "IWYKCA": 0
     },
     "DM": {
       "species_index": 66,
@@ -592,7 +784,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 0
     },
     "SS": {
       "species_index": 67,
@@ -601,7 +796,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.3383,
+      "Wykoff_B2": -4.5018,
+      "IWYKCA": 1
     },
     "MA": {
       "species_index": 68,
@@ -610,7 +808,10 @@
       "P2": 396.251,
       "P3": 4.248,
       "P4": -0.348,
-      "Dbw": 0.2
+      "Dbw": 0.2,
+      "Wykoff_B1": 4.4207,
+      "Wykoff_B2": -5.1435,
+      "IWYKCA": 0
     }
   }
 }
