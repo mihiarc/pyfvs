@@ -1280,8 +1280,14 @@ class Tree:
             rmsqd=rmsqd,
         )
 
-        # Scale for time step (module returns 5-year growth)
-        htg = htg * (time_step / 5.0)
+        # Scale for time step. SN/PN/WC return a 5-year increment and need
+        # the /5 scale. LS/CS/NE/CA/OP return the 10-year forward increment
+        # directly per Fortran htcalc.f:412-415 (see large_tree_height_growth
+        # .calculate_potential_height_growth), so scale by time_step/10.
+        if variant in ('LS', 'CS', 'NE', 'CA', 'OP'):
+            htg = htg * (time_step / 10.0)
+        else:
+            htg = htg * (time_step / 5.0)
 
         # Note: No additional competition modifier is applied here.
         # Fortran htgf.f uses HTGMOD = 0.25*HGMDCR + 0.75*HGMDRH as the

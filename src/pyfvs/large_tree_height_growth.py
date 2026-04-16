@@ -398,18 +398,31 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
                     if 0 < inner < 1.0:
                         tree_age = max(0.1, math.log(1.0 - inner) / c3)
 
-            # Compute 5-year height increment.
-            # tree_age is effective age (FINDAG) for LS/CS/NE variants,
-            # or calendar age for SN.
-            # Uses backward increment H(age) - H(age-5) to match the
-            # historical calibration. tree.py scales by time_step/5.0
-            # for 10yr cycle variants.
-            previous_age = max(0, tree_age - 5)
-
-            previous_potht = _raw_chapman_richards(previous_age) * scale_factor
-            current_potht = _raw_chapman_richards(tree_age) * scale_factor
-
-            potential_height_growth = current_potht - previous_potht
+            # Height increment per Fortran htcalc.f:412-415:
+            #   HTG0 = BH + B1*SI^B2 * (1 - exp(B3*AGET))^(B4*SI^B5)
+            #   HTGP5 = BH + B1*SI^B2 * (1 - exp(B3*(AGET+YRS)))^(B4*SI^B5)
+            #   HTG1 = HTGP5 - HTG0
+            # YRS is passed from htgf.f as 10 (LS is a 10-yr cycle variant).
+            # This is a FORWARD increment from AGET to AGET+YRS.
+            #
+            # The prior pyfvs formula computed a BACKWARD 5-year increment
+            # H(age)-H(age-5) and tree.py scaled by time_step/5.0 = 2x for
+            # LS. Because Chapman-Richards is concave-decelerating, the
+            # backward-5 × 2 over-estimates the forward-10 increment by
+            # ~20-27% at plantation ages, systematically inflating TH.
+            #
+            # For LS/CS/NE we emit the forward YRS-year increment directly;
+            # tree.py bypasses its /5 scaling for these variants.
+            if variant in ('LS', 'CS', 'NE', 'CA', 'OP'):
+                yrs = 10.0
+                current_potht = _raw_chapman_richards(tree_age) * scale_factor
+                future_potht = _raw_chapman_richards(tree_age + yrs) * scale_factor
+                potential_height_growth = future_potht - current_potht
+            else:
+                previous_age = max(0, tree_age - 5)
+                previous_potht = _raw_chapman_richards(previous_age) * scale_factor
+                current_potht = _raw_chapman_richards(tree_age) * scale_factor
+                potential_height_growth = current_potht - previous_potht
 
         except (ValueError, OverflowError, ZeroDivisionError):
             potential_height_growth = self._fallback_potential_height_growth(dbh, site_index, tree_age)
