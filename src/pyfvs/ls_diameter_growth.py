@@ -299,18 +299,20 @@ class LSDiameterGrowthModel(ParameterizedModel):
             rng=rng
         )
 
-        # LS DDS equation is calibrated for outside-bark application.
-        # Fortran dgf.f line 453: DIAGRO = SQRT(DBH^2 + EXP(DDS)) - DBH  (OB growth)
-        # Fortran dgf.f line 455: DIAGRI = DIAGRO * BARK  (convert to IB growth)
-        # Fortran grow.f: DBH = DBH + DG where DG is the IB increment.
-        # The model coefficients were calibrated expecting IB growth added to OB DBH.
+        # Fortran end-to-end bark-ratio flow cancels in the OB DBH update:
+        #   dgf.f:453      DIAGRO = SQRT(DBH^2 + EXP(DDS_OB)) - DBH        (OB dg)
+        #   dgf.f:455-456  DIAGRI = DIAGRO*BARK; WK2 = log IB DDS
+        #   dgdriv.f:207   DG = SQRT(DIB^2 + DDS_IB*FRM) - DIB = BARK*dg_ob_frm
+        #   update.f:115   DBH = DBH + DG/BARK = DBH + dg_ob_frm
+        # So the net OB increment applied to OB DBH is just dg_ob with FRM —
+        # no bark_ratio scaling. The prior `dg_ib = dg_ob * bark_ratio` return
+        # silently under-scaled pyfvs growth by ~0.9x per cycle (Fortran-
+        # unfaithful). Bark_ratio is retained for API compatibility but unused.
+        del bark_ratio  # noqa: F841 - see comment above
         dbh_new = math.sqrt(dbh * dbh + dds)
         dg_ob = dbh_new - dbh
 
-        # Convert OB growth to IB growth (matching Fortran DIAGRI = DIAGRO * BARK)
-        dg_ib = dg_ob * bark_ratio
-
-        return max(0.0, dg_ib)
+        return max(0.0, dg_ob)
 
 
 # Module-level cache for model instances
