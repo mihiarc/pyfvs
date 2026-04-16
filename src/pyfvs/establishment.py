@@ -31,6 +31,59 @@ from .exceptions import FVSError
 ESSUBH_DEFAULT_CARAGE = 20
 
 
+# Per-species CARAGE for the CS variant, from Fortran cs/essubh.f:33-43 DATA
+# MAPCS. Ordered by FVS species position (1..96). Keys are the pyfvs species
+# code used in cs_species_config.yaml; Fortran slot 85 ('OH') is labelled
+# 'NC' here to match config.
+_CS_MAPCS = {
+    # 1-10
+    'RC': 10, 'JU': 10, 'SP': 10, 'VP': 15, 'LP': 20, 'OS': 10, 'WP': 5,
+    'WN': 20, 'BN': 20, 'TL': 25,
+    # 11-20 (HS=14 is Fortran blank slot; CARAGE=20 from DATA)
+    'TS': 25, 'WT': 25, 'BG': 25, 'HS': 20, 'SH': 20, 'SL': 20, 'MH': 20,
+    'PH': 20, 'HI': 20, 'WH': 20,
+    # 21-30
+    'BH': 20, 'PE': 10, 'BI': 20, 'AB': 20, 'BA': 20, 'PA': 35, 'UA': 20,
+    'EC': 15, 'RM': 20, 'BE': 10,
+    # 31-40
+    'SV': 15, 'BC': 20, 'AE': 20, 'SG': 20, 'HK': 10, 'WE': 20, 'EL': 20,
+    'SI': 20, 'RL': 20, 'RE': 20,
+    # 41-50
+    'YP': 20, 'BW': 20, 'SM': 20, 'AS': 20, 'WA': 20, 'GA': 35, 'WO': 10,
+    'RO': 20, 'SK': 10, 'BO': 10,
+    # 51-60
+    'SO': 10, 'BJ': 10, 'CK': 10, 'SW': 30, 'BR': 10, 'SN': 30, 'PO': 10,
+    'DO': 10, 'CO': 10, 'PN': 10,
+    # 61-70 (UH=68 is Fortran blank slot)
+    'CB': 20, 'QI': 10, 'OV': 35, 'WK': 30, 'NK': 10, 'WL': 10, 'QS': 20,
+    'UH': 10, 'SS': 10, 'OB': 20,
+    # 71-80 (OL=78 is Fortran blank slot)
+    'CA': 20, 'PS': 10, 'HL': 10, 'BP': 20, 'BT': 20, 'QA': 20, 'BK': 10,
+    'OL': 20, 'SY': 20, 'BY': 20,
+    # 81-90 (NC=85 is Fortran 'OH' slot)
+    'RB': 20, 'SU': 10, 'WI': 10, 'BL': 10, 'NC': 10, 'AH': 10, 'RD': 10,
+    'DW': 10, 'HT': 10, 'KC': 20,
+    # 91-96
+    'OO': 10, 'CT': 20, 'MV': 25, 'MB': 20, 'HH': 10, 'SD': 10,
+}
+
+
+def compute_cs_essubh_initial_height(species: str, site_index: float) -> float:
+    """Fortran cs/essubh.f HHT = (HTCALC(CARAGE) / CARAGE) * 5.0.
+
+    Computes the establishment starting height (before regent's 5-yr growth
+    phase) using the species-specific Carmean reference age from MAPCS.
+    Used by the LS/CS LESTB establishment path in stand.py.
+    """
+    carage = _CS_MAPCS.get(species, ESSUBH_DEFAULT_CARAGE)
+    h_at_carage = compute_establishment_height(
+        species, site_index, float(carage), 'CS'
+    )
+    # Fortran: HHT = (H/CARAGE) * MIN(5.0, TIME-DELAY). With TIME=cycle=10
+    # and DELAY=0 (the default for PLANT immediate) MIN = 5.0.
+    return (h_at_carage / carage) * 5.0
+
+
 # =============================================================================
 # HHTMAX — maximum establishment height per species (from blkdat.f)
 # =============================================================================

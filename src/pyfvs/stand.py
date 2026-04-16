@@ -699,7 +699,11 @@ class Stand:
         if not self.trees:
             return
 
-        if self.variant == 'LS':
+        # Fortran cs/regent.f:118-124 has the same LESTB FNT-5 shortening
+        # as ls/regent.f (10-yr cycle variants grow only 5 yrs during the
+        # establishment cycle; the first 5 yrs are pre-growth/planting).
+        # Route CS through the same dedicated essubh-then-grow-forward path.
+        if self.variant in ('LS', 'CS'):
             self._grow_establishment_cycle_ls(base_cycle)
             return
 
@@ -854,7 +858,7 @@ class Stand:
                 x = normal.inv_cdf(q)
                 variations.append(max(0.0, min(1.5, x)))
 
-        fnt = max(1, base_cycle - 5)  # LS 10-yr cycle -> 5 yrs growth
+        fnt = max(1, base_cycle - 5)  # LS/CS 10-yr cycle -> 5 yrs growth
         for tree, variation in zip(self.trees, variations):
             hht = get_essubh_height(tree.species, self.variant)
             hhtmax = get_hhtmax(tree.species, self.variant)
