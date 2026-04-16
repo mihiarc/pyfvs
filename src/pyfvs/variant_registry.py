@@ -208,6 +208,13 @@ REGISTRY: Dict[str, VariantConfig] = {
         taper_class=ClarkTaperModel,
         dg_module='ne_diameter_growth',
         dg_factory='create_ne_diameter_growth_model',
+        # Fortran ne/regent.f:98 DATA XMIN/MAXSP*1.5/, XMAX/MAXSP*5.0/
+        # — wider blend zone than LS/CS (1.5 vs 3.0 lower bound). NE is the
+        # only eastern variant currently using the Fortran-faithful linear
+        # XWT blend in tree.py (SN/LS/CS keep dg_weight=0 compensation
+        # pending upstream DG drift fixes).
+        transition_xmin=1.5,
+        transition_xmax=5.0,
         hhtmax=_NE_HHTMAX,
         hhtmax_default=_NE_HHTMAX_DEFAULT,
         sdi_maximums=StandMetricsCalculator.NE_SDI_MAXIMUMS,

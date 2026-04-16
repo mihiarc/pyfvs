@@ -266,21 +266,27 @@ class Tree:
         # Outer cutoff: tree enters REGENT if DBH < max(xmax_dg, xmax_ht)
         outer_xmax = max(xmax, ht_xmax)
 
-        # DG weight: eastern variants (SN/LS/CS/NE) use a HARD SWITCH at
-        # D=XMAX per Fortran regent.f (IF(D.GE.XMX) GO TO 25 skips regent
-        # entirely, and inside regent the DG is 100% small-tree Wykoff-
-        # inverse for D<XMAX — no blending).  PN/WC/OC regent.f documents
-        # a linear XDWT blend; other variants keep the smoothstep as the
-        # best compromise.
+        # DG blend zone weighting per Fortran regent.f.
+        #   regent.f:158: IF(D.GE.XMX) GO TO 25 → trees >= XMX skip regent
+        #                                         entirely (100% large-tree).
+        #   regent.f:248: XWT = (D-XMN)/(XMX-XMN)
+        #   regent.f:373: DGGR = DGSM*(1-XWT) + XWT*DG(K)
+        # NE uses the Fortran-faithful linear XWT blend.
+        # SN/LS/CS still use dg_weight=0 (pure small-tree) as a compensation
+        # for documented large-tree DG drift in those variants — see memory
+        # note "SN parity xfail diagnosis" (smoothstep blend compensates;
+        # fix both together or neither). Switching SN/LS/CS to linear blend
+        # without first fixing the upstream DG drift breaks gold-standard
+        # parity (verified 2026-04-16: 7 SN tests regress).
         if initial_dbh < xmin:
             dg_weight = 0.0
         elif initial_dbh >= xmax:
             dg_weight = 1.0
         elif xmin >= xmax:
             dg_weight = 1.0
-        elif variant in ('SN', 'LS', 'CS', 'NE'):
+        elif variant in ('SN', 'LS', 'CS'):
             dg_weight = 0.0
-        elif variant in ('PN', 'WC', 'OC'):
+        elif variant in ('NE', 'PN', 'WC', 'OC'):
             dg_weight = (initial_dbh - xmin) / (xmax - xmin)
         else:
             t = (initial_dbh - xmin) / (xmax - xmin)
