@@ -104,7 +104,7 @@ Comprehensive map of every SN-variant Fortran subroutine to its pyfvs counterpar
 
 | Fortran | LOC | pyfvs | Status | Notes |
 |---------|-----|-------|--------|-------|
-| `regent.f` | 588 | `stand.py::_grow_establishment_cycle + establishment.py` | **PARTIAL** | LESTB + non-LESTB branches. LESTB (establishment) ported. Mid-cycle regen (post-est sprouts) likely missing. |
+| `regent.f` | 588 | `stand.py::_grow_establishment_cycle + establishment.py + tree.py::_grow_small_tree` | **PARTIAL** | LESTB + non-LESTB branches. LESTB (establishment) ported. Mid-cycle regen (post-est sprouts) likely missing. Per-tree ±10% HTG noise (regent.f:252-260 `HTGR = HTGR + RAN*0.1*HTGR` with RAN~N(0,1) truncated [-1,1] when DGSD>=1.0) ported 2026-04-16 — applies to DBH<3 blend+small path. Fidelity-faithful; exposed RM as xfail (previously coincidental pass from missing-noise offsetting hidden Jensen-lift source). |
 | `rcon.f` | 61 | N/A | **N/A** | Dispatcher calling DGCONS/HTCONS/REGCON/MORCON/CRCONS to pre-compute site-constant coefficients. Pyfvs does equivalent via module-level JSON load + SNDiameterGrowthModel CONSPP. |
 
 ## CORE_ESTAB (22 files, 5437 LOC)

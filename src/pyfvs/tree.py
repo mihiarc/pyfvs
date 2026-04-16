@@ -313,7 +313,7 @@ class Tree:
             self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf)
         elif dg_weight == 0.0 and ht_weight == 0.0:
             # Pure small-tree model (below both blend zones)
-            self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
+            self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height, rng=rng)
         else:
             # Transition zone: separate DG and HTG blend weights.
             #
@@ -321,7 +321,7 @@ class Tree:
             # REGENT overwrites/blends for trees < XMAX:
             #   DG:  XDWT = (D-1.5)/1.5       [regent.f:351]
             #   HTG: XWT  = (D-XMN)/(XMX-XMN)  [regent.f:244]
-            self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height)
+            self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height, rng=rng)
             small_dbh = self.dbh
             small_height = self.height
 
@@ -342,12 +342,20 @@ class Tree:
         # Update crown ratio using Weibull model (pass time_step for proper scaling)
         self._update_crown_ratio_weibull(rank, relsdi, competition_factor, time_step)
     
-    def _grow_small_tree(self, site_index, competition_factor, time_step=5, ba=0.0, pbal=0.0, avg_height=0.0):
+    def _grow_small_tree(self, site_index, competition_factor, time_step=5, ba=0.0, pbal=0.0, avg_height=0.0, rng=None):
         """Implement small tree height growth model.
 
         For PN/WC variants, uses species-specific height-age curves from
         htcalc.f (King, Wiley, Farr, etc.). For all other variants, uses
         the Chapman-Richards NC-128 functional form.
+
+        When ``rng`` is provided (stochastic mode), applies the Fortran
+        regent.f:252-260 per-tree HTG noise: HTG = HTG + RAN*0.1*HTG with
+        RAN ~ N(0,1) truncated to [-1,1]. This is the tree-to-tree HTG
+        variation that drives the DBH distribution spread for trees in
+        the blend zone (DBH<3.0); without it pyfvs's survivor DBH
+        distribution narrows over cycles (observed: year-20 DBH span
+        0.20 vs native 0.44 for WP).
 
         Args:
             site_index: Site index in feet (base age varies by variant)
@@ -356,6 +364,7 @@ class Tree:
             ba: Stand basal area (sq ft/acre), for PN/WC SMHGDG
             pbal: Basal area in larger trees (sq ft/acre), for PN/WC SMHGDG
             avg_height: Average stand height (feet), for PN/WC SMHGDG
+            rng: Optional random.Random for per-tree HTG stochastic noise.
         """
         variant = self._variant
 
@@ -494,6 +503,22 @@ class Tree:
         # directly computes the increment for the full time_step, so no
         # additional scaling is needed.
         actual_growth = height_growth * competition_modifier
+
+        # Fortran regent.f:252-260 — per-tree ±10% HTG noise when
+        # stochastic (DGSD>=1.0). RAN ~ N(0,1) truncated to [-1,1] via
+        # rejection sampling. Without this noise, every tree in a
+        # monoculture stand has identical HTG each cycle and the DBH
+        # distribution narrows over time; since BA ∝ DBH², narrower
+        # distributions contribute less BA (reverse-Jensen effect).
+        if rng is not None and actual_growth > 0:
+            ran = 0.0
+            for _ in range(100):
+                ran = rng.gauss(0.0, 1.0)
+                if -1.0 <= ran <= 1.0:
+                    break
+            else:
+                ran = max(-1.0, min(1.0, ran))
+            actual_growth = actual_growth * (1.0 + 0.1 * ran)
 
         # Update height with bounds checking
         # Trees can exist below breast height (4.5 ft) during establishment
