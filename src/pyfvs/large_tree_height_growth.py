@@ -331,14 +331,18 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         Returns:
             Potential height growth (feet)
         """
-        # Validate and bound site index
-        site_index = self._validate_site_index(site_index)
-
-        # PN/WC: use species-specific height-age curves from htcalc.f
+        # PN/WC: use species-specific height-age curves from htcalc.f.
+        # These have their own valid SI ranges built into the equations
+        # (Harrington RA accepts SI up to ~200, Hoyer SF up to ~140, etc.)
+        # so bypass the SN-style `_validate_site_index` clamp that would
+        # otherwise cap RA SI at 60 and under-predict TH by ~27%.
         if variant in ('PN', 'WC'):
             return self._calculate_potential_height_growth_pnwc(
                 dbh, site_index, tree_height, tree_age, variant
             )
+
+        # Validate and bound site index (SN-style SI ranges).
+        site_index = self._validate_site_index(site_index)
 
         # Load small tree height growth coefficients (variant-specific)
         small_tree_coeffs = self._get_small_tree_coefficients(variant=variant)
