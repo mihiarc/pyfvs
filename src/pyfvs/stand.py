@@ -699,12 +699,22 @@ class Stand:
         if not self.trees:
             return
 
-        # Fortran cs/regent.f:118-124 and ne/regent.f:118-124 share the
+        # Fortran cs/regent.f:118-124, ne/regent.f:118-124 share the
         # LESTB FNT-5 shortening with ls/regent.f (10-yr cycle variants
         # grow only 5 yrs during the establishment cycle). Route LS/CS/NE
         # through the same dedicated essubh-then-grow-forward path.
         if self.variant in ('LS', 'CS', 'NE'):
             self._grow_establishment_cycle_ls(base_cycle)
+            return
+
+        # PN/WC: Fortran pn|wc/regent.f:142-249 path is distinct. ESSUBH
+        # calls SMHGDG once to grow the seedling from (HT=1.0, D=0.1)
+        # through 5 yrs to get initial HHT. Then REGENT LESTB calls SMHGDG
+        # TWICE (for a 10-yr estimate) and scales by SCALE=FNT/REGYR=0.5
+        # to produce 5-yr actual growth. On LESTB, DBH is OVERWRITTEN with
+        # DG (not D+DG): see wc/regent.f:385.
+        if self.variant in ('PN', 'WC'):
+            self._grow_establishment_cycle_pnwc(base_cycle)
             return
 
         from .establishment import get_hhtmax
@@ -883,6 +893,114 @@ class Stand:
             tree.age = base_cycle  # align tree age with stand clock
 
         # Crown ratio per Fortran regent.f:178-185 (LESTB branch):
+        #   CR = 0.89722 - 0.0000461*PCCF + 0.07985*RAN (RAN ~ N(0,1) in [-1,1])
+        if self.stochastic and self._rng is not None:
+            def _rand_norm_trunc() -> float:
+                for _ in range(100):
+                    r = self._rng.gauss(0.0, 1.0)
+                    if -1.0 <= r <= 1.0:
+                        return r
+                return 0.0
+            cr_variations = [_rand_norm_trunc() for _ in range(n)]
+        else:
+            from statistics import NormalDist as _ND
+            cr_variations = [
+                max(-1.0, min(1.0, _ND(0.0, 1.0).inv_cdf((i + 0.5) / n)))
+                for i in range(n)
+            ]
+        stand_ccf = self._metrics.calculate_ccf(self.trees)
+        for tree, rand in zip(self.trees, cr_variations):
+            cr = 0.89722 - 0.0000461 * stand_ccf + 0.07985 * rand
+            tree.crown_ratio = max(0.20, min(0.90, cr))
+
+    def _grow_establishment_cycle_pnwc(self, base_cycle: int) -> None:
+        """PN/WC establishment: faithful port of pn|wc/regent.f LESTB path.
+
+        Fortran flow (wc/regent.f:142-249, essubh.f):
+          1. ESSUBH: one SMHGDG call grows seedling (HT=1.0, D=0.1) 5 yrs
+             → HHT_essubh = 1.0 + HG5
+          2. REGENT LESTB: SMHGDG called TWICE (for a 10-yr estimate), then
+             both HG and DG are scaled by SCALE = FNT/REGYR = 5/10 = 0.5.
+          3. Final tree HT = HHT_essubh + HG_scaled
+          4. Final tree DBH = DG_scaled (OVERWRITTEN, not D + DG — see
+             wc/regent.f:385)
+          5. Crown ratio assigned per regent.f:202-208 LESTB formula.
+
+        SMHGDG Fortran lines 234-253 hardcode CR=0.5 for MODE=0 and
+        RELHT=H/AVHT with AVHT interpolated from prior cycle.  On a bare-
+        ground first cycle AVHT = AVH (current mean height), giving
+        RELHT ≈ 1.0 for a uniform cohort.  We replicate both.
+        """
+        from .establishment import get_hhtmax
+        from .pn_small_tree_growth import calculate_small_tree_growth
+        from statistics import NormalDist
+
+        n = len(self.trees)
+        normal = NormalDist(0.5, 0.25)
+
+        # BACHLO(0.5, 0.25) variation per Fortran essubh.f/estab.f. Applied
+        # on top of HHT after ESSUBH grows the seedling.
+        if self.stochastic and self._rng is not None:
+            def _draw_bachlo() -> float:
+                for _ in range(100):
+                    x = self._rng.gauss(0.5, 0.25)
+                    if 0.0 <= x <= 1.5:
+                        return x
+                return 0.5
+            variations = [_draw_bachlo() for _ in range(n)]
+        else:
+            variations = []
+            for i in range(n):
+                q = (i + 0.5) / n
+                x = normal.inv_cdf(q)
+                variations.append(max(0.0, min(1.5, x)))
+
+        SCALE = (base_cycle - 5.0) / base_cycle  # FNT/REGYR, 0.5 for 10-yr
+
+        for tree, variation in zip(self.trees, variations):
+            # ESSUBH: one SMHGDG call from (HT=1.0, D=0.1) to get initial
+            # HHT. Fortran uses CR=0.5, RELHT=0 internally (no stand yet).
+            h0, d0 = 1.0, 0.1
+            hg_essubh, dg_essubh = calculate_small_tree_growth(
+                species=tree.species, height=h0, dbh=d0,
+                site_index=self.site_index, variant=self.variant,
+                ptba=0.0, ptbal=0.0, crown_ratio=0.5, avg_height=0.0,
+            )
+            hht = h0 + hg_essubh + variation
+
+            hhtmax = get_hhtmax(tree.species, self.variant)
+            if hhtmax > 0 and hht > hhtmax:
+                hht = hhtmax
+
+            # REGENT LESTB: call SMHGDG twice to estimate 10-yr increment
+            # (wc/regent.f:237+247). Inside SMHGDG, MODE=0 means CR=0.5 and
+            # RELHT = H/AVHT; with AVHT = hht (bare ground uniform cohort),
+            # RELHT ≈ 1.0.
+            h_iter, d_iter = hht, d0
+            hg_tot, dg_tot = 0.0, 0.0
+            for _ in range(2):
+                hg, dg = calculate_small_tree_growth(
+                    species=tree.species, height=h_iter, dbh=d_iter,
+                    site_index=self.site_index, variant=self.variant,
+                    ptba=0.0, ptbal=0.0, crown_ratio=0.5,
+                    avg_height=hht,  # RELHT = H/hht ≈ 1 for uniform cohort
+                )
+                hg_tot += hg
+                dg_tot += dg
+                h_iter += hg
+                d_iter += dg
+
+            # Apply SCALE=0.5 (wc/regent.f:266, 371)
+            hg_scaled = hg_tot * SCALE
+            dg_scaled = dg_tot * SCALE
+
+            # Final state: HT = HHT + HG_scaled; DBH = DG_scaled (OVERWRITE
+            # not D+DG — wc/regent.f:385 LESTB branch)
+            tree.height = max(0.5, hht + hg_scaled)
+            tree.dbh = max(0.1, dg_scaled)
+            tree.age = base_cycle
+
+        # Crown ratio per Fortran regent.f:202-208 LESTB branch:
         #   CR = 0.89722 - 0.0000461*PCCF + 0.07985*RAN (RAN ~ N(0,1) in [-1,1])
         if self.stochastic and self._rng is not None:
             def _rand_norm_trunc() -> float:
