@@ -616,6 +616,22 @@ class Tree:
             self.height = max(0.5, self.height + hg5)
             self.dbh = max(0.0, self.dbh + dg5)
 
+        # RW-specific: SMHGDG returns dg5=0 for Redwood (smhgdg.f line
+        # comment "REDWOOD DOES NOT USE PREDICTION FROM SMHGDG ROUTINE").
+        # Fortran pn|wc/regent.f:323-333 derives DBH from HT via Wykoff
+        # inverse for RW: DK = HT2/(ln(HK-4.5) - HT1) - 1.0
+        # RW coefficients from pn/blkdat.f: HT1=5.3401, HT2=-15.9354
+        if self.species == 'RW' and self.height > 4.5:
+            hk = self.height
+            ax = 5.3401  # HT1 for RW (pn/blkdat.f)
+            bx = -15.9354  # HT2 for RW
+            try:
+                dk = bx / (math.log(hk - 4.5) - ax) - 1.0
+                if dk > 0.1:
+                    self.dbh = max(self.dbh, dk)
+            except (ValueError, ZeroDivisionError):
+                pass
+
     def _grow_small_tree_oc(
         self,
         site_index: float,
