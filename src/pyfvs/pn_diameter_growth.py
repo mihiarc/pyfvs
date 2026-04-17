@@ -150,17 +150,20 @@ class PNDiameterGrowthModel(ParameterizedModel):
         super().__init__(species_code)
         self._sigma = self._load_sigma()
 
-    # Species mapping from MAPSPC array in dgf.f
-    # Maps 39 species to 20 coefficient sets
+    # Species mapping from MAPSPC array in pn/dgf.f (literal transcription).
+    # Maps 39 species to 20 coefficient sets.
+    # Prior values for SS/ES/LL/WB/KP/PY were transcription errors — SS was
+    # 17 (should be 18 — DGFOR=[2.08,2.10,0]), ES was 18 (should be 11 —
+    # shared with IC/LL/WB/KP/PY).
     SPECIES_MAP = {
         'SF': '1', 'WF': '2', 'GF': '2', 'AF': '3', 'RF': '4',
-        'SS': '17', 'NF': '4', 'YC': '15', 'IC': '11', 'ES': '18',
+        'SS': '18', 'NF': '4', 'YC': '15', 'IC': '11', 'ES': '11',
         'LP': '16', 'JP': '6', 'SP': '5', 'WP': '5', 'PP': '6',
         'DF': '7', 'RW': '20', 'RC': '8', 'WH': '9', 'MH': '10',
         'BM': '12', 'RA': '13', 'WA': '14', 'PB': '14', 'GC': '14',
         'AS': '14', 'CW': '14', 'WO': '19', 'CH': '14', 'WI': '14',
-        'WJ': '14', 'WB': '14', 'KP': '14', 'PY': '14', 'DG': '14',
-        'HT': '14', 'LL': '14', 'OS': '14', 'OT': '14'
+        'WJ': '14', 'WB': '11', 'KP': '11', 'PY': '11', 'DG': '14',
+        'HT': '14', 'LL': '11', 'OS': '14', 'OT': '14'
     }
 
     # MAPLOC array from pn/dgf.f DATA MAPLOC. Shape (6, 20): MAPLOC[ifor, group].
