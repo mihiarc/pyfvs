@@ -148,6 +148,9 @@ class WCDiameterGrowthModel(PNDiameterGrowthModel):
 
     DEFAULT_IFOR = 6  # wc/grinit.f:186 IFOR=6 (BLM Coos Bay)
 
+    # WO is group 18 in WC (not 19 as in PN). MH remains 10, hardwoods 14.
+    WO_GROUP = '18'
+
     def _variant_code(self) -> str:
         """Return 'WC' for bark-ratio model dispatch (RA special branch)."""
         return 'WC'

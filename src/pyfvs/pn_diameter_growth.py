@@ -200,6 +200,17 @@ class PNDiameterGrowthModel(ParameterizedModel):
 
     DEFAULT_IFOR = 2  # pn/grinit.f:187 IFOR=2 (Siuslaw NF)
 
+    # Group-level transforms applied before DGSITE*ln(SI) and DGEL*ELEV:
+    #   JSPC=10 (MH)          : XSITE = XSITE * 3.281 (meter→feet conversion)
+    #   JSPC=WO_GROUP (PN=19) : XSITE = -37.60812 * ln(1 - (XSITE/114.24569)^0.4444)
+    #                           (anamorphic Oregon White Oak SI transform)
+    #   JSPC=14 + ELEV>30     : TEMEL = 30 (hardwood elevation cap at 3000 ft)
+    # Fortran source: pn/dgf.f:517-521 (WC is wc/dgf.f:502-506).
+    MH_GROUP = '10'
+    WO_GROUP = '19'
+    HARDWOOD_GROUP = '14'
+    HARDWOOD_ELEV_CAP = 30.0
+
     def _resolve_ifor_idx(self, array_name: str) -> int:
         """Return 0-based index into DGFOR/DGDS coefficient arrays for IFOR.
 
@@ -293,6 +304,22 @@ class PNDiameterGrowthModel(ParameterizedModel):
         bal_bounded = max(0.0, min(400.0, bal))
         relht_bounded = max(0.1, min(1.5, relht))
         slope_bounded = max(0.0, min(1.0, slope))
+
+        # Group-level SI/ELEV transforms (pn/dgf.f:517-521, wc/dgf.f:502-506).
+        group = self.SPECIES_MAP.get(self.species_code.upper(), '7')
+        if group == self.MH_GROUP:
+            si = si * 3.281
+        elif group == self.WO_GROUP:
+            # Anamorphic Oregon White Oak SI transform. Guard against
+            # SI values at or above the asymptote (114.24569).
+            ratio = si / 114.24569
+            if 0.0 < ratio < 1.0:
+                try:
+                    si = -37.60812 * math.log(1.0 - ratio ** 0.4444)
+                except (ValueError, ZeroDivisionError):
+                    pass  # keep original si
+        if group == self.HARDWOOD_GROUP and elevation > self.HARDWOOD_ELEV_CAP:
+            elevation = self.HARDWOOD_ELEV_CAP
 
         # Get coefficient values with defaults
         dgld = params.get('DGLD', 0.8)
