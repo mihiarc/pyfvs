@@ -163,6 +163,57 @@ class PNDiameterGrowthModel(ParameterizedModel):
         'HT': '14', 'LL': '14', 'OS': '14', 'OT': '14'
     }
 
+    # MAPLOC array from pn/dgf.f DATA MAPLOC. Shape (6, 20): MAPLOC[ifor, group].
+    # For each DG group and forest index (IFOR=1..6), returns the effective
+    # coefficient column (1..3) to index into DGFOR/DGDS. Fortran is 1-based;
+    # we store the values as-is and convert to 0-based when indexing lists.
+    # Group rows indexed 1-20 matching SPECIES_MAP values.
+    MAPLOC = {
+        '1':  [1, 1, 1, 1, 1, 1],
+        '2':  [1, 1, 1, 1, 1, 1],
+        '3':  [1, 1, 1, 1, 1, 1],
+        '4':  [1, 2, 1, 2, 2, 2],
+        '5':  [1, 2, 1, 2, 2, 2],
+        '6':  [1, 1, 1, 1, 1, 1],
+        '7':  [1, 2, 2, 2, 2, 2],
+        '8':  [1, 2, 1, 2, 2, 2],
+        '9':  [1, 2, 1, 2, 2, 2],
+        '10': [1, 1, 1, 1, 1, 1],
+        '11': [1, 2, 1, 2, 2, 2],
+        '12': [1, 2, 1, 2, 2, 2],
+        '13': [1, 2, 3, 3, 3, 3],
+        '14': [1, 2, 1, 2, 2, 2],
+        '15': [1, 2, 1, 2, 2, 2],
+        '16': [1, 2, 1, 2, 2, 2],
+        '17': [1, 1, 1, 1, 1, 1],
+        '18': [1, 2, 1, 2, 2, 2],
+        '19': [1, 1, 1, 1, 1, 1],
+        '20': [1, 1, 1, 1, 1, 1],
+    }
+
+    # MAPDSQ array from pn/dgf.f DATA MAPDSQ. Same shape/semantics as MAPLOC.
+    # Mostly 1s — forest-invariant DGDS for almost all groups.
+    MAPDSQ = {str(k): [1] * 6 for k in range(1, 21)}
+
+    DEFAULT_IFOR = 2  # pn/grinit.f:187 IFOR=2 (Siuslaw NF)
+
+    def _resolve_ifor_idx(self, array_name: str) -> int:
+        """Return 0-based index into DGFOR/DGDS coefficient arrays for IFOR.
+
+        Mirrors Fortran pn/dgf.f ISPFOR=MAPLOC(JFOR,JSPC) and
+        ISPDSQ=MAPDSQ(JFOR,JSPC). Strict MAPLOC-driven indexing avoids
+        picking up zero-padded trailing entries for species that only
+        have a subset of forest-specific coefficients (e.g., SF group 1
+        with DGFOR=[-0.627, 0, 0] must resolve to index 0 not 1).
+        """
+        group = self.SPECIES_MAP.get(self.species_code.upper(), '7')
+        table = self.MAPLOC if array_name == 'DGFOR' else self.MAPDSQ
+        row = table.get(group, [1] * 6)
+        ifor = self.DEFAULT_IFOR
+        if ifor < 1 or ifor > len(row):
+            return 0
+        return row[ifor - 1] - 1  # 1-based Fortran → 0-based Python
+
     def _load_parameters(self) -> None:
         """Load species-specific parameters using species-to-index mapping.
 
@@ -244,13 +295,14 @@ class PNDiameterGrowthModel(ParameterizedModel):
         dgba = params.get('DGBA', 0.0)
         dgpccf = params.get('DGPCCF', 0.0)
         dghah = params.get('DGHAH', 0.0)
-        ifor_idx = self.DEFAULT_IFOR_INDEX
         dgfor = params.get('DGFOR', -0.7)
         if isinstance(dgfor, list):
-            dgfor = dgfor[ifor_idx] if len(dgfor) > ifor_idx else dgfor[-1]
+            idx = self._resolve_ifor_idx('DGFOR')
+            dgfor = dgfor[idx] if 0 <= idx < len(dgfor) else dgfor[-1]
         dgds = params.get('DGDS', -0.0001)
         if isinstance(dgds, list):
-            dgds = dgds[ifor_idx] if len(dgds) > ifor_idx else dgds[-1]
+            idx = self._resolve_ifor_idx('DGDS')
+            dgds = dgds[idx] if 0 <= idx < len(dgds) else dgds[-1]
         dgel = params.get('DGEL', 0.0)
         dgel2 = params.get('DGEL2', 0.0)
         dgsasp = params.get('DGSASP', 0.0)

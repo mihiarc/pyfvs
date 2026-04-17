@@ -115,6 +115,39 @@ class WCDiameterGrowthModel(PNDiameterGrowthModel):
         'WI': '14', 'OT': '14'
     }
 
+    # MAPLOC array from wc/dgf.f DATA MAPLOC. Shape (6, 19): MAPLOC[ifor, group].
+    # Returns the effective DGFOR column (1-based) for each group/IFOR pair.
+    # Most species only have forest-specific coefficients for IFOR 1-2
+    # (Olympic/Siuslaw); MAPLOC remaps IFOR 3-6 back to 1 or 2.
+    MAPLOC = {
+        '1':  [1, 2, 3, 4, 5, 6],
+        '2':  [1, 1, 1, 1, 1, 1],
+        '3':  [1, 1, 1, 2, 1, 1],
+        '4':  [1, 1, 2, 2, 2, 2],
+        '5':  [1, 1, 1, 1, 1, 2],
+        '6':  [1, 1, 1, 1, 1, 1],
+        '7':  [1, 2, 3, 4, 5, 6],
+        '8':  [1, 1, 2, 1, 1, 1],
+        '9':  [1, 1, 2, 3, 2, 1],
+        '10': [1, 1, 2, 2, 1, 1],
+        '11': [1, 1, 1, 1, 1, 2],
+        '12': [1, 1, 1, 1, 1, 2],
+        '13': [1, 1, 1, 1, 1, 1],
+        '14': [1, 1, 1, 1, 1, 2],
+        '15': [1, 1, 1, 1, 1, 2],
+        '16': [1, 1, 1, 2, 2, 2],
+        '17': [1, 1, 1, 1, 2, 1],
+        '18': [1, 1, 1, 1, 1, 1],
+        '19': [1, 1, 1, 1, 1, 1],
+    }
+
+    # MAPDSQ array from wc/dgf.f. Group 1 has one non-unit entry; all others
+    # are forest-invariant (all 1s).
+    MAPDSQ = {str(k): [1] * 6 for k in range(1, 20)}
+    MAPDSQ['1'] = [1, 1, 1, 2, 1, 1]
+
+    DEFAULT_IFOR = 6  # wc/grinit.f:186 IFOR=6 (BLM Coos Bay)
+
     def _get_coefficient_data(self) -> Dict[str, Any]:
         """Load WC-specific coefficient data."""
         try:
