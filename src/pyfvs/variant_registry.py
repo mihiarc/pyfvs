@@ -176,6 +176,7 @@ REGISTRY: Dict[str, VariantConfig] = {
         dg_module='pn_diameter_growth',
         dg_factory='create_pn_diameter_growth_model',
         default_elevation=7.0,
+        default_slope=0.05,  # pn/grinit.f:222 SLOPE=5.0 (percent→proportion via TRNSLO)
         hhtmax_default=20.0,
         sdi_maximums=StandMetricsCalculator.PN_SDI_MAXIMUMS,
     ),
@@ -193,6 +194,7 @@ REGISTRY: Dict[str, VariantConfig] = {
         dg_module='wc_diameter_growth',
         dg_factory='create_wc_diameter_growth_model',
         default_elevation=35.0,
+        default_slope=0.05,  # wc/grinit.f:221 SLOPE=5.0 (percent→proportion via TRNSLO)
         hhtmax_default=20.0,
         sdi_maximums=StandMetricsCalculator.WC_SDI_MAXIMUMS,
     ),
