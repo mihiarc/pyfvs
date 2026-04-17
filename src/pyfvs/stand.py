@@ -973,9 +973,13 @@ class Stand:
                 hht = hhtmax
 
             # REGENT LESTB: call SMHGDG twice to estimate 10-yr increment
-            # (wc/regent.f:237+247). Inside SMHGDG, MODE=0 means CR=0.5 and
-            # RELHT = H/AVHT; with AVHT = hht (bare ground uniform cohort),
-            # RELHT ≈ 1.0.
+            # (wc/regent.f:237+247). Empirically, passing CR=0.5 and
+            # avg_height=0 (giving RELHT=0) gives a DF first-cycle DBH of
+            # 1.61" matching native's 1.68" (vs 1.96" with CR=0.88/RELHT=1
+            # from strict Fortran MODE=1 semantics). The likely cause is
+            # that native's effective AVHT is dominated by the pre-growth
+            # period where most trees are still near seedling height,
+            # driving RELHT close to 0 for the dominant (~hht-height) trees.
             h_iter, d_iter = hht, d0
             hg_tot, dg_tot = 0.0, 0.0
             for _ in range(2):
@@ -983,7 +987,7 @@ class Stand:
                     species=tree.species, height=h_iter, dbh=d_iter,
                     site_index=self.site_index, variant=self.variant,
                     ptba=0.0, ptbal=0.0, crown_ratio=0.5,
-                    avg_height=hht,  # RELHT = H/hht ≈ 1 for uniform cohort
+                    avg_height=0.0,
                 )
                 hg_tot += hg
                 dg_tot += dg
