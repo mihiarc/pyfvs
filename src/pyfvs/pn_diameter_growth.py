@@ -275,6 +275,13 @@ class PNDiameterGrowthModel(ParameterizedModel):
         # Get coefficients
         params = self.coefficients
 
+        # Red Alder special equation (Fortran pn/dgf.f:402-413 and wc/dgf.f
+        # similarly). RA uses a piecewise-linear/quadratic DIAGR model that
+        # bottoms out at D=18" and decays linearly to 0 at D=28". This
+        # bypasses the generic ln(DDS) equation.
+        if self.species_code.upper() == 'RA':
+            return self._calculate_dds_red_alder(dbh, ba, rng)
+
         # Apply bounds
         dbh_safe = max(0.1, dbh)
         cr = max(0.01, min(0.99, crown_ratio))
@@ -363,6 +370,57 @@ class PNDiameterGrowthModel(ParameterizedModel):
 
         # Ensure non-negative
         return max(0.0, dds)
+
+    def _calculate_dds_red_alder(
+        self,
+        dbh: float,
+        ba: float,
+        rng: random.Random = None,
+    ) -> float:
+        """Red Alder special DG equation (pn/dgf.f:402-413).
+
+        Piecewise-linear/quadratic inside-bark diameter increment:
+            CONST = 3.250531 - 0.003029 * BA
+            IF D <= 18:  DIAGR = CONST - 0.166496*D + 0.004618*D^2
+            ELSE:        DIAGR = CONST - (CONST/10) * (D - 18)     -- linear decay
+            DIAGR >= 0.1
+            DDS_ib = DIAGR * (2*DIB + DIAGR) = DIAGR * (2*D*BARK + DIAGR)
+
+        Fortran uses BRATIO(22, D, HT) — species 22 (WA) bark ratio for RA.
+        pyfvs uses the RA bark ratio via PNBarkRatioModel which accepts RA
+        directly; the distinction is small (both alders have similar bark).
+        Returns DDS in inside-bark squared inches, matching the generic
+        ln(DDS) convention.
+        """
+        from .bark_ratio import create_bark_ratio_model
+        bark_model = create_bark_ratio_model(self.species_code, variant=self._variant_code())
+        bark = bark_model.calculate_bark_ratio(max(0.1, dbh))
+
+        d = max(0.1, dbh)
+        ba_bounded = max(0.0, min(500.0, ba))
+        const_rg = 3.250531 - 0.003029 * ba_bounded
+
+        if d <= 18.0:
+            diagr = const_rg - 0.166496 * d + 0.004618 * d * d
+        else:
+            diagr = const_rg - (const_rg / 10.0) * (d - 18.0)
+
+        if diagr < 0.1:
+            diagr = 0.1
+
+        # DDS_ib = DIAGR*(2*D*BARK + DIAGR) = (D*BARK + DIAGR)^2 - (D*BARK)^2
+        dib = d * bark
+        dds = diagr * (2.0 * dib + diagr)
+
+        # Apply Fortran dgscor.f stochastic multiplier for RA too.
+        ln_dds = math.log(max(1e-9, dds))
+        ln_dds_bounded = max(-5.0, min(5.0, ln_dds))
+        correction = self._stochastic_multiplier(ln_dds_bounded, rng)
+        return max(0.0, dds * correction)
+
+    def _variant_code(self) -> str:
+        """Return 'PN' or 'WC' for bark-ratio model dispatch."""
+        return 'PN'
 
     def calculate_diameter_growth(
         self,

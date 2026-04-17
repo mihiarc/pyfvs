@@ -148,6 +148,10 @@ class WCDiameterGrowthModel(PNDiameterGrowthModel):
 
     DEFAULT_IFOR = 6  # wc/grinit.f:186 IFOR=6 (BLM Coos Bay)
 
+    def _variant_code(self) -> str:
+        """Return 'WC' for bark-ratio model dispatch (RA special branch)."""
+        return 'WC'
+
     def _get_coefficient_data(self) -> Dict[str, Any]:
         """Load WC-specific coefficient data."""
         try:
