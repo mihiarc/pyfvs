@@ -1,0 +1,27 @@
+species_code: PY
+common_name: Pacific Yew
+scientific_name: Taxus brevifolia
+fia_code: '231'
+plants_code: ''
+variant: PN
+max_dbh: 60.0
+max_height: 180.0
+max_age: 300
+growth_model:
+  xmin: 3.0
+  xmax: 3.0
+  coefficient_index: 14
+site_index:
+  base_age: 50
+  typical_range:
+  - 50
+  - 150
+  max_si: 180
+shade_tolerance: very_tolerant
+tolerance_class: 5
+crown:
+  form: conical
+  typical_ratio: 0.4
+  seedling_ratio: 0.8
+bark:
+  thickness_factor: 0.9
