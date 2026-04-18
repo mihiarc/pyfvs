@@ -338,7 +338,8 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         # otherwise cap RA SI at 60 and under-predict TH by ~27%.
         if variant in ('PN', 'WC'):
             return self._calculate_potential_height_growth_pnwc(
-                dbh, site_index, tree_height, tree_age, variant
+                dbh, site_index, tree_height, tree_age, variant,
+                basal_area=basal_area,
             )
 
         # Validate and bound site index (SN-style SI ranges).
@@ -464,7 +465,8 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         site_index: float,
         tree_height: Optional[float],
         tree_age: Optional[float],
-        variant: str
+        variant: str,
+        basal_area: float = 0.0,
     ) -> float:
         """Calculate POTHTG for PN/WC using species-specific htcalc.f curves.
 
@@ -472,16 +474,39 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         of Chapman-Richards. Computes a 5-year height increment via the
         effective-age method.
 
+        WO (Oregon White Oak) uses a special Gould-Harrington HT-DBH patch
+        per Fortran pn/htgf.f:294-321 that derives POTHTG from anticipated
+        DBH growth rather than the King site curve. Pyfvs approximates
+        "anticipated DG" as 1" per 5-year period (WO's typical growth on
+        productive sites).
+
         Args:
             dbh: Diameter at breast height (inches)
             site_index: Site index in feet
             tree_height: Current tree height (feet)
             tree_age: Tree age (years, after growth increment)
             variant: 'PN' or 'WC'
+            basal_area: Stand basal area (sq ft/acre) — used for WO only.
 
         Returns:
             Potential height growth (feet) for a 5-year period
         """
+        # WO Gould-Harrington patch (pn/htgf.f:294-321). Applies to both
+        # PN and WC since wc/htgf.f carries the same patch.
+        if self.species_code.upper() == 'WO':
+            import math
+            d1 = max(0.1, dbh)
+            # WO 5-yr DG ~1" on productive PNW sites; use 1.0 as a
+            # conservative default when caller doesn't thread a DG estimate.
+            d2 = d1 + 1.0
+            try:
+                maxguess = site_index - 18.6024 / math.log(2.7 + max(0.0, basal_area))
+            except (ValueError, ZeroDivisionError):
+                maxguess = site_index
+            hguess2 = 4.5 + maxguess * (1.0 - math.exp(-0.137428 * d2)) ** 1.38994
+            hguess1 = 4.5 + maxguess * (1.0 - math.exp(-0.137428 * d1)) ** 1.38994
+            return max(0.1, hguess2 - hguess1)
+
         from .pn_height_age import height_at_age, age_from_height
 
         if tree_height is None:
