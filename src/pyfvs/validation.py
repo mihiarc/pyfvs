@@ -26,7 +26,11 @@ class ParameterValidator:
         'time_step': (1, 10),  # Growth time step in years
     }
     
-    # Species-specific site index bounds
+    # Species-specific site index bounds — SN variant only. Species codes
+    # like 'PP' (SN = Pitch Pine, PN/WC = Ponderosa Pine) and 'WP' (SN =
+    # White Pine, PN/WC = Western White Pine) collide across variants, so
+    # these bounds only apply when the caller provides variant='SN' (or
+    # leaves it at the default for backwards compat in SN-first call sites).
     SPECIES_SI_BOUNDS = {
         'LP': (40.0, 125.0),  # Loblolly pine
         'SP': (40.0, 100.0),  # Shortleaf pine
@@ -42,25 +46,40 @@ class ParameterValidator:
         'YP': (50.0, 120.0),  # Yellow poplar
         'SU': (50.0, 110.0),  # Sweetgum
     }
+
+    # Variants whose species bounds collide with SN: skip SPECIES_SI_BOUNDS
+    # and apply only the general (20, 150) range.
+    _NON_SN_VARIANTS = frozenset({'LS', 'CS', 'NE', 'PN', 'WC', 'OP', 'OC', 'CA', 'WS'})
     
     @classmethod
-    def validate_parameter(cls, name: str, value: float, 
-                         species_code: Optional[str] = None) -> float:
+    def validate_parameter(cls, name: str, value: float,
+                         species_code: Optional[str] = None,
+                         variant: Optional[str] = None) -> float:
         """Validate and bound a single parameter.
-        
+
         Args:
             name: Parameter name
             value: Parameter value
             species_code: Species code for species-specific bounds
-            
+            variant: FVS variant code; species bounds are SN-calibrated and
+                skipped for other variants to avoid cross-variant collisions
+                (e.g., 'PP' = Pitch Pine in SN but Ponderosa Pine in PN/WC).
+
         Returns:
             Bounded parameter value
-            
+
         Raises:
             ValueError: If parameter name is unknown
         """
         # Special handling for site index with species-specific bounds
-        if name == 'site_index' and species_code and species_code in cls.SPECIES_SI_BOUNDS:
+        # (SN-calibrated only).
+        apply_species_bounds = (
+            name == 'site_index'
+            and species_code
+            and species_code in cls.SPECIES_SI_BOUNDS
+            and (variant is None or variant not in cls._NON_SN_VARIANTS)
+        )
+        if apply_species_bounds:
             min_val, max_val = cls.SPECIES_SI_BOUNDS[species_code]
         elif name in cls.BOUNDS:
             min_val, max_val = cls.BOUNDS[name]
@@ -104,7 +123,8 @@ class ParameterValidator:
     def validate_growth_parameters(cls, site_index: float, competition_factor: float,
                                  ba: float, pbal: float, rank: float, relsdi: float,
                                  slope: float, aspect: float, time_step: int,
-                                 species_code: Optional[str] = None) -> Dict[str, Any]:
+                                 species_code: Optional[str] = None,
+                                 variant: Optional[str] = None) -> Dict[str, Any]:
         """Validate all growth model parameters.
         
         Args:
@@ -123,7 +143,7 @@ class ParameterValidator:
             Dictionary of validated parameters
         """
         return {
-            'site_index': cls.validate_parameter('site_index', site_index, species_code),
+            'site_index': cls.validate_parameter('site_index', site_index, species_code, variant),
             'competition_factor': cls.validate_parameter('competition_factor', competition_factor),
             'ba': cls.validate_parameter('basal_area', ba),
             'pbal': cls.validate_parameter('pbal', pbal),
@@ -136,20 +156,23 @@ class ParameterValidator:
     
     @classmethod
     def validate_stand_parameters(cls, trees_per_acre: int, site_index: float,
-                                species_code: Optional[str] = None) -> Dict[str, Any]:
+                                species_code: Optional[str] = None,
+                                variant: Optional[str] = None) -> Dict[str, Any]:
         """Validate stand initialization parameters.
-        
+
         Args:
             trees_per_acre: Number of trees per acre
             site_index: Site index (base age 25) in feet
             species_code: Species code
-            
+            variant: FVS variant code; skips SN-calibrated SPECIES_SI_BOUNDS
+                for non-SN variants whose species codes collide with SN.
+
         Returns:
             Dictionary of validated parameters
         """
         return {
             'trees_per_acre': int(cls.validate_parameter('trees_per_acre', trees_per_acre)),
-            'site_index': cls.validate_parameter('site_index', site_index, species_code)
+            'site_index': cls.validate_parameter('site_index', site_index, species_code, variant)
         }
     
     @classmethod

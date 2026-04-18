@@ -116,7 +116,8 @@ class Stand:
         validated_params = ParameterValidator.validate_stand_parameters(
             trees_per_acre=len(self.trees) if self.trees else 1,
             site_index=site_index,
-            species_code=species
+            species_code=species,
+            variant=self.variant,
         )
         self.site_index = validated_params['site_index']
 

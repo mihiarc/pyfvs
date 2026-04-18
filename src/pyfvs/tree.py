@@ -190,7 +190,7 @@ class Tree:
         # Validate growth parameters
         validated = ParameterValidator.validate_growth_parameters(
             site_index, competition_factor, ba, pbal, rank, relsdi,
-            slope, aspect, time_step, self.species
+            slope, aspect, time_step, self.species, self._variant,
         )
         
         # Use validated parameters
