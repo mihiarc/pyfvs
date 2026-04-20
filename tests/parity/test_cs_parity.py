@@ -25,15 +25,6 @@ from tests.parity._helpers import (
 CS_PARITY_N_SEEDS = 10
 
 
-@pytest.mark.xfail(
-    reason="Baseline 2026-04-16: BA +22.9%, vol +46.2% over native at "
-    "WO SI=60 30yr. Same pattern as pre-fix LS — pyfvs missing CS-specific "
-    "blend zone (cs/regent.f:98 XMIN=3, XMAX=5), Wykoff H-D dispatch "
-    "(cs/htdbh.f IWYKCA, 87/96 species), and LS-style establishment-cycle "
-    "shortening (cs/regent.f:118-124 LESTB FNT-5). Tracking parity through "
-    "a sequence of Fortran-faithful fixes mirroring LS Phase 1-7.",
-    strict=True,
-)
 def test_cs_gold_standard_wo_si60_30yr(require_native_variant, parity_tolerance):
     """Gold-standard CS scenario: 500 WO at SI=60 grown 30 years (3 cycles).
 

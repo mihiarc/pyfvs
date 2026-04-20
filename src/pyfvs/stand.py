@@ -845,7 +845,16 @@ class Stand:
         3. Update DBH via the variant H-D inverse (Wykoff or Curtis-Arney
            per IWYKCA flag) inside _grow_small_tree.
         4. Assign crown ratio per Fortran regent.f:178-185 LESTB formula.
+
+        CS dispatches to _grow_establishment_cycle_cs_lestb below, which
+        is a Fortran-faithful port of REGENT LESTB (species-specific
+        CARAGE + 10yr×0.5 scale + BALMOD GMOD) rather than the stub-HHT
+        approach used for LS/NE. See memory/project_cs_wo_lestb_audit.md.
         """
+        if self.variant == 'CS':
+            self._grow_establishment_cycle_cs_lestb(base_cycle)
+            return
+
         from .establishment import get_essubh_height, get_hhtmax
         from statistics import NormalDist
 
@@ -895,6 +904,159 @@ class Stand:
 
         # Crown ratio per Fortran regent.f:178-185 (LESTB branch):
         #   CR = 0.89722 - 0.0000461*PCCF + 0.07985*RAN (RAN ~ N(0,1) in [-1,1])
+        if self.stochastic and self._rng is not None:
+            def _rand_norm_trunc() -> float:
+                for _ in range(100):
+                    r = self._rng.gauss(0.0, 1.0)
+                    if -1.0 <= r <= 1.0:
+                        return r
+                return 0.0
+            cr_variations = [_rand_norm_trunc() for _ in range(n)]
+        else:
+            from statistics import NormalDist as _ND
+            cr_variations = [
+                max(-1.0, min(1.0, _ND(0.0, 1.0).inv_cdf((i + 0.5) / n)))
+                for i in range(n)
+            ]
+        stand_ccf = self._metrics.calculate_ccf(self.trees)
+        for tree, rand in zip(self.trees, cr_variations):
+            cr = 0.89722 - 0.0000461 * stand_ccf + 0.07985 * rand
+            tree.crown_ratio = max(0.20, min(0.90, cr))
+
+    def _grow_establishment_cycle_cs_lestb(self, base_cycle: int) -> None:
+        """CS establishment: Fortran-faithful ESSUBH + REGENT LESTB port.
+
+        Fortran flow (cs/essubh.f + cs/regent.f:118-260 with LESTB=TRUE):
+          1. ESSUBH (cs/essubh.f): HHT = (H(CARAGE) / CARAGE) * 5.0 where
+             CARAGE comes from MAPCS (species-specific Carmean reference
+             age). H is the NC-128 Chapman-Richards site-curve value.
+          2. estab.f:489-491 adds BACHLO(0.5, 0.25) truncated variation.
+          3. HHTMAX cap (cs/blkdat.f:89-99).
+          4. REGENT LESTB height growth:
+               HTGR_raw = H(AGET+10) - H(AGET)        (10-yr curve slope)
+               HTGR     = HTGR_raw * SCALE(=0.5) * CON(=1) * HGADJ(=1)
+               GMOD     = cs_balmod(species, D=0.1, BA=0, BAL=0)
+               RELHTA   = 0 at cycle 1 (AVH=0 on bare ground)
+               GMOD_new = 1 - ((1-GMOD)*(1-RELHTA)) = GMOD
+               HTGR     = HTGR * GMOD
+          5. Final HT = HHT + HTGR (capped at HHTMAX).
+          6. DBH from Wykoff H-D inverse.
+          7. CR per regent.f:178-185 LESTB formula.
+
+        Why BALMOD matters: without the GMOD multiplier (~0.5 for most
+        CS hardwoods), pyfvs over-predicts yr10 HT by 20-30%. Native
+        applies BALMOD to the REGENT LESTB growth, reducing it
+        substantially on bare ground.
+        """
+        import math as _math
+        from .establishment import (
+            compute_cs_essubh_initial_height, get_hhtmax,
+            load_small_tree_coefficients,
+        )
+        from .cs_balmod import cs_balmod
+        from statistics import NormalDist
+
+        n = len(self.trees)
+        normal = NormalDist(0.5, 0.25)
+
+        # estab.f:489 BACHLO(0.5, 0.25) truncated height variation.
+        if self.stochastic and self._rng is not None:
+            def _draw_bachlo() -> float:
+                for _ in range(100):
+                    x = self._rng.gauss(0.5, 0.25)
+                    if 0.0 <= x <= 1.5:
+                        return x
+                return 0.5
+            variations = [_draw_bachlo() for _ in range(n)]
+        else:
+            variations = [
+                max(0.0, min(1.5, normal.inv_cdf((i + 0.5) / n)))
+                for i in range(n)
+            ]
+
+        # regent.f:261-266 BACHLO(0, 1) ±10% HTG noise (stochastic only).
+        if self.stochastic and self._rng is not None:
+            def _draw_htg_noise() -> float:
+                for _ in range(100):
+                    r = self._rng.gauss(0.0, 1.0)
+                    if -1.0 <= r <= 1.0:
+                        return r
+                return 0.0
+            htg_noises = [_draw_htg_noise() for _ in range(n)]
+        else:
+            htg_noises = [0.0] * n
+
+        si = self.site_index
+
+        for tree, hvar, rn in zip(self.trees, variations, htg_noises):
+            sp = tree.species
+            # Step 1 + 2 + 3: ESSUBH HHT with BACHLO shift and HHTMAX cap.
+            hht = compute_cs_essubh_initial_height(sp, si) + hvar
+            hhtmax = get_hhtmax(sp, 'CS')
+            if hhtmax > 0 and hht > hhtmax:
+                hht = hhtmax
+            hht = max(0.5, hht)
+
+            # Step 4: REGENT LESTB growth — 10-yr inverse-CR slope scaled 0.5.
+            p = load_small_tree_coefficients(sp, 'CS')
+            if not p:
+                htgr = 0.0
+            else:
+                c1, c2, c3 = p['c1'], p['c2'], p['c3']
+                c4, c5 = p['c4'], p['c5']
+                bh = p.get('bh', 0.0)
+                # LS/CS/NE use base_age=50 anchoring per Fortran htcalc.f.
+                raw_at_50 = bh + c1 * (si ** c2) * (
+                    1.0 - _math.exp(c3 * 50.0)
+                ) ** (c4 * (si ** c5))
+                scale = si / raw_at_50 if raw_at_50 > 0 else 1.0
+                max_h = bh + c1 * (si ** c2)
+                exp = c4 * (si ** c5)
+                raw_h = hht / scale if scale > 0 else hht
+                if raw_h >= max_h - 0.1:
+                    aget = 200.0
+                elif raw_h <= bh + 0.1:
+                    aget = 0.1
+                else:
+                    ratio = (raw_h - bh) / (c1 * (si ** c2))
+                    if 0 < ratio < 1 and exp > 0:
+                        inner = ratio ** (1.0 / exp)
+                        aget = (
+                            max(0.1, _math.log(1.0 - inner) / c3)
+                            if inner < 1.0 else 0.1
+                        )
+                    else:
+                        aget = 0.1
+
+                def _h(age: float) -> float:
+                    return (bh + c1 * (si ** c2) * (
+                        1.0 - _math.exp(c3 * age)
+                    ) ** exp) * scale
+
+                htgr_10yr = _h(aget + 10.0) - _h(aget)
+                # SCALE=FNT/REGYR=5/10=0.5. CON=1, HGADJ=1, XRHGRO=1 for
+                # bare-ground no-calibration run.
+                htgr = htgr_10yr * 0.5
+
+                # BALMOD modifier. Bare-ground cycle 1 has AVH=0 → RELHTA=0
+                # → GMOD_new = 1 - ((1-GMOD)*(1-0)) = GMOD.
+                gmod = cs_balmod(sp, dbh=0.1, ba=0.0, bal=0.0)
+                htgr *= gmod
+
+                # ±10% stochastic HTG noise from regent.f:267.
+                htgr += rn * 0.1 * htgr
+
+                htgr = max(0.1, htgr)
+
+            final_ht = hht + htgr
+            if hhtmax > 0 and final_ht > hhtmax:
+                final_ht = hhtmax
+            tree.height = max(0.5, final_ht)
+            tree.dbh = 0.1
+            tree.age = base_cycle
+            tree._update_dbh_from_height()
+
+        # Step 7: Crown ratio per regent.f:178-185 LESTB branch.
         if self.stochastic and self._rng is not None:
             def _rand_norm_trunc() -> float:
                 for _ in range(100):

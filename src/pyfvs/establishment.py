@@ -68,6 +68,71 @@ _CS_MAPCS = {
 }
 
 
+# Per-species CARAGE for the LS variant, from Fortran ls/essubh.f DATA MAPLS.
+# Ordered by FVS species position (1..68). Fortran blank slots are omitted.
+_LS_MAPCS = {
+    'JP': 20, 'SC': 15, 'RN': 20, 'RP': 20, 'WP':  5,
+    'WS': 15, 'NS': 15, 'BF': 20, 'BS': 20, 'TA': 10,
+    'WC': 20, 'EH': 20, 'OS': 10, 'RC': 10, 'BA': 20,
+    'GA': 35, 'EC': 15, 'SV': 15, 'RM': 20, 'BC': 20,
+    'AE': 20, 'RL': 20, 'RE': 20, 'YB': 20, 'BW': 20,
+    'SM': 20, 'BM': 20, 'AB': 20, 'WA': 20, 'WO': 10,
+    'SW': 30, 'BR': 10, 'CK': 10, 'RO': 20, 'BO': 10,
+    'NP': 10, 'BH': 20, 'PH': 20, 'SH': 20, 'BT': 20,
+    'QA': 20, 'BP': 20, 'PB': 20, 'BN': 20, 'WN': 20,
+    'HH': 10, 'BK': 10, 'OH': 10, 'BE': 10, 'ST': 10,
+    'MM': 10, 'AH': 10, 'AC': 20, 'HK': 10, 'DW': 10,
+    'HT': 10, 'AP': 10, 'BG': 25, 'SY': 20, 'PR': 10,
+    'CC': 10, 'PL': 10, 'WI': 10, 'BL': 10, 'DM': 10,
+    'SS': 10, 'MA': 10,
+}
+
+
+# Per-species CARAGE for the NE variant, from Fortran ne/essubh.f DATA MAPNE.
+# Ordered by FVS species position (1..108). Fortran blank slots are omitted.
+_NE_MAPCS = {
+    'BF': 20, 'TA': 10, 'WS': 15, 'RS': 20, 'NS': 15,
+    'BS': 20, 'PI': 20, 'RN': 20, 'WP':  5, 'LP': 20,
+    'VP': 15, 'WC': 20, 'AW': 20, 'RC': 10, 'JU': 20,
+    'EH': 20, 'HM': 20, 'OP': 20, 'JP': 20, 'SP': 10,
+    'TM': 10, 'PP': 15, 'PD': 20, 'SC': 15, 'OS': 10,
+    'RM': 20, 'SM': 20, 'BM': 20, 'SV': 20, 'YB': 20,
+    'SB': 20, 'RB': 20, 'PB': 20, 'GB': 20, 'HI': 20,
+    'PH': 20, 'SL': 20, 'SH': 20, 'MH': 20, 'AB': 20,
+    'AS': 20, 'WA': 20, 'BA': 20, 'GA': 35, 'PA': 35,
+    'YP': 20, 'SU': 10, 'CT': 20, 'QA': 20, 'BP': 20,
+    'EC': 10, 'BT': 20, 'PY': 15, 'BC': 20, 'WO': 10,
+    'BR': 10, 'CK': 10, 'PO': 10, 'OK': 10, 'SO': 10,
+    'QI': 10, 'WK': 30, 'PN': 10, 'CO': 10, 'SW': 30,
+    'SN': 30, 'RO': 20, 'SK': 10, 'BO': 10, 'CB': 20,
+    'BU': 10, 'YY': 10, 'WR': 20, 'HK': 10, 'PS': 10,
+    'HY': 10, 'BN': 20, 'WN': 20, 'OO': 10, 'MG': 25,
+    'MV': 25, 'AP': 10, 'WT': 25, 'BG': 25, 'SD': 10,
+    'PW': 10, 'SY': 20, 'WL': 10, 'BK': 10, 'BL': 10,
+    'SS': 10, 'BW': 20, 'WB': 20, 'EL': 20, 'AE': 20,
+    'RL': 20, 'OH': 10, 'BE': 10, 'ST': 10, 'AI': 10,
+    'SE': 10, 'AH': 10, 'DW': 10, 'HT': 10, 'HH': 10,
+    'PL': 10, 'PR': 10,
+}
+
+
+def _get_essubh_carage(species: str, variant: str) -> int:
+    """Return species-specific ESSUBH Carmean reference age (MAPCS value).
+
+    From Fortran {variant}/essubh.f DATA MAP{VARIANT}. Falls back to
+    ESSUBH_DEFAULT_CARAGE when the species is missing from the variant's
+    table (which happens only for species outside the variant's native
+    range, where MAPCS position is a blank/sentinel slot).
+    """
+    if variant == 'CS':
+        return _CS_MAPCS.get(species, ESSUBH_DEFAULT_CARAGE)
+    if variant == 'LS':
+        return _LS_MAPCS.get(species, ESSUBH_DEFAULT_CARAGE)
+    if variant == 'NE':
+        return _NE_MAPCS.get(species, ESSUBH_DEFAULT_CARAGE)
+    return ESSUBH_DEFAULT_CARAGE
+
+
 def compute_cs_essubh_initial_height(species: str, site_index: float) -> float:
     """Fortran cs/essubh.f HHT = (HTCALC(CARAGE) / CARAGE) * 5.0.
 
@@ -75,7 +140,7 @@ def compute_cs_essubh_initial_height(species: str, site_index: float) -> float:
     phase) using the species-specific Carmean reference age from MAPCS.
     Used by the LS/CS LESTB establishment path in stand.py.
     """
-    carage = _CS_MAPCS.get(species, ESSUBH_DEFAULT_CARAGE)
+    carage = _get_essubh_carage(species, 'CS')
     h_at_carage = compute_establishment_height(
         species, site_index, float(carage), 'CS'
     )
@@ -353,6 +418,13 @@ def compute_essubh_height(species: str, site_index: float,
     Returns:
         Establishment height in feet.
     """
+    # NOTE: This hardcoded CARAGE=20 does NOT match Fortran essubh.f's
+    # species-specific MAPCS table. Switching to _get_essubh_carage(species,
+    # variant) was tried and reverted — it exposed a compound drift in the
+    # downstream regent_growth computation that was silently compensated by
+    # the CARAGE=20 default. A proper fix requires porting the full REGENT
+    # LESTB scale/CON/BALMOD chain, not just the CARAGE dispatch. See
+    # memory/project_cs_wo_lestb_audit.md for the audit notes.
     carmean_age = ESSUBH_DEFAULT_CARAGE  # 20 years
 
     # Step 1: Height at CARAGE from Chapman-Richards (includes HHTMAX cap,
