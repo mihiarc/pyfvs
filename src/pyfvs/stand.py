@@ -418,6 +418,85 @@ class Stand:
         return stand
 
     @classmethod
+    def initialize_natural(
+        cls,
+        trees_per_acre: int,
+        site_index: float = 70,
+        species: str = 'LP',
+        ecounit: Optional[str] = None,
+        forest_type: Optional[str] = None,
+        variant: Optional[str] = None,
+        stochastic: bool = True,
+        random_seed: Optional[int] = None
+    ):
+        """Create a new naturally-regenerated stand.
+
+        Unlike initialize_planted (which places trees at site-curve height
+        for age=cycle_length, i.e. already established), this seeds the
+        stand with seedling-scale placeholders and flips bare_ground=True.
+        The first grow() cycle runs the variant's Fortran-faithful
+        ESTAB->REGENT establishment path, consuming cycle_length years to
+        grow the cohort from seedling to sapling size.
+
+        Signature matches initialize_planted so a caller can swap between
+        the two without changing any other arguments.
+
+        Args:
+            trees_per_acre: Number of seedlings per acre in the initial cohort.
+            site_index: Site index in feet (base age varies by variant).
+            species: Species code for the regenerating cohort.
+            ecounit: Ecological unit code (e.g., "M231", "232").
+            forest_type: FVS forest type group (e.g., "FTYLPN").
+            variant: FVS variant code. If None, uses default.
+            stochastic: Enable stochastic diameter growth mode (default True).
+            random_seed: Seed for reproducible stochastic runs.
+
+        Returns:
+            Stand: A stand with bare_ground=True pending its first cycle.
+        """
+        if trees_per_acre <= 0:
+            raise ValueError(f"trees_per_acre must be positive, got {trees_per_acre}")
+
+        validated_params = ParameterValidator.validate_stand_parameters(
+            trees_per_acre=trees_per_acre,
+            site_index=site_index,
+            species_code=species
+        )
+        trees_per_acre = validated_params['trees_per_acre']
+        site_index = validated_params['site_index']
+
+        # Resolve variant the same way initialize_planted does.
+        temp_stand = cls([], site_index, species, variant=variant)
+        actual_variant = temp_stand.variant
+
+        # Seedling-scale placeholders. Height/DBH are overwritten by the
+        # variant's _grow_establishment_cycle_* path on the first grow()
+        # call; values here just need to be positive and consistent.
+        trees = [
+            Tree(
+                dbh=0.1,
+                height=1.0,
+                species=species,
+                age=0,
+                variant=actual_variant,
+            )
+            for _ in range(trees_per_acre)
+        ]
+
+        stand = cls(
+            trees,
+            site_index,
+            species,
+            forest_type=forest_type,
+            ecounit=ecounit,
+            variant=variant,
+            stochastic=stochastic,
+            random_seed=random_seed,
+            bare_ground=True,
+        )
+        return stand
+
+    @classmethod
     def from_fia_data(
         cls,
         tree_df: 'pl.DataFrame',
