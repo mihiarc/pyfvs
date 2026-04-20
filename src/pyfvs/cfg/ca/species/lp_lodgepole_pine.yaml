@@ -1,0 +1,58 @@
+# Lodgepole Pine (Pinus contorta) - CA Variant
+# High-elevation pine present in inland California
+
+species_code: LP
+common_name: Lodgepole Pine
+scientific_name: Pinus contorta
+fia_code: "108"
+plants_code: PICO
+variant: CA
+
+# Tree size characteristics
+max_dbh: 30.0  # inches
+max_height: 110.0  # feet
+max_age: 400  # years
+
+growth_model:
+  xmin: 3.0
+  xmax: 3.0
+  coefficient_index: 12
+
+site_index:
+  base_age: 50
+  typical_range: [40, 80]
+  max_si: 100
+
+shade_tolerance: intolerant
+tolerance_class: 1
+
+crown:
+  form: narrow-conical
+  typical_ratio: 0.35
+  seedling_ratio: 0.75
+
+bark:
+  young_color: orange-brown
+  mature_color: scaly gray-brown
+  thickness_factor: 0.90
+
+wood:
+  specific_gravity: 0.38
+  uses: ["lumber", "poles", "pulpwood"]
+
+ecology:
+  fire_regime: stand-replacing, infrequent
+  succession: early seral
+  preferred_sites: cool, moist subalpine
+  elevation_range: [5000, 11000]
+  precipitation_range: [20, 60]
+
+# Small tree height growth (Chapman-Richards) — generic softwood fallback.
+# Specific ca/ coefficients not yet ported; pipeline uses the small-tree
+# path primarily for establishment.
+small_tree_height_growth:
+  c1: 1.1421
+  c2: 1.0042
+  c3: -0.0374
+  c4: 0.7632
+  c5: 0.0358
