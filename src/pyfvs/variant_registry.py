@@ -14,12 +14,12 @@ from typing import Dict, Optional, Type, Any
 from .bark_ratio import (
     BarkRatioModel, LSBarkRatioModel, NEBarkRatioModel,
     CSBarkRatioModel, PNBarkRatioModel, WSBarkRatioModel,
-    CABarkRatioModel, OCBarkRatioModel,
+    CABarkRatioModel, OCBarkRatioModel, ECBarkRatioModel,
 )
 from .crown_ratio import (
     CrownRatioModel, LSCrownRatioModel, NECrownRatioModel,
     CSCrownRatioModel, PNCrownRatioModel, WSCrownRatioModel,
-    CACrownRatioModel, OCCrownRatioModel,
+    CACrownRatioModel, OCCrownRatioModel, ECCrownRatioModel,
 )
 from .mortality import (
     MortalityModel, LSMortalityModel, NEMortalityModel, CSMortalityModel,
@@ -96,6 +96,7 @@ from .establishment import (
     _WS_HHTMAX, _WS_HHTMAX_DEFAULT,
     _CA_HHTMAX, _CA_HHTMAX_DEFAULT,
     _OC_HHTMAX, _OC_HHTMAX_DEFAULT,
+    _EC_HHTMAX, _EC_HHTMAX_DEFAULT,
 )
 
 # =============================================================================
@@ -315,21 +316,21 @@ REGISTRY: Dict[str, VariantConfig] = {
         cycle_length=10,
         default_species='DF',
         growth_category='topographic',
-        # PHASE 1 EC port: only diameter growth is variant-specific.
-        # Bark/crown/mortality/taper currently fall back to PN-equivalent
-        # models (PN was chosen because EC is geographically adjacent and
-        # WC-derived equations dominate ~half of EC's species). Track in
-        # the EC parity tests as known divergences until ec/htgf.f,
-        # ec/morts.f, ec/bratio.f, and ec/crown.f are also ported.
-        bark_ratio_class=PNBarkRatioModel,
-        crown_ratio_class=PNCrownRatioModel,
+        # PHASE 2 EC port (2026-04-20): bark/crown/HD/HHTMAX ported from
+        # ec/bratio.f, ec/crown.f, ec/htdbh.f (Wenatchee default forest),
+        # and ec/blkdat.f. Mortality still uses the generic MortalityModel
+        # with PN SDI table; htgf.f (large-tree HG) and smhtgf.f (small-
+        # tree HG) not yet ported.
+        bark_ratio_class=ECBarkRatioModel,
+        crown_ratio_class=ECCrownRatioModel,
         mortality_class=MortalityModel,
         mortality_needs_sdi_lookup=True,
         taper_class=FlewellingTaperModel,
         dg_module='ec_diameter_growth',
         dg_factory='create_ec_diameter_growth_model',
         default_elevation=20.0,  # East Cascades typical: ~2000ft = 20 (hundreds)
-        hhtmax_default=20.0,
+        hhtmax=_EC_HHTMAX,
+        hhtmax_default=_EC_HHTMAX_DEFAULT,
         sdi_maximums=StandMetricsCalculator.PN_SDI_MAXIMUMS,
     ),
     'WS': VariantConfig(

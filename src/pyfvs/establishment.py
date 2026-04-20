@@ -242,6 +242,18 @@ _OC_HHTMAX = {
 }
 _OC_HHTMAX_DEFAULT = 20.0
 
+# EC HHTMAX values from ec/blkdat.f:153-157 DATA HHTMAX (32 species).
+_EC_HHTMAX = {
+    'WP': 23.0, 'WL': 27.0, 'DF': 21.0, 'SF': 21.0, 'RC': 22.0,
+    'GF': 20.0, 'LP': 24.0, 'ES': 18.0, 'AF': 18.0, 'PP': 17.0,
+    'WH': 20.0, 'MH': 22.0, 'PY': 20.0, 'WB': 20.0, 'NF': 20.0,
+    'WF': 20.0, 'LL': 20.0, 'YC': 20.0, 'WJ': 20.0, 'BM': 20.0,
+    'VN': 20.0, 'RA': 50.0, 'PB': 20.0, 'GC': 20.0, 'DG': 20.0,
+    'AS': 20.0, 'CW': 20.0, 'WO': 20.0, 'PL': 20.0, 'WI': 20.0,
+    'OS': 22.0, 'OH': 20.0,
+}
+_EC_HHTMAX_DEFAULT = 20.0
+
 
 def get_hhtmax(species: str, variant: str) -> float:
     """Get the maximum establishment height for a species.

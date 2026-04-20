@@ -1,0 +1,55 @@
+{
+    "metadata": {
+        "variant": "EC",
+        "source": "ForestVegetationSimulator/ec/morts.f DATA PMSC, PMD",
+        "description": "Background mortality coefficients for East Cascades variant (32 species)",
+        "equation": "RI = 1 / (1 + exp(PMSC + PMD*DBH))   (annual mortality probability)",
+        "notes": "Fortran morts.f:557 logistic form. B0=PMSC (intercept), B1=PMD (DBH slope). Rate is halved after computation per morts.f:560 (test-run tuning)."
+    },
+    "species_coefficients": {
+        "WP":  {"pmsc":  6.5112, "pmd": -0.0052485},
+        "WL":  {"pmsc":  6.5112, "pmd": -0.0052485},
+        "DF":  {"pmsc":  7.2985, "pmd": -0.0129121},
+        "SF":  {"pmsc":  5.1677, "pmd": -0.0077681},
+        "RC":  {"pmsc":  9.6943, "pmd": -0.0127328},
+        "GF":  {"pmsc":  5.1677, "pmd": -0.0077681},
+        "LP":  {"pmsc":  5.9617, "pmd": -0.0340128},
+        "ES":  {"pmsc":  9.6943, "pmd": -0.0127328},
+        "AF":  {"pmsc":  5.1677, "pmd": -0.0077681},
+        "PP":  {"pmsc":  5.5877, "pmd": -0.005348},
+        "WH":  {"pmsc":  5.1677, "pmd": -0.0077681},
+        "MH":  {"pmsc":  5.1677, "pmd": -0.0077681},
+        "PY":  {"pmsc":  9.6943, "pmd": -0.0127328},
+        "WB":  {"pmsc":  6.5112, "pmd": -0.0052485},
+        "NF":  {"pmsc":  6.5112, "pmd": -0.0052485},
+        "WF":  {"pmsc":  5.1677, "pmd": -0.0077681},
+        "LL":  {"pmsc":  5.9617, "pmd": -0.0340128},
+        "YC":  {"pmsc":  5.1677, "pmd": -0.0077681},
+        "WJ":  {"pmsc":  5.5877, "pmd": -0.005348},
+        "BM":  {"pmsc":  5.9617, "pmd": -0.0340128},
+        "VN":  {"pmsc":  5.9617, "pmd": -0.0340128},
+        "RA":  {"pmsc":  5.5877, "pmd": -0.005348},
+        "PB":  {"pmsc":  5.5877, "pmd": -0.005348},
+        "GC":  {"pmsc":  6.5112, "pmd": -0.0052485},
+        "DG":  {"pmsc":  9.6943, "pmd": -0.0127328},
+        "AS":  {"pmsc":  5.9617, "pmd": -0.0340128},
+        "CW":  {"pmsc":  5.9617, "pmd": -0.0340128},
+        "WO":  {"pmsc":  6.5112, "pmd": -0.0052485},
+        "PL":  {"pmsc":  5.5877, "pmd": -0.005348},
+        "WI":  {"pmsc":  5.9617, "pmd": -0.0340128},
+        "OS":  {"pmsc":  5.1677, "pmd": -0.0077681},
+        "OH":  {"pmsc":  5.9617, "pmd": -0.0340128}
+    },
+    "hhtmax": {
+        "source": "ec/blkdat.f:153-157 DATA HHTMAX",
+        "values": {
+            "WP": 23.0, "WL": 27.0, "DF": 21.0, "SF": 21.0, "RC": 22.0,
+            "GF": 20.0, "LP": 24.0, "ES": 18.0, "AF": 18.0, "PP": 17.0,
+            "WH": 20.0, "MH": 22.0, "PY": 20.0, "WB": 20.0, "NF": 20.0,
+            "WF": 20.0, "LL": 20.0, "YC": 20.0, "WJ": 20.0, "BM": 20.0,
+            "VN": 20.0, "RA": 50.0, "PB": 20.0, "GC": 20.0, "DG": 20.0,
+            "AS": 20.0, "CW": 20.0, "WO": 20.0, "PL": 20.0, "WI": 20.0,
+            "OS": 22.0, "OH": 20.0
+        }
+    }
+}

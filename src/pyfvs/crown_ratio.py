@@ -822,6 +822,63 @@ class PNCrownRatioModel:
         return max(0.10, min(0.95, new_cr))
 
 
+class ECCrownRatioModel(PNCrownRatioModel):
+    """Crown ratio model for the East Cascades (EC) variant.
+
+    Same Weibull form as PN/WC (A + B*(-ln(1-x))^(1/C)) but with per-species
+    coefficients transcribed from ec/crown.f DATA WEIBA/WEIBB0/WEIBB1/WEIBC0/
+    WEIBC1 and the C0/C1 linear SDI→ACR fit. All 32 EC species covered.
+    """
+
+    _COEFFICIENT_FILE = 'ec/ec_crown_ratio_coefficients.json'
+
+    DEFAULT_SPECIES = 'DF'
+
+    # Fortran ec/crown.f DATA blocks (per-species, 32 species).
+    _FALLBACK = {
+        'DF': (0.0, -0.28295, 1.18232, 3.03400, 0.0, 4.99727, -0.01043),
+    }
+
+    def __init__(self, species_code: str = "DF"):
+        self.species_code = species_code
+        self._group = None
+        self._mean_cr_c0 = None
+        self._mean_cr_c1 = None
+        self._weiba = None
+        self._weibb0 = None
+        self._weibb1 = None
+        self._weibc0 = None
+        self._weibc1 = None
+        self._load_parameters()
+
+    def _load_parameters(self):
+        coeffs = None
+        try:
+            data = load_coefficient_file(self._COEFFICIENT_FILE)
+            sc = data.get('species_coefficients', {})
+            entry = sc.get(self.species_code) or sc.get(self.DEFAULT_SPECIES)
+            if entry:
+                coeffs = (
+                    entry['weib_a'], entry['weib_b0'], entry['weib_b1'],
+                    entry['weib_c0'], entry['weib_c1'],
+                    entry['c0'], entry['c1'],
+                )
+        except FileNotFoundError:
+            pass
+
+        if coeffs is None:
+            coeffs = self._FALLBACK.get(self.species_code,
+                                        self._FALLBACK[self.DEFAULT_SPECIES])
+
+        (self._weiba, self._weibb0, self._weibb1,
+         self._weibc0, self._weibc1,
+         self._mean_cr_c0, self._mean_cr_c1) = coeffs
+        self._group = self.species_code
+
+    # calculate_average_crown_ratio / predict_individual_crown_ratio /
+    # update_crown_ratio_change are inherited from PNCrownRatioModel.
+
+
 class WSCrownRatioModel:
     """Crown ratio model for the Western Sierra Nevada (WS) variant.
 

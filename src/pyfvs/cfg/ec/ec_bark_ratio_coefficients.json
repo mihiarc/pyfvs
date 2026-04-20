@@ -1,0 +1,43 @@
+{
+    "metadata": {
+        "variant": "EC",
+        "source": "ForestVegetationSimulator/ec/bratio.f DATA BARK1, BARK2",
+        "description": "Bark ratio coefficients for East Cascades variant (32 species)",
+        "equation_types": {
+            "1": "DIB = a * DOB^b (power)",
+            "2": "DIB = a + b * DOB (linear)",
+            "3": "DIB = a * DOB (constant ratio, BRATIO = a)"
+        },
+        "bounds": "[0.80, 0.99] for linear/power forms"
+    },
+    "species_to_group": {
+        "WP": 1,  "WL": 2,  "DF": 3,  "SF": 4,  "RC": 5,
+        "GF": 4,  "LP": 6,  "ES": 7,  "AF": 4,  "PP": 8,
+        "WH": 9,  "MH": 10, "PY": 11, "WB": 11, "NF": 12,
+        "WF": 4,  "LL": 13, "YC": 14, "WJ": 15, "BM": 16,
+        "VN": 16, "RA": 17, "PB": 16, "GC": 18, "DG": 17,
+        "AS": 17, "CW": 17, "WO": 19, "PL": 17, "WI": 17,
+        "OS": 10, "OH": 17
+    },
+    "species_groups": {
+        "1":  {"type": 3, "a": 0.964,     "b": null},
+        "2":  {"type": 3, "a": 0.851,     "b": null},
+        "3":  {"type": 3, "a": 0.844,     "b": null},
+        "4":  {"type": 3, "a": 0.903,     "b": null},
+        "5":  {"type": 3, "a": 0.950,     "b": null},
+        "6":  {"type": 3, "a": 0.963,     "b": null},
+        "7":  {"type": 3, "a": 0.956,     "b": null},
+        "8":  {"type": 3, "a": 0.889,     "b": null},
+        "9":  {"type": 3, "a": 0.93371,   "b": null},
+        "10": {"type": 3, "a": 0.934,     "b": null},
+        "11": {"type": 3, "a": 0.93329,   "b": null},
+        "12": {"type": 3, "a": 0.904973,  "b": null},
+        "13": {"type": 3, "a": 0.9,       "b": null},
+        "14": {"type": 3, "a": 0.837291,  "b": null},
+        "15": {"type": 3, "a": 0.94967,   "b": null},
+        "16": {"type": 2, "a": 0.0836,    "b": 0.94782},
+        "17": {"type": 2, "a": 0.075256,  "b": 0.94967},
+        "18": {"type": 2, "a": 0.15565,   "b": 0.90182},
+        "19": {"type": 1, "a": 0.8558,    "b": 1.0213}
+    }
+}

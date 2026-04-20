@@ -1088,6 +1088,99 @@ class OCBarkRatioModel:
         return 0.80 <= bark_ratio <= 0.99
 
 
+class ECBarkRatioModel:
+    """Bark ratio model for the East Cascades (EC) variant.
+
+    Fortran ec/bratio.f uses three equation forms keyed by species index:
+    - Type 3 (constant ratio): BRATIO = a                 species 1-19, 31
+    - Type 2 (linear):         DIB = a + b*DOB            species 20-27, 29-30, 32
+    - Type 1 (power):          DIB = a*DOB^b              species 28 (WO only)
+
+    Bounded [0.80, 0.99] for linear/power forms.
+    """
+
+    _COEFFICIENT_FILE = 'ec/ec_bark_ratio_coefficients.json'
+    DEFAULT_GROUP = 4  # constant-ratio softwood fallback
+
+    def __init__(self, species_code: str = "DF"):
+        self.species_code = species_code
+        self._eq_type = None
+        self._a = None
+        self._b = None
+        self._load_parameters()
+
+    def _load_parameters(self):
+        try:
+            data = load_coefficient_file(self._COEFFICIENT_FILE)
+        except FileNotFoundError:
+            self._eq_type = 3
+            self._a = 0.90
+            self._b = None
+            return
+        s2g = data.get('species_to_group', {})
+        groups_raw = data.get('species_groups', {})
+        groups = {int(k): v for k, v in groups_raw.items()}
+        group_num = s2g.get(self.species_code, self.DEFAULT_GROUP)
+        group = groups.get(group_num, groups[self.DEFAULT_GROUP])
+        self._eq_type = group['type']
+        self._a = group['a']
+        self._b = group.get('b')
+
+    def calculate_dib_from_dob(self, dob: float) -> float:
+        if dob <= 0:
+            return 0.0
+        if self._eq_type == 1:
+            dib = self._a * (dob ** self._b)
+        elif self._eq_type == 2:
+            dib = self._a + self._b * dob
+        elif self._eq_type == 3:
+            dib = self._a * dob
+        else:
+            dib = 0.9 * dob
+        if self._eq_type in (1, 2):
+            ratio = dib / dob if dob > 0 else 0.99
+            ratio = max(0.80, min(0.99, ratio))
+            dib = ratio * dob
+        return max(0.0, min(dib, dob))
+
+    def calculate_dob_from_dib(self, dib: float) -> float:
+        if dib <= 0:
+            return 0.0
+        if self._eq_type == 1:
+            if self._a > 0 and self._b != 0:
+                return (dib / self._a) ** (1.0 / self._b)
+            return dib
+        if self._eq_type == 2:
+            if self._b and self._b > 0:
+                return max(dib, (dib - self._a) / self._b)
+            return dib
+        if self._eq_type == 3:
+            return dib / self._a if self._a > 0 else dib
+        return dib
+
+    def calculate_bark_ratio(self, dob: float) -> float:
+        if dob <= 0:
+            return 1.0
+        return self.calculate_dib_from_dob(dob) / dob
+
+    def calculate_bark_thickness(self, dob: float) -> float:
+        if dob <= 0:
+            return 0.0
+        return max(0.0, (dob - self.calculate_dib_from_dob(dob)) / 2.0)
+
+    def apply_bark_ratio_to_dbh(self, dbh_ob: float) -> float:
+        return self.calculate_dib_from_dob(dbh_ob)
+
+    def convert_dbh_ib_to_ob(self, dbh_ib: float) -> float:
+        return self.calculate_dob_from_dib(dbh_ib)
+
+    def get_species_coefficients(self) -> Dict[str, Any]:
+        return {'type': self._eq_type, 'a': self._a, 'b': self._b}
+
+    def validate_bark_ratio(self, bark_ratio: float) -> bool:
+        return 0.80 <= bark_ratio <= 0.99
+
+
 _bark_ratio_cache: dict[tuple[str, str], object] = {}
 
 

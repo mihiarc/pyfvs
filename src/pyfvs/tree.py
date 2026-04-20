@@ -702,7 +702,7 @@ class Tree:
             self._grow_large_tree_op(site_index, ba, pbal, time_step)
 
         # Topographic variants - use elevation/slope/aspect effects
-        elif variant in ('PN', 'WC', 'CA', 'OC', 'WS'):
+        elif variant in ('PN', 'WC', 'CA', 'OC', 'WS', 'EC'):
             self._grow_large_tree_topographic(variant, site_index, ba, pbal, slope, aspect, time_step, rng=rng, top_height=top_height, ccf=ccf)
 
         # Standard variants - DDS without topographic effects

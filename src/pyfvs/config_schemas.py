@@ -290,6 +290,25 @@ class PNCrownRatioFile(BaseModel):
     weibull_parameters: Dict[str, Any]
 
 
+# --- Crown Ratio (EC: species_coefficients with per-species Weibull + C0/C1) ---
+
+class ECCrownRatioSpeciesCoeffs(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    weib_a: float
+    weib_b0: float
+    weib_b1: float
+    weib_c0: float
+    weib_c1: float
+    c0: float
+    c1: float
+
+
+class ECCrownRatioFile(BaseModel):
+    """EC crown ratio: per-species Weibull parameters from ec/crown.f."""
+    model_config = ConfigDict(extra="allow")
+    species_coefficients: Dict[str, ECCrownRatioSpeciesCoeffs]
+
+
 # --- Large Tree Height Growth (balmod_coefficients or coefficients) ---
 
 class LargeTreeHGFile(BaseModel):
@@ -371,6 +390,12 @@ class OCMortalityDefaultsFile(BaseModel):
     shade_tolerance: Dict[str, float]
 
 
+class ECMortalityDefaultsFile(BaseModel):
+    """EC variant mortality defaults: per-species PMSC/PMD + HHTMAX."""
+    model_config = ConfigDict(extra="allow")
+    species_coefficients: Dict[str, Any]
+
+
 # ---------------------------------------------------------------------------
 # Schema registry — maps filename patterns to schema classes
 # ---------------------------------------------------------------------------
@@ -385,6 +410,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     (r"ca.+bark_ratio_coefficients\.json$", CABarkRatioFile),
     (r"oc.+bark_ratio_coefficients\.json$", OCBarkRatioFile),
     (r"pn.+bark_ratio_coefficients\.json$", PNBarkRatioFile),
+    (r"ec.+bark_ratio_coefficients\.json$", PNBarkRatioFile),
 
     # Diameter growth
     (r"sn_diameter_growth_coefficients\.json$", SNDGFile),
@@ -414,6 +440,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     (r"ws.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
     (r"ca.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
     (r"oc.+crown_ratio_coefficients\.json$", PNCrownRatioFile),
+    (r"ec.+crown_ratio_coefficients\.json$", ECCrownRatioFile),
     (r"crown_ratio_coefficients\.json$", StandardCrownRatioFile),
 
     # Large tree height growth
@@ -426,6 +453,7 @@ SCHEMA_REGISTRY: List[tuple] = [
     (r"ws_mortality_defaults\.json$", WSMortalityDefaultsFile),
     (r"ca_mortality_defaults\.json$", CAMortalityDefaultsFile),
     (r"oc_mortality_defaults\.json$", OCMortalityDefaultsFile),
+    (r"ec_mortality_defaults\.json$", ECMortalityDefaultsFile),
     (r"mortality_coefficients\.json$", StandardMortalityFile),
 ]
 
