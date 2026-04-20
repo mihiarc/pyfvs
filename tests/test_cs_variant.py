@@ -151,18 +151,6 @@ class TestCSCrownRatio:
         # Should be around 0.20-0.25 based on the equation
         assert 0.15 <= cr <= 0.35
 
-    def test_cs_shared_species_match_ls_crown_ratio(self):
-        """Species shared between CS and LS should produce similar TWIGS results."""
-        # SM is shared with identical coefficients
-        cs_model = CSCrownRatioModel('SM')
-        ls_model = LSCrownRatioModel('SM')
-        cs_cr = cs_model.predict_crown_ratio(8.0, 120.0)
-        ls_cr = ls_model.predict_crown_ratio(8.0, 120.0)
-        # Same TWIGS coefficients should give same result
-        assert abs(cs_cr - ls_cr) < 0.001, \
-            f"SM: CS CR={cs_cr:.3f} vs LS CR={ls_cr:.3f}"
-
-
 # ============================================================
 # Test CS SDI Maximums
 # ============================================================

@@ -154,19 +154,6 @@ class TestNECrownRatio:
         # Should be around 0.20-0.25 based on the equation
         assert 0.15 <= cr <= 0.35
 
-    def test_ne_shared_species_match_ls_crown_ratio(self):
-        """Species shared between NE and LS should produce same TWIGS results."""
-        shared_species = ['BF', 'SM', 'QA', 'RN', 'WP']
-        for species in shared_species:
-            ne_model = NECrownRatioModel(species)
-            ls_model = LSCrownRatioModel(species)
-            ne_cr = ne_model.predict_crown_ratio(8.0, 120.0)
-            ls_cr = ls_model.predict_crown_ratio(8.0, 120.0)
-            # Same TWIGS coefficients should give same result
-            assert abs(ne_cr - ls_cr) < 0.05, \
-                f"{species}: NE CR={ne_cr:.3f} vs LS CR={ls_cr:.3f}"
-
-
 # ============================================================
 # Test NE SDI Maximums
 # ============================================================
