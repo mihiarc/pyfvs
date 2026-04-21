@@ -835,6 +835,22 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             # survivor selection biases top-height trees toward positive OLDRN.
             return max(0.1, pothtg * (1.0 + oldrn) * gmod)
 
+        # NE variant — Fortran ne/htgf.f:102-108 uses the same NE BALMOD
+        # exp(-B3*BAL) as DG, blended with RELHTA and damped ×0.8.
+        #   CALL BALMOD(ISPC, DBH, GMOD)   [pbal = NE-style EBAU-shifted BAL]
+        #   GMOD = (1 - (1-GMOD)*(1-RELHTA)) * 0.8
+        #   HTG  = HTG * (1 + OLDRN) * GMOD
+        # Pyfvs was falling through to the SN shade-tolerance modifier,
+        # which lacks the 0.8 damping — driving ~+5-9% TH over-prediction
+        # across all NE species.
+        if variant == 'NE':
+            from .ne_diameter_growth import create_ne_diameter_growth_model
+            ne_model = create_ne_diameter_growth_model(species_code)
+            balmod = ne_model._calculate_bagmod(max(0.0, pbal))
+            relhta = max(0.0, min(1.0, relative_height))
+            gmod = (1.0 - (1.0 - balmod) * (1.0 - relhta)) * 0.8
+            return max(0.1, pothtg * (1.0 + oldrn) * gmod)
+
         # SN (and other non-LS variants): shade-tolerance modifier.
         hgmdcr = self.calculate_crown_ratio_modifier(crown_ratio)
         hgmdrh = self.calculate_relative_height_modifier(

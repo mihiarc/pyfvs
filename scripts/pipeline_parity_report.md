@@ -1,9 +1,9 @@
 # Forest-rents pipeline parity sweep
 
 Configuration: TPA=400, SI=70, rotation=50yr, pyfvs n_seeds=5 (base=42); native single-seed. Pass band ≤5%, warn band ≤15%, fail above.
-Ran in 11.5s.
+Ran in 11.3s.
 
-**Summary** — PASS: 9, WARN: 24, FAIL: 19, ERROR: 0
+**Summary** — PASS: 16, WARN: 18, FAIL: 18, ERROR: 0
 
 | Region | Variant | Species | FIA | Status | ΔBA | ΔQMD | ΔTopH | ΔVol | |Δ|max |
 |---|---|---|---|---|---:|---:|---:|---:|---:|
@@ -16,14 +16,14 @@ Ran in 11.5s.
 | southern | SN | YP | 621 | WARN | -0.7% | -0.9% | +11.7% | +11.4% | 11.7% |
 | southern | SN | SU | 611 | WARN | -13.8% | -8.7% | +3.3% | -11.4% | 13.8% |
 | southern | SN | HI | 400 | WARN | +12.9% | +9.5% | +1.3% | +14.9% | 14.9% |
-| northeast | NE | WP | 129 | WARN | -4.2% | +1.4% | +6.3% | +4.8% | 6.3% |
-| northeast | NE | RS | 97 | FAIL | +8.0% | +1.0% | +7.2% | +16.9% | 16.9% |
-| northeast | NE | BF | 12 | WARN | -1.2% | +1.2% | +9.3% | +6.2% | 9.3% |
-| northeast | NE | SM | 318 | WARN | -1.7% | -0.9% | +6.4% | +6.1% | 6.4% |
-| northeast | NE | RM | 316 | WARN | +2.0% | +1.0% | +5.2% | +7.9% | 7.9% |
-| northeast | NE | RO | 833 | WARN | -1.0% | +0.5% | +3.6% | +5.7% | 5.7% |
-| northeast | NE | YB | 371 | WARN | +1.7% | +1.2% | +5.1% | +6.3% | 6.3% |
-| northeast | NE | BC | 762 | WARN | +1.1% | -0.2% | +4.9% | +7.3% | 7.3% |
+| northeast | NE | WP | 129 | PASS | -4.2% | +1.4% | -2.0% | -2.1% | 4.2% |
+| northeast | NE | RS | 97 | WARN | +8.0% | +1.0% | -2.7% | +8.1% | 8.1% |
+| northeast | NE | BF | 12 | PASS | -1.2% | +1.2% | -0.1% | -1.0% | 1.2% |
+| northeast | NE | SM | 318 | PASS | -2.1% | -1.1% | -0.8% | -1.5% | 2.1% |
+| northeast | NE | RM | 316 | PASS | +1.7% | +0.8% | -2.6% | +1.3% | 2.6% |
+| northeast | NE | RO | 833 | PASS | -1.1% | +0.5% | -3.9% | -1.4% | 3.9% |
+| northeast | NE | YB | 371 | PASS | +1.6% | +1.1% | -0.7% | +2.1% | 2.1% |
+| northeast | NE | BC | 762 | PASS | +1.1% | -0.2% | -2.8% | -0.2% | 2.8% |
 | lake_states | LS | RP | 125 | WARN | +6.5% | +4.9% | -2.0% | +8.6% | 8.6% |
 | lake_states | LS | JP | 105 | WARN | +8.2% | +2.6% | +0.8% | +10.0% | 10.0% |
 | lake_states | LS | WP | 129 | WARN | +5.0% | +8.4% | +2.8% | +9.3% | 9.3% |
