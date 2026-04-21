@@ -354,10 +354,16 @@ class ClarkTaperModel(TaperModel):
         if form_class is not None and form_class > 0:
             self._dib17 = dbh * form_class / 100.0
         elif height > 17.3:
-            # DIB at 17.3 ft — uses DBH OB per Fortran r8clkdib.f:359:
-            #   DIB17 = DBHOB * (A17 + B17 * (17.3/TOPHT)**2)
+            # DIB at 17.3 ft — convention differs between R8 (SN) and R9
+            # (NE/LS/CS) per Fortran volume/r9clark_fvsMod.f:886-893:
+            #   R8: DIB17 = DBHOB * (A17 + B17 * (17.3/TOPHT)^2)
+            #   R9: DIB17 = DBHIB * (A17 + B17 * (17.3/TOPHT)^2)
+            # Using DBHOB for R9 (as pyfvs did previously) inflates DIB17
+            # by ~7% for typical hardwoods where dbhIb ≈ 0.94 * dbhOb.
+            # That compounds to +10-15% total cubic volume for R9 trees.
             ratio_sq = (17.3 / height) ** 2
-            self._dib17 = dbh * (coef['a17'] + coef['b17'] * ratio_sq)
+            base_dbh = self._dbhib if self.variant in self._R9_VARIANTS else dbh
+            self._dib17 = base_dbh * (coef['a17'] + coef['b17'] * ratio_sq)
             self._dib17 = max(0.1, self._dib17)
             # R8 minimum form-class clamp per r8prep.f:346-367.
             if self.variant == 'SN':
