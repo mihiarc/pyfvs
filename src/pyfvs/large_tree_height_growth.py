@@ -86,20 +86,47 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
     }
     DEFAULT_SPECIES = "LP"
 
-    def __init__(self, species_code: str = "LP"):
+    def __init__(self, species_code: str = "LP", variant: str = "SN"):
         """Initialize with species-specific parameters.
 
         Args:
             species_code: Species code (e.g., "LP", "SP", "SA", etc.)
+            variant: FVS variant code. Non-SN variants do not load coefficients
+                from the SN file — the b1..b11 coefficients apply only to the
+                SN ln(DDS) height-growth equation; other variants use
+                Chapman-Richards site curves (LS/CS/NE/CA/OP) or height-age
+                curves (PN/WC/EC) that don't reference those coefficients.
         """
+        self._variant = (variant or "SN").upper()
         super().__init__(species_code)
-    
+
     def _load_parameters(self):
         """Load large tree height growth parameters from configuration.
 
         Extends base class to also load methodology, equation info,
         variable definitions, shade tolerance, and site index ranges.
+
+        For non-SN variants, the SN-file coefficient lookup is skipped
+        entirely (non-SN growth paths don't use b1..b11). Coefficients
+        are set to an empty dict so any accidental access fails loudly
+        rather than silently borrowing SN LP defaults.
         """
+        if self._variant != "SN":
+            # No SN fallback for non-SN variants. Paths that would use
+            # b1..b11 are SN-only; non-SN variants compute height growth
+            # through Chapman-Richards or height-age curves instead.
+            self.coefficients = {}
+            self.raw_data = None
+            # Still populate equation_info and methodology (shared across
+            # variants) so calculate_crown_ratio_modifier / shade_tolerance
+            # lookups continue to work with fixed CRA/CRB/CRC constants.
+            self.diameter_coefficients = {}
+            self._load_fallback_equation_info()
+            self._load_methodology()
+            self._load_shade_tolerance_parameters()
+            self._load_site_index_ranges()
+            return
+
         # Call parent to load species coefficients into self.coefficients
         super()._load_parameters()
 
@@ -830,21 +857,29 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         }
 
 
-_height_growth_cache: dict[str, LargeTreeHeightGrowthModel] = {}
+_height_growth_cache: dict[tuple[str, str], LargeTreeHeightGrowthModel] = {}
 
 
-def create_large_tree_height_growth_model(species_code: str = "LP") -> LargeTreeHeightGrowthModel:
+def create_large_tree_height_growth_model(
+    species_code: str = "LP",
+    variant: str = "SN",
+) -> LargeTreeHeightGrowthModel:
     """Factory function to create a cached large tree height growth model.
 
     Args:
         species_code: Species code (e.g., "LP", "SP", "SA", etc.)
+        variant: FVS variant code. Non-SN variants avoid the SN-file
+            coefficient load so non-SN simulations never silently borrow
+            SN LP coefficients.
 
     Returns:
-        LargeTreeHeightGrowthModel instance (cached by species)
+        LargeTreeHeightGrowthModel instance (cached by species+variant)
     """
-    key = species_code.upper()
+    key = (species_code.upper(), (variant or "SN").upper())
     if key not in _height_growth_cache:
-        _height_growth_cache[key] = LargeTreeHeightGrowthModel(species_code)
+        _height_growth_cache[key] = LargeTreeHeightGrowthModel(
+            species_code, variant=variant
+        )
     return _height_growth_cache[key]
 
 
@@ -875,7 +910,7 @@ def calculate_large_tree_height_growth(species_code: str, dbh: float, crown_rati
     Returns:
         Periodic height growth (feet)
     """
-    model = create_large_tree_height_growth_model(species_code)
+    model = create_large_tree_height_growth_model(species_code, variant=variant)
     return model.calculate_height_growth(
         dbh, crown_ratio, relative_height, site_index,
         basal_area, pbal, slope, aspect, species_code, tree_age, tree_height,

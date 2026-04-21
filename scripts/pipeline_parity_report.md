@@ -1,7 +1,7 @@
 # Forest-rents pipeline parity sweep
 
 Configuration: TPA=400, SI=70, rotation=25yr, pyfvs n_seeds=5 (base=42); native single-seed. Pass band ≤5%, warn band ≤15%, fail above.
-Ran in 6.6s.
+Ran in 6.5s.
 
 **Summary** — PASS: 4, WARN: 8, FAIL: 40, ERROR: 0
 

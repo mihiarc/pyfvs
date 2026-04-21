@@ -59,15 +59,15 @@ requires_fvs_ls = pytest.mark.skipif(
 class TestSpeciesMapData:
     """Test that species map data is complete and internally consistent."""
 
-    def test_all_ten_variants_present(self):
-        """All 10 FVS variants should have species maps."""
-        expected = {"SN", "LS", "PN", "WC", "NE", "CS", "OP", "CA", "OC", "WS"}
+    def test_all_variants_present(self):
+        """All 11 FVS variants should have species maps (EC added 2026-04-21)."""
+        expected = {"SN", "LS", "PN", "WC", "NE", "CS", "OP", "CA", "OC", "WS", "EC"}
         assert set(VARIANT_SPECIES_MAPS.keys()) == expected
 
     def test_get_supported_variants(self):
-        """get_supported_variants returns sorted list of all 10 variants."""
+        """get_supported_variants returns sorted list of all 11 variants."""
         variants = get_supported_variants()
-        assert len(variants) == 10
+        assert len(variants) == 11
         assert variants == sorted(variants)
 
     @pytest.mark.parametrize("variant,expected_min", [
