@@ -934,7 +934,13 @@ class Stand:
             self._grow_establishment_cycle_cs_lestb(base_cycle)
             return
 
-        from .establishment import get_essubh_height, get_hhtmax
+        import math
+        from .establishment import (
+            compute_lestb_initial_hht,
+            get_hhtmax,
+            load_small_tree_coefficients,
+        )
+        from .ls_balmod import ls_balmod
         from statistics import NormalDist
 
         n = len(self.trees)
@@ -957,29 +963,101 @@ class Stand:
                 x = normal.inv_cdf(q)
                 variations.append(max(0.0, min(1.5, x)))
 
-        fnt = max(1, base_cycle - 5)  # LS/CS 10-yr cycle -> 5 yrs growth
+        # Fortran ls/regent.f LESTB branch:
+        #   FNT = FINT - 5 (5 yrs of regent growth for 10-yr cycle)
+        #   SCALE = FNT / REGYR = 5/10 = 0.5
+        #   YRS = 10.0 (HTCALC always uses 10-yr increment)
+        # Per-tree HG = (Chapman-Richards 10-yr forward increment) * SCALE * GMOD
+        # where GMOD comes from BALMOD (bare-ground values at cycle 1) blended
+        # with RELHTA via GMOD = 1 - (1-GMOD)*(1-RELHTA). At bare ground AVH=0
+        # so RELHTA=0 and the BALMOD value passes through unchanged.
+        scale_htg = 0.5
+        si = self.site_index
+
         for tree, variation in zip(self.trees, variations):
-            hht = get_essubh_height(tree.species, self.variant)
+            # ESSUBH: HHT = (H(CARAGE)/CARAGE) * MIN(5.0, TIME-DELAY) = 5.0
+            hht = compute_lestb_initial_hht(tree.species, si, self.variant)
             hhtmax = get_hhtmax(tree.species, self.variant)
-            start_ht = hht + variation
-            if hhtmax > 0 and start_ht > hhtmax:
-                start_ht = hhtmax
-            tree.height = max(0.5, start_ht)
+            start_ht = max(0.5, hht + variation)
+            tree.height = start_ht
             tree.dbh = 0.1
             tree.age = 1
-            # _grow_small_tree advances tree.height via forward Chapman-
-            # Richards and updates tree.dbh via the variant H-D inverse.
-            # Competition factor is 0 at establishment (stand is bare).
-            tree._grow_small_tree(
-                site_index=self.site_index,
-                competition_factor=0.0,
-                time_step=fnt,
-                ba=0.0,
-                pbal=0.0,
-                avg_height=0.0,
-                rng=self._rng if self.stochastic else None,
-            )
-            tree.age = base_cycle  # align tree age with stand clock
+
+            # REGENT LESTB: compute 10-yr Chapman-Richards increment from
+            # FINDAG(HHT), scaled by 0.5 to 5-yr, then BALMOD-modulated.
+            p = load_small_tree_coefficients(tree.species, self.variant)
+            if not p:
+                p = {'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374,
+                     'c4': 0.7632, 'c5': 0.0358, 'bh': 0.0}
+            c1, c2, c3, c4, c5 = p['c1'], p['c2'], p['c3'], p['c4'], p['c5']
+            bh = p.get('bh', 0.0)
+
+            def _raw_cr(age: float) -> float:
+                if age <= 0:
+                    return bh + 0.1
+                return bh + c1 * (si ** c2) * \
+                    (1.0 - math.exp(c3 * age)) ** (c4 * (si ** c5))
+
+            # SI anchor (matches Tree._grow_small_tree convention)
+            raw_base = _raw_cr(50.0)
+            scl = si / raw_base if raw_base > 0 else 1.0
+
+            # FINDAG: effective age from current height
+            max_h = (bh + c1 * (si ** c2)) * scl
+            exponent = c4 * (si ** c5)
+            raw_ht = start_ht / scl if scl > 0 else start_ht
+            if raw_ht >= (bh + c1 * (si ** c2)) - 0.1 or raw_ht <= bh + 0.1 \
+                    or exponent <= 0:
+                aget = 0.1
+            else:
+                ratio = (raw_ht - bh) / (c1 * (si ** c2))
+                if 0 < ratio < 1.0:
+                    inner = ratio ** (1.0 / exponent)
+                    aget = max(0.1, math.log(1.0 - inner) / c3) \
+                        if 0 < inner < 1.0 else 0.1
+                else:
+                    aget = 0.1
+
+            # HTCALC MODE=9: 10-yr Chapman-Richards forward increment
+            htgr = (_raw_cr(aget + 10.0) - _raw_cr(aget)) * scl
+            # SCALE conversion to 5-yr (FNT/REGYR) for 10-yr cycle
+            htgr = htgr * scale_htg
+
+            # BALMOD GMOD: bare-ground (RMSQD=0, BA=0) → species-specific
+            # reduction from B4 intercept. For conifers like WS where B4=0,
+            # this produces the 0.2 floor (5x reduction vs hardwoods like
+            # BF with B4=0.233 giving GMOD ≈ 0.96).
+            if self.variant == 'LS':
+                gmod = ls_balmod(tree.species, 0.1, 0.0, 0.0)
+            else:
+                # NE doesn't have a ported BALMOD yet; use 1.0 (no reduction)
+                gmod = 1.0
+            # Fortran regent.f:237-239: AVH=0 at bare ground → RELHTA=0 → GMOD unchanged
+            htgr = htgr * gmod
+            if htgr < 0.1:
+                htgr = 0.1
+
+            # OLDRN ±10% stochastic noise per regent.f:262-268
+            if self.stochastic and self._rng is not None:
+                ran = 0.0
+                for _ in range(100):
+                    ran = self._rng.gauss(0.0, 1.0)
+                    if -1.0 <= ran <= 1.0:
+                        break
+                else:
+                    ran = max(-1.0, min(1.0, ran))
+                htgr = htgr + ran * 0.1 * htgr
+
+            # ESGENT: HT = HT + HTG*WK4 (WK4=1 for default PLANT)
+            tree.height = tree.height + htgr
+
+            # HHTMAX cap per esgent.f:63-64
+            if hhtmax > 0 and tree.height > hhtmax:
+                tree.height = hhtmax
+
+            # Update DBH from height via HTDBH (Wykoff / Curtis-Arney inverse)
+            tree._update_dbh_from_height()
+            tree.age = base_cycle  # align with stand clock
 
         # Crown ratio per Fortran regent.f:178-185 (LESTB branch):
         #   CR = 0.89722 - 0.0000461*PCCF + 0.07985*RAN (RAN ~ N(0,1) in [-1,1])

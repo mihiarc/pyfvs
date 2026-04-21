@@ -151,15 +151,7 @@ def test_ls_off_baseline_parity(
                 strict=True,
             ),
         ),
-        pytest.param(
-            "SM", 55, 500, 30, id="sm-si55-30yr",
-            marks=pytest.mark.xfail(
-                reason="Sweep 2026-04-16: BA +17.45% (>5% tol). Same DG-coefficient "
-                "root cause as JP xfail. Sugar maple (SM) is a high-tolerance "
-                "hardwood; DG equation form identical to other LS species.",
-                strict=True,
-            ),
-        ),
+        pytest.param("SM", 55, 500, 30, id="sm-si55-30yr"),
         pytest.param(
             "QA", 70, 500, 30, id="qa-si70-30yr",
             marks=pytest.mark.xfail(

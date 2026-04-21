@@ -25,13 +25,6 @@ from tests.parity._helpers import (
 NE_PARITY_N_SEEDS = 10
 
 
-@pytest.mark.xfail(
-    reason="Baseline 2026-04-16: BA +51%, QMD +23% over native at RM SI=60 "
-    "30yr. Pre-fix NE has no blend zone (pyfvs default) or LS-style "
-    "establishment LESTB dispatch — same patterns we saw on CS pre-fix. "
-    "Tracking through a Fortran-faithful fix sequence.",
-    strict=True,
-)
 def test_ne_gold_standard_rm_si60_30yr(require_native_variant, parity_tolerance):
     """Gold-standard NE scenario: 500 RM at SI=60 grown 30 years.
 
@@ -72,13 +65,7 @@ def test_ne_gold_standard_rm_si60_30yr(require_native_variant, parity_tolerance)
                 reason="Baseline 2026-04-16: pre-fix NE over-prediction.",
             ),
         ),
-        pytest.param(
-            "SM", 60, 500, 30, id="sm-si60-30yr",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Baseline 2026-04-16: pre-fix NE over-prediction.",
-            ),
-        ),
+        pytest.param("SM", 60, 500, 30, id="sm-si60-30yr"),
         pytest.param(
             "YB", 60, 500, 30, id="yb-si60-30yr",
             marks=pytest.mark.xfail(

@@ -149,6 +149,41 @@ def compute_cs_essubh_initial_height(species: str, site_index: float) -> float:
     return (h_at_carage / carage) * 5.0
 
 
+def compute_lestb_initial_hht(species: str, site_index: float, variant: str) -> float:
+    """Fortran {variant}/essubh.f: HHT = (H(CARAGE)/CARAGE) * MIN(5.0, TIME-DELAY).
+
+    Matches Fortran essubh.f line 75 (CALL HTCALC MODE=1 at AGET=CARAGE) and
+    line 77 (HHT linear interpolation to 5 years). For LS/CS/NE variants.
+
+    Unlike compute_establishment_height, this does NOT apply the HHTMAX cap —
+    Fortran essubh.f does not cap H(CARAGE), only ESGENT applies HHTMAX after
+    REGENT's additive growth step (esgent.f:63-64).
+
+    The carmean reference age CARAGE is species-specific from the variant's
+    MAPLS/MAPCS/MAPNE table. TIME=cycle_length, DELAY=0 for bare-ground PLANT,
+    so MIN(5.0, TIME-DELAY) = 5.0 for 10-yr LS/CS/NE cycles.
+    """
+    carage = _get_essubh_carage(species, variant)
+    p = load_small_tree_coefficients(species, variant)
+    if not p:
+        p = {'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374,
+             'c4': 0.7632, 'c5': 0.0358, 'bh': 0.0}
+    bh = p.get('bh', 0.0)
+
+    raw_height = bh + p['c1'] * (site_index ** p['c2']) * \
+        (1.0 - math.exp(p['c3'] * carage)) ** (p['c4'] * (site_index ** p['c5']))
+
+    # SI anchoring: non-SN variants use scale_factor = SI / H_raw(50).
+    # For most LS coefficients this is ~1.0 (curves pass through SI at age 50
+    # by construction) but included for consistency with Tree._grow_small_tree.
+    raw_at_base = bh + p['c1'] * (site_index ** p['c2']) * \
+        (1.0 - math.exp(p['c3'] * 50.0)) ** (p['c4'] * (site_index ** p['c5']))
+    scale = site_index / raw_at_base if raw_at_base > 0 else 1.0
+    h_at_carage = raw_height * scale
+
+    return (h_at_carage / carage) * 5.0
+
+
 # =============================================================================
 # HHTMAX — maximum establishment height per species (from blkdat.f)
 # =============================================================================
