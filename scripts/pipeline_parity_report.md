@@ -1,7 +1,7 @@
 # Forest-rents pipeline parity sweep
 
 Configuration: TPA=400, SI=70, rotation=50yr, pyfvs n_seeds=5 (base=42); native single-seed. Pass band ≤5%, warn band ≤15%, fail above.
-Ran in 12.4s.
+Ran in 11.8s.
 
 **Summary** — PASS: 5, WARN: 16, FAIL: 31, ERROR: 0
 
@@ -50,7 +50,7 @@ Ran in 12.4s.
 | pacific_northwest | PN | PP | 122 | FAIL | -13.7% | +2.1% | +0.5% | -39.1% | 39.1% |
 | pacific_northwest | PN | LP | 108 | FAIL | +9.4% | +5.2% | +1.7% | -27.9% | 27.9% |
 | pacific_northwest | PN | GF | 17 | WARN | +13.0% | +6.2% | -1.4% | -11.9% | 13.0% |
-| pacific_northwest | EC | WL | 73 | FAIL | +19.2% | -16.0% | -1.8% | -11.1% | 19.2% |
+| pacific_northwest | EC | WL | 73 | FAIL | +13.3% | -15.5% | -1.7% | -15.5% | 15.5% |
 | mountain | CA | DF | 202 | FAIL | +15.0% | +27.7% | +5.4% | +22.9% | 27.7% |
 | mountain | CA | PP | 122 | FAIL | -16.3% | +15.9% | +10.1% | +3.9% | 16.3% |
 | mountain | CA | LP | 108 | FAIL | +45.9% | +28.9% | +0.3% | +0.3% | 45.9% |
@@ -58,4 +58,4 @@ Ran in 12.4s.
 | mountain | PN | ES | 93 | FAIL | +1.0% | +0.5% | -0.7% | -33.0% | 33.0% |
 | mountain | PN | AF | 19 | FAIL | +17.5% | +4.6% | +0.3% | -7.0% | 17.5% |
 | mountain | PN | GF | 17 | WARN | +13.0% | +6.2% | -1.4% | -11.9% | 13.0% |
-| mountain | EC | WL | 73 | FAIL | +19.2% | -16.0% | -1.8% | -11.1% | 19.2% |
+| mountain | EC | WL | 73 | FAIL | +13.3% | -15.5% | -1.7% | -15.5% | 15.5% |

@@ -1,10 +1,10 @@
 {
     "metadata": {
         "variant": "EC",
-        "source": "ForestVegetationSimulator/ec/morts.f DATA PMSC, PMD",
-        "description": "Background mortality coefficients for East Cascades variant (32 species)",
+        "source": "ForestVegetationSimulator/ec/morts.f DATA PMSC,PMD + ec/varmrt.f DATA VARADJ",
+        "description": "Background mortality coefficients + VARADJ shade tolerance for East Cascades variant (32 species)",
         "equation": "RI = 1 / (1 + exp(PMSC + PMD*DBH))   (annual mortality probability)",
-        "notes": "Fortran morts.f:557 logistic form. B0=PMSC (intercept), B1=PMD (DBH slope). Rate is halved after computation per morts.f:560 (test-run tuning)."
+        "notes": "Fortran morts.f:557 logistic form. B0=PMSC (intercept), B1=PMD (DBH slope). Rate is halved after computation per morts.f:561 (test-run tuning). VARADJ uses SN convention (1.0 = MOST INTOLERANT)."
     },
     "species_coefficients": {
         "WP":  {"pmsc":  6.5112, "pmd": -0.0052485},
@@ -39,6 +39,19 @@
         "WI":  {"pmsc":  5.9617, "pmd": -0.0340128},
         "OS":  {"pmsc":  5.1677, "pmd": -0.0077681},
         "OH":  {"pmsc":  5.9617, "pmd": -0.0340128}
+    },
+    "varadj": {
+        "source": "ec/varmrt.f:94-98 DATA VARADJ",
+        "convention": "SN (EFFTR = PEFF * VARADJ * 0.1 — higher VARADJ = more intolerant)",
+        "values": {
+            "WP": 0.85, "WL": 1.00, "DF": 0.55, "SF": 0.60, "RC": 0.60,
+            "GF": 0.50, "LP": 0.90, "ES": 0.50, "AF": 0.60, "PP": 0.85,
+            "WH": 0.60, "MH": 0.75, "PY": 0.60, "WB": 0.85, "NF": 0.85,
+            "WF": 0.50, "LL": 0.90, "YC": 0.50, "WJ": 0.85, "BM": 0.90,
+            "VN": 0.90, "RA": 0.85, "PB": 0.85, "GC": 0.85, "DG": 0.60,
+            "AS": 0.90, "CW": 0.90, "WO": 0.85, "PL": 0.85, "WI": 0.90,
+            "OS": 0.75, "OH": 0.90
+        }
     },
     "hhtmax": {
         "source": "ec/blkdat.f:153-157 DATA HHTMAX",

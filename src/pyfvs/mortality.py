@@ -1792,6 +1792,129 @@ class OrganonSwoMortalityModel(OCMortalityModel):
         return stand_si
 
 
+class ECMortalityModel(LSMortalityModel):
+    """FVS East Cascades mortality model.
+
+    Direct port of subroutine MORTS (ec/morts.f). Like LS, EC uses Hamilton-
+    style background mortality + SDI-based density mortality with the
+    background rate halved post-logistic (morts.f:561). Structural
+    differences vs LS:
+
+    1. **Per-species PMSC/PMD** (not 4-group). ec/morts.f:170-186 stores
+       individual PMSC and PMD coefficients for all 32 species (most
+       duplicate across shade tolerance levels; EC essentially encodes
+       the LS 4-group structure but as per-species tables).
+    2. **SN-convention VARADJ** (1.0 = MOST INTOLERANT; ec/varmrt.f:94-98).
+       Unlike LS which flips convention via `_get_varadj_for_tree`, EC uses
+       VARADJ directly per ec/varmrt.f:149 `EFFTR = PEFF * VARADJ * 0.1`.
+
+    Coefficients and VARADJ are loaded from cfg/ec/ec_mortality_defaults.json.
+    SDI maximums come from `StandMetricsCalculator.PN_SDI_MAXIMUMS` via
+    the variant_registry.
+    """
+
+    _DEFAULTS_FILE = 'ec/ec_mortality_defaults.json'
+    _COEFFICIENT_FILE = 'ec/ec_mortality_defaults.json'  # same file; EC stores VARADJ inline
+
+    def __init__(self, default_species: str = 'DF', max_sdi: Optional[float] = None,
+                 variant: str = 'EC'):
+        # Can't chain through MortalityModel.__init__ for the same reason as
+        # LS: it loads SN-specific class-level state we don't want.
+        # Mirror LSMortalityModel.__init__ but skip the 4-group setup.
+        self.default_species = default_species
+        self.max_sdi = max_sdi
+        self.variant = variant
+        self._shade_tolerance: Dict[str, float] = {}
+        self._species_pmsc_pmd: Dict[str, tuple] = {}  # (pmsc, pmd) per species
+
+        # Persistent state for the Fortran log-log linear function (same
+        # as SN/LS: CEPMRT/SLPMRT/TPAMRT).
+        self._slpmrt = 0.0
+        self._cepmrt = 0.0
+        self._prev_tpa = 0.0
+
+        self._load_ec_defaults()
+
+        # SDI maximums come from variant_registry.config.sdi_maximums,
+        # which for EC points to StandMetricsCalculator.PN_SDI_MAXIMUMS
+        # (augmented with EC-specific species: WL, VN, OS, OH, etc.).
+        # EC's SDI maximum is defined per plant association in
+        # ec/ecocls.f (MAX SDI = GBA * 1.5 * 1.84). Without an ecoclass
+        # keyword, we use averaged defaults that approximate native's
+        # behavior at pipeline settings.
+        # TODO(EC Phase 5): port ec/ecocls.f per-plant-association SDIMX
+        # tables for precise ecoclass-aware SDI limits.
+        from .stand_metrics import StandMetricsCalculator
+        self._SDI_MAXIMUMS = dict(StandMetricsCalculator.PN_SDI_MAXIMUMS)
+        self.DEFAULT_SDI_MAX = 400
+
+        # SPECIES_MORTALITY_GROUP is unused in EC (per-species PMSC/PMD)
+        # but some inherited code may reference it defensively.
+        self.SPECIES_MORTALITY_GROUP = {}
+
+        if self.max_sdi is None:
+            self.max_sdi = self._SDI_MAXIMUMS.get(default_species, 600)
+
+    def _load_ec_defaults(self) -> None:
+        """Load per-species PMSC/PMD + VARADJ from ec_mortality_defaults.json.
+
+        Falls back to hardcoded EC defaults (from Fortran) when the JSON is
+        unavailable.
+        """
+        try:
+            from .config_loader import load_coefficient_file
+            data = load_coefficient_file(self._DEFAULTS_FILE, variant='EC')
+            coeffs = data.get('species_coefficients', {})
+            for sp, vals in coeffs.items():
+                self._species_pmsc_pmd[sp] = (vals['pmsc'], vals['pmd'])
+            varadj = data.get('varadj', {}).get('values', {})
+            self._shade_tolerance = dict(varadj)
+        except (FileNotFoundError, KeyError, ValueError):
+            # Minimal fallback mirroring ec/morts.f + ec/varmrt.f for the
+            # pipeline species. Other species fall back to the common
+            # intermediate-intolerance group.
+            self._species_pmsc_pmd = {
+                'WL': (6.5112, -0.0052485),  # WL shares WP's PMSC/PMD group
+                'DF': (7.2985, -0.0129121),
+                'GF': (5.1677, -0.0077681),
+                'LP': (5.9617, -0.0340128),
+                'PP': (5.5877, -0.005348),
+                'ES': (9.6943, -0.0127328),
+                'AF': (5.1677, -0.0077681),
+                'WP': (6.5112, -0.0052485),
+            }
+            self._shade_tolerance = {
+                'WL': 1.00, 'DF': 0.55, 'GF': 0.50, 'LP': 0.90,
+                'PP': 0.85, 'ES': 0.50, 'AF': 0.60, 'WP': 0.85,
+            }
+
+    def _get_background_rate_for_tree(
+        self, tree: 'Tree', cycle_length: int
+    ) -> float:
+        """EC per-species background mortality with halved logistic rate.
+
+        Direct port of ec/morts.f:539-561.
+            RI = 1 / (1 + exp(PMSC + PMD*D))   (annual)
+            RI = 0.5 * RI                      (morts.f:561 halving)
+            RIP = 1 - (1 - RI)^FINT            (cycle compounding)
+        """
+        p0, p1 = self._species_pmsc_pmd.get(
+            tree.species, (5.5877, -0.005348)  # default to PP-class
+        )
+        ri = 1.0 / (1.0 + math.exp(p0 + p1 * tree.dbh))
+        ri *= 0.5  # morts.f:561
+        rip = 1.0 - ((1.0 - ri) ** cycle_length)
+        return rip
+
+    def _get_varadj_for_tree(self, species: str) -> float:
+        """Return VARMRT shade-tolerance coefficient in SN convention.
+
+        ec/varmrt.f uses SN convention (1.0 = MOST INTOLERANT) per the
+        EFFTR = PEFF * VARADJ * 0.1 formula (ec/varmrt.f:149). No flip.
+        """
+        return self._shade_tolerance.get(species, 0.75)  # OS/intermediate default
+
+
 # Module-level convenience functions
 _default_model: Optional[MortalityModel] = None
 

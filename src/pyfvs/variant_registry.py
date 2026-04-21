@@ -23,7 +23,7 @@ from .crown_ratio import (
 )
 from .mortality import (
     MortalityModel, LSMortalityModel, NEMortalityModel, CSMortalityModel,
-    OCMortalityModel, OrganonSwoMortalityModel,
+    OCMortalityModel, OrganonSwoMortalityModel, ECMortalityModel,
 )
 from .taper import ClarkTaperModel, FlewellingTaperModel
 
@@ -318,12 +318,14 @@ REGISTRY: Dict[str, VariantConfig] = {
         growth_category='topographic',
         # PHASE 2 EC port (2026-04-20): bark/crown/HD/HHTMAX ported from
         # ec/bratio.f, ec/crown.f, ec/htdbh.f (Wenatchee default forest),
-        # and ec/blkdat.f. Mortality still uses the generic MortalityModel
-        # with PN SDI table; htgf.f (large-tree HG) and smhtgf.f (small-
-        # tree HG) not yet ported.
+        # and ec/blkdat.f.
+        # PHASE 3 EC port (2026-04-21): ec/smhtgf.f, ec/htcalc.f (large-
+        # tree HG), + establishment LESTB cycle.
+        # PHASE 4 EC port (2026-04-21): ec/morts.f (per-species PMSC/PMD
+        # + halved logistic) + ec/varmrt.f (SN-convention VARADJ).
         bark_ratio_class=ECBarkRatioModel,
         crown_ratio_class=ECCrownRatioModel,
-        mortality_class=MortalityModel,
+        mortality_class=ECMortalityModel,
         mortality_needs_sdi_lookup=True,
         taper_class=FlewellingTaperModel,
         dg_module='ec_diameter_growth',

@@ -71,8 +71,10 @@ class StandMetricsCalculator:
         'DF': 850, 'RW': 950, 'RC': 850, 'WH': 900, 'MH': 600,
         'BM': 500, 'RA': 700, 'WA': 500, 'PB': 400, 'GC': 500,
         'AS': 400, 'CW': 500, 'WO': 500, 'WJ': 300, 'LL': 400,
+        'WL': 280, 'VN': 400, 'SH': 500,  # EC additions (WL: ec/ecocls.f GBA-derived)
         'WB': 400, 'KP': 400, 'PY': 350, 'DG': 400, 'HT': 350,
-        'CH': 400, 'WI': 350, 'OT': 500,
+        'CH': 400, 'WI': 350, 'OT': 500, 'PL': 400, 'OS': 500,
+        'OH': 400,
     }
 
     # NE SDI maximums for Northeast variant - from NE-TWIGS documentation
