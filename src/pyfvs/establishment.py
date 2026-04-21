@@ -133,6 +133,40 @@ def _get_essubh_carage(species: str, variant: str) -> int:
     return ESSUBH_DEFAULT_CARAGE
 
 
+# Fortran ca/essubh.f hardcoded HHT per species group (lines 52-86).
+# CA's essubh doesn't compute from Chapman-Richards; it assigns one of
+# four fixed heights (1.0, 2.0, 3.0) based on the tree's species-group.
+# Groups per GOTO targets 10/20/30/40/50 in the computed-GOTO at line 52.
+_CA_ESSUBH_HHT = {
+    # Group 20 (HHT=2.0): PC IC RC WF DF WH JP SP WP PP MP GP BR GS OS RW
+    'PC': 2.0, 'IC': 2.0, 'RC': 2.0, 'WF': 2.0, 'DF': 2.0, 'WH': 2.0,
+    'JP': 2.0, 'SP': 2.0, 'WP': 2.0, 'PP': 2.0, 'MP': 2.0, 'GP': 2.0,
+    'BR': 2.0, 'GS': 2.0, 'OS': 2.0, 'RW': 2.0,
+    # Group 10 (HHT=1.0): RF SH MH
+    'RF': 1.0, 'SH': 1.0, 'MH': 1.0,
+    # Group 30 (HHT=3.0): WB KP LP CP LM WJ
+    'WB': 3.0, 'KP': 3.0, 'LP': 3.0, 'CP': 3.0, 'LM': 3.0, 'WJ': 3.0,
+    # Group 40 (HHT=1.0): PY WO BO DG FL
+    'PY': 1.0, 'WO': 1.0, 'BO': 1.0, 'DG': 1.0, 'FL': 1.0,
+    # Group 50 (HHT=2.0): LO CY BL EO VO IO BM BU RA MA GC WN TO SY AS CW WI CN CL OH
+    'LO': 2.0, 'CY': 2.0, 'BL': 2.0, 'EO': 2.0, 'VO': 2.0, 'IO': 2.0,
+    'BM': 2.0, 'BU': 2.0, 'RA': 2.0, 'MA': 2.0, 'GC': 2.0, 'WN': 2.0,
+    'TO': 2.0, 'SY': 2.0, 'AS': 2.0, 'CW': 2.0, 'WI': 2.0, 'CN': 2.0,
+    'CL': 2.0, 'OH': 2.0,
+}
+
+
+def get_ca_essubh_hht(species: str) -> float:
+    """Fortran ca/essubh.f hardcoded species-group HHT (default 2.0 ft).
+
+    CA essubh.f assigns one of three fixed heights (1, 2, or 3 ft) based on
+    a computed-GOTO that groups species by vegetation type. No Chapman-
+    Richards or CARAGE machinery — just a lookup. Default 2.0 for species
+    not in the table (matches the dominant DF group).
+    """
+    return _CA_ESSUBH_HHT.get(species, 2.0)
+
+
 def compute_cs_essubh_initial_height(species: str, site_index: float) -> float:
     """Fortran cs/essubh.f HHT = (HTCALC(CARAGE) / CARAGE) * 5.0.
 

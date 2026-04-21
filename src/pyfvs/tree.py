@@ -390,6 +390,11 @@ class Tree:
             self._grow_small_tree_oc(site_index, time_step, bal=pbal, avg_height=avg_height)
             return
 
+        # EC: 12-equation SMHTGF from ec/smhtgf.f (Fortran-faithful port).
+        if variant == 'EC':
+            self._grow_small_tree_ec(site_index, time_step, rng=rng)
+            return
+
         # Get species-specific parameters - prefer variant-specific JSON file
         # which has Fortran LTBHEC-matched coefficients, then fall back to
         # species config YAML (which may have older publication coefficients).
@@ -675,6 +680,55 @@ class Tree:
 
         self.height = max(0.5, self.height + htgr)
         self._update_dbh_from_height()
+
+    def _grow_small_tree_ec(
+        self,
+        site_index: float,
+        time_step: float = 10.0,
+        rng=None,
+    ) -> None:
+        """Small-tree height growth for EC using SMHTGF (ec/smhtgf.f).
+
+        Twelve equation groups covering 32 species. For post-establishment
+        small-tree cycles (DBH < 3"), calls SMHTGF with MODE=1 which returns
+        the height increment over DTIME years, starting from the current
+        tree height. DBH is re-derived via the Wykoff HT-DBH inverse
+        (ec/regent.f:370-415).
+
+        Args:
+            site_index: Site index (feet, base age varies by species).
+            time_step: Cycle length in years (10 for EC base cycle).
+            rng: Optional random.Random for per-tree HTG noise (matches
+                Fortran regent.f:326-328 DGSD>=1 ZZRAN ±0.1 ft noise).
+        """
+        from .ec_small_tree_growth import (
+            calculate_ec_small_tree_height,
+            ec_wykoff_dbh_from_height,
+        )
+
+        htgr = calculate_ec_small_tree_height(
+            species=self.species,
+            mode=1,
+            dtime=time_step,
+            site_index=site_index,
+            height=self.height,
+        )
+
+        # Fortran ec/regent.f:326-340 ZZRAN noise (±0.1 ft).
+        if rng is not None and htgr > 0:
+            ran = rng.gauss(0.0, 1.0)
+            # Truncated to [-2, 0.5] per regent.f:328.
+            if ran > 0.5:
+                ran = 0.5
+            if ran < -2.0:
+                ran = -2.0
+            htgr = htgr + ran * 0.1
+
+        if htgr < 0.1:
+            htgr = 0.1
+        self.height = max(0.5, self.height + htgr)
+        # DBH via Wykoff H-D inverse for small trees (D < 3).
+        self.dbh = ec_wykoff_dbh_from_height(self.species, self.height)
 
     def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None, top_height=None, ccf=None, rmsqd=None, bage5=None):
         """Implement large tree diameter growth model using variant-specific equations.
@@ -1334,10 +1388,10 @@ class Tree:
         )
 
         # Scale for time step. SN/PN/WC return a 5-year increment and need
-        # the /5 scale. LS/CS/NE/CA/OP return the 10-year forward increment
+        # the /5 scale. LS/CS/NE/CA/OP/EC return the 10-year forward increment
         # directly per Fortran htcalc.f:412-415 (see large_tree_height_growth
         # .calculate_potential_height_growth), so scale by time_step/10.
-        if variant in ('LS', 'CS', 'NE', 'CA', 'OP'):
+        if variant in ('LS', 'CS', 'NE', 'CA', 'OP', 'EC'):
             htg = htg * (time_step / 10.0)
         else:
             htg = htg * (time_step / 5.0)

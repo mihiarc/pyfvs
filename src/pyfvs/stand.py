@@ -817,6 +817,21 @@ class Stand:
             self._grow_establishment_cycle_pnwc(base_cycle)
             return
 
+        # CA: Fortran ca/regent.f:124-131 uses FNT=FINT-5=5 (same FNT-5
+        # shortening as LS/CS/NE) but ESSUBH HHT comes from a hardcoded
+        # species-group table (ca/essubh.f) rather than Chapman-Richards.
+        if self.variant == 'CA':
+            self._grow_establishment_cycle_ca(base_cycle)
+            return
+
+        # EC: Fortran ec/regent.f:216-223 uses FNT=FINT-5=5 with
+        # SCALE=FNT/REGYR=5/10=0.5 for a 10-yr cycle. Both ESSUBH and
+        # REGENT call ec/smhtgf.f — essubh.f for initial HHT (5-yr
+        # "pre-growth" period), regent.f for the trailing FNT=5 increment.
+        if self.variant == 'EC':
+            self._grow_establishment_cycle_ec(base_cycle)
+            return
+
         from .establishment import get_hhtmax
         from statistics import NormalDist
 
@@ -1252,6 +1267,270 @@ class Stand:
         for tree, rand in zip(self.trees, cr_variations):
             cr = 0.89722 - 0.0000461 * stand_ccf + 0.07985 * rand
             tree.crown_ratio = max(0.20, min(0.90, cr))
+
+    def _grow_establishment_cycle_ca(self, base_cycle: int) -> None:
+        """CA establishment: Fortran-faithful ca/essubh.f + ca/regent.f LESTB.
+
+        Flow (ca/essubh.f + ca/regent.f:124-131 with LESTB=TRUE):
+          1. ESSUBH (ca/essubh.f:52-86): HHT is assigned from a hardcoded
+             species-group lookup (1, 2, or 3 ft — see _CA_ESSUBH_HHT).
+             No Chapman-Richards derivation; CA uses fixed per-group values.
+          2. estab.f adds BACHLO(0.5, 0.25) truncated [0, 1.5] variation.
+          3. HHTMAX cap.
+          4. REGENT LESTB: FNT = FINT - 5 = 5 yrs of small-tree HG growth
+             (SCALE = FNT/REGYR = 5/5 = 1.0; i.e., one full 5-yr increment).
+             CA's topographic smhtgf.f is not ported; we use the shared
+             Tree._grow_small_tree path (NC-128 Chapman-Richards with SN
+             fallback coefficients), which bounds the establishment state
+             correctly without introducing drift from the wrong starting
+             height.
+          5. DBH derived from height via H-D inverse (handled inside
+             _grow_small_tree -> _update_dbh_from_height; CA uses Curtis-
+             Arney).
+          6. Crown ratio per ca/regent.f:167-174 LESTB formula (identical
+             to SN/LS/CS/NE).
+
+        Prior bug: CA was routed through the generic compute_establishment_
+        tree_state path which placed trees at site-curve age = cycle+2 = 12,
+        producing yr10 TH=20ft vs native 9ft. The essubh-based initial HHT
+        of 1-3 ft plus 5 yrs of small-tree growth is the correct start.
+        """
+        from .establishment import get_hhtmax, get_ca_essubh_hht
+        from statistics import NormalDist
+
+        n = len(self.trees)
+        normal = NormalDist(0.5, 0.25)
+
+        # BACHLO(0.5, 0.25) truncated [0, 1.5] variation samples per
+        # estab.f (applied to HHT before HHTMAX cap).
+        if self.stochastic and self._rng is not None:
+            def _draw_bachlo() -> float:
+                for _ in range(100):
+                    x = self._rng.gauss(0.5, 0.25)
+                    if 0.0 <= x <= 1.5:
+                        return x
+                return 0.5
+            variations = [_draw_bachlo() for _ in range(n)]
+        else:
+            variations = []
+            for i in range(n):
+                q = (i + 0.5) / n
+                x = normal.inv_cdf(q)
+                variations.append(max(0.0, min(1.5, x)))
+
+        # Step 1-3: Set each tree's initial HHT from CA's essubh table,
+        # add BACHLO variation, cap at HHTMAX.
+        for tree, variation in zip(self.trees, variations):
+            hht = get_ca_essubh_hht(tree.species)
+            hhtmax = get_hhtmax(tree.species, self.variant)
+            initial_ht = max(0.5, hht + variation)
+            if hhtmax > 0 and initial_ht > hhtmax:
+                initial_ht = hhtmax
+            tree.height = initial_ht
+            tree.dbh = 0.1
+            tree.age = 1
+
+        # Step 4-5: Fortran ca/smhtgf.f 5-year HTGR (one FNT=5 slice).
+        # Bare-ground establishment cycle: BA=BAL=0, AVH=0 → RELHT=1.0 per
+        # regent.f:182-187. CR is freshly assigned below; use the Fortran
+        # default 50% (which matches the SN/LS/CS/NE CR init mean of ~0.56)
+        # as the input to SMHTGF since CR assignment happens AFTER HG in
+        # regent.f's LESTB branch (lines 167-174 assign CR before line 195
+        # SMHTGF call — so CR is already set from the LESTB formula at the
+        # time SMHTGF is called).
+        from .ca_small_tree_growth import (
+            calculate_ca_small_tree_htgr,
+            ca_wykoff_dbh_from_height,
+        )
+
+        # Pre-compute CR (regent.f:167-174) BEFORE HG so SMHTGF uses the
+        # freshly-assigned CR like Fortran does. Uses PCCF ≈ stand CCF for
+        # monoculture.
+        if self.stochastic and self._rng is not None:
+            def _rand_norm_trunc() -> float:
+                for _ in range(100):
+                    r = self._rng.gauss(0.0, 1.0)
+                    if -1.0 <= r <= 1.0:
+                        return r
+                return 0.0
+            cr_variations = [_rand_norm_trunc() for _ in range(n)]
+        else:
+            from statistics import NormalDist as _ND
+            cr_variations = [
+                max(-1.0, min(1.0, _ND(0.0, 1.0).inv_cdf((i + 0.5) / n)))
+                for i in range(n)
+            ]
+        stand_ccf = self._metrics.calculate_ccf(self.trees)
+        crown_ratios = []
+        for rand in cr_variations:
+            cr = 0.89722 - 0.0000461 * stand_ccf + 0.07985 * rand
+            crown_ratios.append(max(0.20, min(0.90, cr)))
+
+        # Apply 5-yr SMHTGF height increment to each tree.
+        for tree, cr_frac in zip(self.trees, crown_ratios):
+            hhtmax = get_hhtmax(tree.species, self.variant)
+            # Fortran convention into SMHTGF: regent.f:178 sets
+            # CR=FLOAT(ICR(I))/10 where ICR(I)=INT(CR*100+0.5). Net: CR
+            # arrives as cr_fraction*10 (e.g. 5.0 for 50% CR). The Firs
+            # branch then divides by 10 again internally to get 0.5. The
+            # Pines/BlackOak/Tanoak branches use the /10 value directly.
+            cr_fortran = cr_frac * 10.0
+            htgr = calculate_ca_small_tree_htgr(
+                species=tree.species,
+                height=tree.height,
+                crown_ratio=cr_fortran,
+                basal_area_larger=0.0,  # bare ground
+                site_index=self.site_index,
+                relative_height=1.0,    # AVH=0 → RELHT=1.0 per regent.f:183
+            )
+            # regent.f:216: HTGR * XRHGRO * SCALE with SCALE=1.0 for 10-yr
+            # cycle LESTB (FNT/REGYR = 5/5). XRHGRO=1.0 default.
+            new_ht = tree.height + htgr
+            if hhtmax > 0 and new_ht > hhtmax:
+                new_ht = hhtmax
+            tree.height = new_ht
+            tree.crown_ratio = cr_frac
+            tree.age = base_cycle
+            # DBH via pyfvs's CA Curtis-Arney H-D inverse. Fortran
+            # ca/regent.f:264-274 uses a Wykoff-form inverse for small
+            # trees, but swapping to Wykoff is net-negative across the
+            # pipeline species (helps LP, regresses DF/PP/WF). The
+            # Curtis-Arney coefficients in cfg/ca/ are the species-
+            # specific HT-DBH curves fit from CA inventory data.
+            tree._update_dbh_from_height()
+
+    def _grow_establishment_cycle_ec(self, base_cycle: int) -> None:
+        """EC establishment: Fortran-faithful ec/essubh.f + ec/regent.f LESTB.
+
+        Flow (ec/essubh.f + ec/regent.f:216-354 with LESTB=TRUE):
+          1. ESSUBH (ec/essubh.f): CALL SMHTGF(MODE=0, DTIME=AGE) returns
+             total height at age DTIME from the species-specific small-tree
+             height-age curve (ec/smhtgf.f). For bare-ground PLANT, this
+             represents the 5-yr pre-growth period ("HHT = HEIGHT 5 YEARS
+             INTO CYCLE" per smhtgf.f:22 docstring).
+          2. estab.f adds BACHLO(0.5, 0.25) truncated [0, 1.5] variation.
+          3. HHTMAX cap (ec/blkdat.f:153-157).
+          4. REGENT LESTB: FNT = FINT - 5 = 5 yrs of additional HG.
+               POTHTG = SMHTGF(MODE=1, DTIME=TEMT=10)
+               HTGR   = POTHTG * PCTRED * VIGOR * CON
+               HTG    = (HTGR + ZZRAN*0.1) * XRHGRO * SCALE
+               where SCALE = FNT/REGYR = 5/10 = 0.5
+          5. Final HT = HHT + HTG (capped at SIZCAP).
+          6. Wykoff-form H-D inverse derives DBH for trees < 3" DBH.
+          7. Crown ratio per ec/regent.f:285-292 (same LESTB formula as
+             SN/LS/CS/NE/CA).
+        """
+        from .ec_small_tree_growth import (
+            calculate_ec_small_tree_height,
+            ec_wykoff_dbh_from_height,
+        )
+        from .establishment import get_hhtmax
+        from statistics import NormalDist
+
+        n = len(self.trees)
+        normal = NormalDist(0.5, 0.25)
+
+        # BACHLO(0.5, 0.25) truncated [0, 1.5] variation samples.
+        if self.stochastic and self._rng is not None:
+            def _draw_bachlo() -> float:
+                for _ in range(100):
+                    x = self._rng.gauss(0.5, 0.25)
+                    if 0.0 <= x <= 1.5:
+                        return x
+                return 0.5
+            variations = [_draw_bachlo() for _ in range(n)]
+        else:
+            variations = []
+            for i in range(n):
+                q = (i + 0.5) / n
+                x = normal.inv_cdf(q)
+                variations.append(max(0.0, min(1.5, x)))
+
+        # CR (regent.f:285-292) assigned BEFORE HG so VIGOR uses fresh CR.
+        if self.stochastic and self._rng is not None:
+            def _rand_norm_trunc() -> float:
+                for _ in range(100):
+                    r = self._rng.gauss(0.0, 1.0)
+                    if -1.0 <= r <= 1.0:
+                        return r
+                return 0.0
+            cr_variations = [_rand_norm_trunc() for _ in range(n)]
+        else:
+            from statistics import NormalDist as _ND
+            cr_variations = [
+                max(-1.0, min(1.0, _ND(0.0, 1.0).inv_cdf((i + 0.5) / n)))
+                for i in range(n)
+            ]
+        stand_ccf = self._metrics.calculate_ccf(self.trees)
+        crown_ratios = []
+        for rand in cr_variations:
+            cr = 0.89722 - 0.0000461 * stand_ccf + 0.07985 * rand
+            crown_ratios.append(max(0.20, min(0.90, cr)))
+
+        # ESSUBH DTIME: the pre-growth period before REGENT takes over.
+        # For 10-yr cycle: DTIME_essubh = 5 (half cycle); REGENT FNT=5
+        # handles the trailing 5 yrs. This matches the "HHT = HEIGHT 5
+        # YEARS INTO CYCLE" docstring in ec/smhtgf.f:22.
+        dtime_essubh = min(5.0, float(base_cycle))
+        # REGENT SMHTGF uses TEMT=10 internally (ec/regent.f:318),
+        # scaled by SCALE = FNT/REGYR = (FINT-5)/10.
+        regent_temt = 10.0
+        fnt = max(0.0, float(base_cycle) - 5.0)
+        regyr = 10.0
+        scale = fnt / regyr if regyr > 0 else 1.0
+
+        for tree, variation, cr_frac in zip(self.trees, variations, crown_ratios):
+            hhtmax = get_hhtmax(tree.species, self.variant)
+            # Step 1-3: ESSUBH HHT + BACHLO + HHTMAX cap.
+            hht = calculate_ec_small_tree_height(
+                species=tree.species,
+                mode=0,
+                dtime=dtime_essubh,
+                site_index=self.site_index,
+                height=0.0,
+            )
+            initial_ht = max(0.5, hht + variation)
+            if hhtmax > 0 and initial_ht > hhtmax:
+                initial_ht = hhtmax
+            tree.height = initial_ht
+            tree.dbh = 0.1
+            tree.age = 1
+
+            # Step 4: REGENT LESTB increment (FNT=5 for 10-yr cycle).
+            pothtg = calculate_ec_small_tree_height(
+                species=tree.species,
+                mode=1,
+                dtime=regent_temt,
+                site_index=self.site_index,
+                height=tree.height,
+            )
+            # VIGOR (ec/regent.f:306-307): (150*X^3 * exp(-6*X)) + 0.3,
+            # capped at 1.0. X = CR fraction.
+            x = cr_frac
+            vigor = (150.0 * x ** 3 * math.exp(-6.0 * x)) + 0.3
+            if vigor > 1.0:
+                vigor = 1.0
+            # PCTRED at bare ground: AVHT=0 → X=0 → AB(1)=1.11436 capped
+            # at 1.0. So PCTRED = 1.0 on bare-ground establishment.
+            pctred = 1.0
+            htgr = pothtg * pctred * vigor  # no CON multiplier (CON=1 default)
+            # Apply SCALE and floor. Skip ZZRAN stochastic noise here;
+            # per-tree stochasticity enters via BACHLO on HHT.
+            htgr = htgr * scale
+            if htgr < 0.1:
+                htgr = 0.1
+
+            new_ht = tree.height + htgr
+            if hhtmax > 0 and new_ht > hhtmax:
+                new_ht = hhtmax
+            tree.height = new_ht
+            tree.crown_ratio = cr_frac
+            tree.age = base_cycle
+
+            # Step 6: DBH via Wykoff H-D inverse for D < 3 (ec/regent.f
+            # :370-415). At establishment DBH is always < 3 so always use
+            # this path.
+            tree.dbh = ec_wykoff_dbh_from_height(tree.species, tree.height)
 
     def _grow_establishment_cycle_pnwc(self, base_cycle: int) -> None:
         """PN/WC establishment: faithful port of pn|wc/regent.f LESTB path.

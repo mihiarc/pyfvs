@@ -1,9 +1,9 @@
 # Forest-rents pipeline parity sweep
 
 Configuration: TPA=400, SI=70, rotation=50yr, pyfvs n_seeds=5 (base=42); native single-seed. Pass band ≤5%, warn band ≤15%, fail above.
-Ran in 11.9s.
+Ran in 12.4s.
 
-**Summary** — PASS: 5, WARN: 13, FAIL: 34, ERROR: 0
+**Summary** — PASS: 5, WARN: 16, FAIL: 31, ERROR: 0
 
 | Region | Variant | Species | FIA | Status | ΔBA | ΔQMD | ΔTopH | ΔVol | |Δ|max |
 |---|---|---|---|---|---:|---:|---:|---:|---:|
@@ -45,17 +45,17 @@ Ran in 11.9s.
 | central_states | CS | RM | 316 | FAIL | +17.9% | +14.2% | -11.9% | +28.9% | 28.9% |
 | pacific_northwest | PN | DF | 202 | WARN | -8.2% | +7.3% | +0.6% | -3.9% | 8.2% |
 | pacific_northwest | PN | WH | 263 | PASS | -0.1% | +3.5% | -0.5% | +4.0% | 4.0% |
-| pacific_northwest | PN | SS | 98 | FAIL | -17.4% | +9.1% | -61.4% | -74.7% | 74.7% |
-| pacific_northwest | PN | RC | 242 | FAIL | -3.5% | +0.0% | -54.1% | -28.3% | 54.1% |
+| pacific_northwest | PN | SS | 98 | FAIL | -17.4% | +9.1% | -1.7% | -34.6% | 34.6% |
+| pacific_northwest | PN | RC | 242 | WARN | -3.5% | +0.0% | +0.3% | +7.4% | 7.4% |
 | pacific_northwest | PN | PP | 122 | FAIL | -13.7% | +2.1% | +0.5% | -39.1% | 39.1% |
-| pacific_northwest | PN | LP | 108 | FAIL | +9.4% | +5.2% | -7.0% | -33.0% | 33.0% |
-| pacific_northwest | PN | GF | 17 | FAIL | +13.0% | +6.2% | -47.9% | -53.8% | 53.8% |
-| pacific_northwest | EC | WL | 73 | FAIL | +60.1% | +2.7% | -3.9% | +17.2% | 60.1% |
-| mountain | CA | DF | 202 | FAIL | +24.1% | +40.6% | +8.2% | +33.4% | 40.6% |
-| mountain | CA | PP | 122 | FAIL | -14.3% | +21.9% | +13.3% | +9.9% | 21.9% |
-| mountain | CA | LP | 108 | FAIL | +50.7% | +31.5% | +3.0% | +6.7% | 50.7% |
-| mountain | CA | WF | 15 | FAIL | -24.0% | -9.9% | +6.3% | -11.0% | 24.0% |
+| pacific_northwest | PN | LP | 108 | FAIL | +9.4% | +5.2% | +1.7% | -27.9% | 27.9% |
+| pacific_northwest | PN | GF | 17 | WARN | +13.0% | +6.2% | -1.4% | -11.9% | 13.0% |
+| pacific_northwest | EC | WL | 73 | FAIL | +19.2% | -16.0% | -1.8% | -11.1% | 19.2% |
+| mountain | CA | DF | 202 | FAIL | +15.0% | +27.7% | +5.4% | +22.9% | 27.7% |
+| mountain | CA | PP | 122 | FAIL | -16.3% | +15.9% | +10.1% | +3.9% | 16.3% |
+| mountain | CA | LP | 108 | FAIL | +45.9% | +28.9% | +0.3% | +0.3% | 45.9% |
+| mountain | CA | WF | 15 | FAIL | -15.6% | -5.1% | +3.7% | -4.1% | 15.6% |
 | mountain | PN | ES | 93 | FAIL | +1.0% | +0.5% | -0.7% | -33.0% | 33.0% |
 | mountain | PN | AF | 19 | FAIL | +17.5% | +4.6% | +0.3% | -7.0% | 17.5% |
-| mountain | PN | GF | 17 | FAIL | +13.0% | +6.2% | -47.9% | -53.8% | 53.8% |
-| mountain | EC | WL | 73 | FAIL | +60.1% | +2.7% | -3.9% | +17.2% | 60.1% |
+| mountain | PN | GF | 17 | WARN | +13.0% | +6.2% | -1.4% | -11.9% | 13.0% |
+| mountain | EC | WL | 73 | FAIL | +19.2% | -16.0% | -1.8% | -11.1% | 19.2% |

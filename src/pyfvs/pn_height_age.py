@@ -482,8 +482,12 @@ def age_from_height(species: str, height: float, site_index: float,
                     variant: str = 'PN') -> float:
     """Find total age corresponding to a given height via bisection.
 
-    All height-age equations are monotonically increasing, so bisection
-    between 0.1 and 500 years converges reliably.
+    Most FVS height-age equations are concave and eventually saturate,
+    but the Cochran PNW-252 polynomial (WF/GF) is a log-polynomial that
+    peaks near age 150 and decays afterwards. Naive bisection in
+    [0.1, 500] walks past the peak onto the decaying branch and returns
+    the sentinel upper bound. Scan to find the ascending-branch bracket
+    before bisecting.
 
     Args:
         species: PN/WC species code
@@ -504,15 +508,62 @@ def age_from_height(species: str, height: float, site_index: float,
         ytbh = _get_years_to_bh(species, site_index)
         return max(0.1, (height - 0.5) * ytbh / 4.0)
 
-    # Bisection search
-    lo, hi = 0.1, 500.0
+    # Find the ASCENDING-BRANCH crossing age.
+    #
+    # Some Fortran height-age equations are non-monotone over [0, 500]:
+    #   - Barrett PNW-232 (IC/JP/PP) has an off-base-SI artifact at
+    #     bh_age→0 that produces a local max then a dip before climbing
+    #     monotonically through the target.
+    #   - Cochran PNW-252 (WF/GF) is a log-polynomial that peaks near
+    #     age=150 and decays afterwards.
+    #
+    # A simulated tree grows monotonically up through the curve, so the
+    # correct answer is always the rightmost ascending-branch crossing
+    # where the curve transitions from below to at-or-above the target.
+    # Dense-scan to find that crossing.
+    if species in _TOTAL_AGE_SPECIES:
+        start_age = 1.0
+    else:
+        ytbh = _get_years_to_bh(species, site_index)
+        start_age = max(1.0, ytbh + 0.5)
+    step = 2.0
+    max_age = 300.0  # upper bound for any realistic tree
+    lo_age = start_age
+    lo_h = height_at_age(species, lo_age, site_index, variant)
+    hi_age = lo_age
+    hi_h = lo_h
+    peak_h = lo_h
+    peak_age = lo_age
+    found = False
+    while hi_age < max_age:
+        nxt_age = hi_age + step
+        nxt_h = height_at_age(species, nxt_age, site_index, variant)
+        if nxt_h > peak_h:
+            peak_h = nxt_h
+            peak_age = nxt_age
+        # Detect ascending transition across the target:
+        if hi_h < height <= nxt_h:
+            lo_age, lo_h = hi_age, hi_h
+            hi_age, hi_h = nxt_age, nxt_h
+            found = True
+            break
+        hi_age, hi_h = nxt_age, nxt_h
+    if not found:
+        # Target above curve's max: return peak age. Target above the
+        # start_age but below h at start and never reached: return
+        # start_age (ascending bracket starts there).
+        if height > peak_h:
+            return peak_age
+        return start_age
+
+    # Bisection within the confirmed ascending bracket [lo_age, hi_age].
     for _ in range(60):
-        mid = (lo + hi) / 2.0
+        mid = (lo_age + hi_age) / 2.0
         h = height_at_age(species, mid, site_index, variant)
         if abs(h - height) < 0.01:
             return mid
         if h < height:
-            lo = mid
+            lo_age = mid
         else:
-            hi = mid
-    return (lo + hi) / 2.0
+            hi_age = mid
+    return (lo_age + hi_age) / 2.0

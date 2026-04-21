@@ -259,6 +259,9 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             'RO': 'Intermediate',
             'YP': 'Intermediate',
             'SU': 'Intermediate',
+            # Western larch (WL): shade-intolerant per silvics. EC
+            # classifies VINT per ec/htgf.f:135; LS/NE use same.
+            'WL': 'Very Intolerant',    # Western larch
             # PN/WC conifers
             'SF': 'Very Tolerant',      # Pacific silver fir
             'WF': 'Tolerant',           # White fir
@@ -367,6 +370,14 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             return self._calculate_potential_height_growth_pnwc(
                 dbh, site_index, tree_height, tree_age, variant,
                 basal_area=basal_area,
+            )
+
+        # EC: use ec/htcalc.f species-specific curves (port in
+        # ec_height_age.py). FINDAG → HTCALC(AGE+10) − HTCALC(AGE) gives
+        # the 10-yr potential height growth. Mirrors PN path.
+        if variant == 'EC':
+            return self._calculate_potential_height_growth_ec(
+                site_index, tree_height,
             )
 
         # Validate and bound site index (SN-style SI ranges).
@@ -486,6 +497,25 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
         # Bound to reasonable range
         return max(0.1, min(3.0, fallback_growth))
     
+    def _calculate_potential_height_growth_ec(
+        self,
+        site_index: float,
+        tree_height: Optional[float],
+    ) -> float:
+        """Calculate POTHTG for EC using species-specific ec/htcalc.f curves.
+
+        Mirrors Fortran ec/htgf.f: FINDAG(current_height) -> SITAGE, then
+        HTCALC(SITAGE + 10) - current_height gives 10-yr increment.
+        """
+        from .ec_height_age import height_at_age, age_from_height
+
+        if tree_height is None:
+            tree_height = self._estimate_height_from_dbh(10.0)
+
+        sitage = age_from_height(self.species_code, tree_height, site_index)
+        future_ht = height_at_age(self.species_code, sitage + 10.0, site_index)
+        return max(0.1, future_ht - tree_height)
+
     def _calculate_potential_height_growth_pnwc(
         self,
         dbh: float,
