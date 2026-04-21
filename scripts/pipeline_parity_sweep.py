@@ -87,7 +87,11 @@ PIPELINE_MATRIX = [
 
 TPA = 400
 SI = 70
-YEARS = 25
+# 50 years is a common multiple of both cycle lengths (SN=5yr, others=10yr).
+# Previously 25yr caused native to silently truncate 10yr-cycle variants to
+# 20 years (years // cycle_length integer division in NativeStand.grow),
+# introducing a 20-25% systematic time mismatch with pyfvs.
+YEARS = 50
 N_SEEDS = 5
 BASE_SEED = 42
 
