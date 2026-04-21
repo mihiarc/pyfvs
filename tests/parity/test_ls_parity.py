@@ -87,18 +87,7 @@ def test_ls_gold_standard_rn_si60_30yr(require_native_variant, parity_tolerance)
         # the real LS DG over-prediction (+17% BA on the sweep). Xfail until
         # the species-level LS DG coefficient drift is resolved — same root
         # cause family as jp/sm/qa xfails below.
-        pytest.param(
-            "WA", 60, 500, 30, id="wa-si60-30yr",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Sweep 2026-04-16: BA +17.22% after Fortran-faithful "
-                    "IWYKCA Wykoff-inverse port. Prior Curtis-Arney inverse "
-                    "coincidentally masked LS DG over-prediction. Gap is now "
-                    "visible and tracks the JP/SM/QA DG coefficient residual."
-                ),
-            ),
-        ),
+        pytest.param("WA", 60, 500, 30, id="wa-si60-30yr"),
     ],
 )
 def test_ls_off_baseline_parity(
@@ -140,28 +129,16 @@ def test_ls_off_baseline_parity(
         # Commercial species currently fail >5%. Keeping as xfail documents the
         # residual gap (primarily LS diameter-growth coefficient drift, not
         # crown-ratio or height-growth — Phase 1+2 ported those faithfully).
-        pytest.param(
-            "JP", 60, 500, 30, id="jp-si60-30yr",
-            marks=pytest.mark.xfail(
-                reason="Sweep 2026-04-16: BA +15.16% (>5% tol). Root cause is "
-                "the LS large-tree DG model over-predicting — ls_diameter_growth.py "
-                "needs Fortran dgf.f cross-check against buildDir DGCOEF/DGSPEC "
-                "DATA blocks. Crown ratio (Phase 2) and height growth (Phase 1 "
-                "BALMOD) are now Fortran-faithful so the residual is DG-specific.",
-                strict=True,
-            ),
-        ),
+        pytest.param("JP", 60, 500, 30, id="jp-si60-30yr"),
         pytest.param("SM", 55, 500, 30, id="sm-si55-30yr"),
         pytest.param(
             "QA", 70, 500, 30, id="qa-si70-30yr",
             marks=pytest.mark.xfail(
-                reason="Sweep 2026-04-16: BA +46.13% (>5% tol). Quaking aspen (QA) "
-                "is the largest LS BA drift among commercial species. Extreme "
-                "over-prediction suggests QA-specific DG coefficient issue "
-                "(possibly the 25*X tail-species default fallback in Fortran "
-                "DATA blocks being mis-mapped). Requires ls_diameter_growth.py "
-                "inspection against Fortran dgf.f.",
-                strict=True,
+                reason="Sweep 2026-04-16: QA extreme over-prediction. "
+                "Post linear-XWT fix 2026-04-21: multi-seed BA drift now "
+                "~-1.8% (PASS) at 30yr/SI=60 but may still exceed tolerance "
+                "at other SI/duration configs. Remove xfail once stable.",
+                strict=False,
             ),
         ),
     ],

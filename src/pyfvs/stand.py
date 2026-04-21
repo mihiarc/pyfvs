@@ -283,6 +283,26 @@ class Stand:
         sum_dbh_sq = sum(t.dbh ** 2 for t in trees_ge5)
         return math.sqrt(sum_dbh_sq / len(trees_ge5))
 
+    def _calculate_bage5(self) -> float:
+        """Calculate basal area of trees >= 5" DBH (BAGE5).
+
+        Fortran dgf.f:341-359 accumulates BAGE5 = Σ(D²·P·0.005454154) over
+        trees with D ≥ 5", then floors at 10 (`IF BAGE5 <= 0.: BAGE5 = 10.`).
+        This value — not the full stand BA — is the SBAC multiplicand in the
+        LS ln(DDS) equation (dgf.f:425). Passing full BA here inflates the
+        SBAC term whenever trees <5" contribute meaningfully (plantation
+        establishment through mid-cycle), which for species with negative
+        SBAC (most conifers) under-damps DG and produces the observed
+        +10-17% BA over-prediction at cycle 3.
+
+        Returns:
+            BAGE5 in sq ft/acre, floored at 10.0 per Fortran dgf.f:359.
+        """
+        from .tree_utils import calculate_tree_basal_area
+        bage5 = sum(calculate_tree_basal_area(t.dbh) for t in self.trees
+                    if t.dbh >= 5.0)
+        return max(10.0, bage5)
+
     def calculate_top_height(self, n_trees: int = 40) -> float:
         """Calculate top height (average of n largest trees by DBH)."""
         return self._metrics.calculate_top_height(self.trees, n_trees)
@@ -1380,6 +1400,15 @@ class Stand:
         # Calculate QMD of trees >= 5" DBH (needed for LS variant RELDBH)
         qmd_ge5 = self._calculate_qmd_ge5()
 
+        # BAGE5: LS DG SBAC multiplicand. Fortran dgf.f:425 uses BA-of-trees-≥5"
+        # (floored at 10.0), not the full stand BA. Separate from qmd_ge5.
+        bage5 = self._calculate_bage5()
+
+        # Stand RMSQD over ALL trees for LS/NE/CS HG BALMOD (Fortran
+        # dense.f:248-250 RMSQD = sqrt(sum_D2 / TPROB), passed to htgf.f:103).
+        # Distinct from qmd_ge5, which is the DG-side filter.
+        stand_rmsqd = self._metrics.calculate_qmd(self.trees)
+
         # Calculate top height (avg height of 40 largest trees per acre)
         # Used for RELHT in SN, PN, WC, CA, OC, WS variants
         top_height = self._metrics.calculate_top_height(self.trees)
@@ -1421,6 +1450,8 @@ class Stand:
                 top_height=top_height,
                 avg_height=avg_height,
                 ccf=ccf,
+                rmsqd=stand_rmsqd,
+                bage5=bage5,
             )
 
         # Apply mortality (pass pre-growth QMD for Fortran-style TPA targeting)

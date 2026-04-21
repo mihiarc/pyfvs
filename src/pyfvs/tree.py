@@ -114,7 +114,9 @@ class Tree:
         rng=None,
         top_height: float = None,
         avg_height: float = None,
-        ccf: float = None
+        ccf: float = None,
+        rmsqd: float = None,
+        bage5: float = None,
     ) -> None:
         """Grow the tree for the specified number of years.
 
@@ -284,9 +286,13 @@ class Tree:
             dg_weight = 1.0
         elif xmin >= xmax:
             dg_weight = 1.0
-        elif variant in ('SN', 'LS', 'CS'):
+        elif variant in ('SN', 'CS'):
             dg_weight = 0.0
-        elif variant in ('NE', 'PN', 'WC', 'OC'):
+        elif variant in ('LS', 'NE', 'PN', 'WC', 'OC'):
+            # Fortran regent.f:373 linear XDWT blend: DGGR = DGSM*(1-XWT) + XWT*DG.
+            # LS was previously using dg_weight=0.0 compensation for documented
+            # large-tree DG drift; switching to faithful blend surfaces the true
+            # LS DG equation contribution in the 3-5" zone.
             dg_weight = (initial_dbh - xmin) / (xmax - xmin)
         else:
             t = (initial_dbh - xmin) / (xmax - xmin)
@@ -316,7 +322,7 @@ class Tree:
 
         if initial_dbh >= outer_xmax:
             # Pure large-tree model (above both blend zones)
-            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf)
+            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf, rmsqd=rmsqd, bage5=bage5)
         elif dg_weight == 0.0 and ht_weight == 0.0:
             # Pure small-tree model (below both blend zones)
             self._grow_small_tree(site_index, competition_factor, time_step, ba=ba, pbal=pbal, avg_height=avg_height, rng=rng)
@@ -334,7 +340,7 @@ class Tree:
             self.dbh = initial_dbh
             self.height = initial_height
 
-            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf)
+            self._grow_large_tree(site_index, competition_factor, ba, pbal, slope, aspect, time_step, qmd_ge5, rng=rng, top_height=top_height, ccf=ccf, rmsqd=rmsqd, bage5=bage5)
             large_dbh = self.dbh
             large_height = self.height
 
@@ -670,7 +676,7 @@ class Tree:
         self.height = max(0.5, self.height + htgr)
         self._update_dbh_from_height()
 
-    def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None, top_height=None, ccf=None):
+    def _grow_large_tree(self, site_index, competition_factor, ba, pbal, slope, aspect, time_step=5, qmd_ge5=None, rng=None, top_height=None, ccf=None, rmsqd=None, bage5=None):
         """Implement large tree diameter growth model using variant-specific equations.
 
         Dispatches to the appropriate growth method based on the tree's variant:
@@ -707,7 +713,7 @@ class Tree:
 
         # Standard variants - DDS without topographic effects
         elif variant in ('LS', 'NE', 'CS'):
-            self._grow_large_tree_standard(variant, site_index, ba, pbal, time_step, qmd_ge5, rng=rng, top_height=top_height)
+            self._grow_large_tree_standard(variant, site_index, ba, pbal, time_step, qmd_ge5, rng=rng, top_height=top_height, rmsqd=rmsqd, bage5=bage5)
 
         else:
             # Unknown variant - fall back to SN
@@ -722,7 +728,9 @@ class Tree:
         time_step: float = 10.0,
         qmd_ge5: float = None,
         rng=None,
-        top_height: float = None
+        top_height: float = None,
+        rmsqd: float = None,
+        bage5: float = None,
     ) -> None:
         """Generic large tree growth for non-topographic variants (LS, NE, CS).
 
@@ -759,16 +767,22 @@ class Tree:
                 time_step=time_step
             )
         else:  # LS, CS
+            # Fortran dgf.f:425 uses BAGE5 (BA of trees ≥5", floored at 10)
+            # as the SBAC multiplicand, NOT the full stand BA. Fall back to
+            # max(10, ba) when caller didn't thread BAGE5 (non-Stand callers).
+            sbac_ba = bage5 if bage5 is not None else max(10.0, ba)
+            # Thread AR(1) state so DGSCOR writes OLDRN for htgf.f:110 HG lift.
             diameter_increment = dg_model.calculate_diameter_growth(
                 dbh=self.dbh,
                 crown_ratio=self.crown_ratio,
                 site_index=site_index,
-                ba=ba,
+                ba=sbac_ba,
                 bal=pbal,
                 bark_ratio=bark_ratio,
                 qmd_ge5=qmd_ge5,
                 time_step=time_step,
-                rng=rng
+                rng=rng,
+                state=self._dg_state,
             )
 
         # Apply increment to DBH (ensure non-negative)
@@ -784,6 +798,15 @@ class Tree:
         else:
             relht = 1.0
 
+        # Fortran ls/htgf.f:110 — HTG *= (1 + OLDRN) where OLDRN is the FRM
+        # saved by THIS cycle's DGSCOR (dgdriv.f:160). Zero-mean but positively
+        # correlated with tree DG, so survivor selection biases top-height
+        # trees toward positive OLDRN.
+        oldrn = self._dg_state.oldrn if rng is not None and variant == 'LS' else 0.0
+
+        # Fortran ls/htgf.f:103 passes stand RMSQD (all trees QMD) to BALMOD.
+        # qmd_ge5 — only trees ≥5" — is the DG-side filter (dgf.f:350), NOT
+        # the HG BALMOD input.
         self._update_height_large_tree(
             site_index=site_index,
             ba=ba,
@@ -791,7 +814,8 @@ class Tree:
             relht=relht,
             time_step=time_step,
             variant=variant,
-            rmsqd=qmd_ge5,
+            rmsqd=rmsqd,
+            oldrn=oldrn,
         )
 
     def _update_height_large_tree_variant(self, variant: str, site_index: float) -> None:
@@ -1263,6 +1287,7 @@ class Tree:
         competition_factor: float = 0.0,
         variant: str = 'SN',
         rmsqd: float = None,
+        oldrn: float = 0.0,
     ):
         """Update height using FVS large-tree height growth model (Section 4.7.2).
 
@@ -1305,6 +1330,7 @@ class Tree:
             tree_height=self.height,
             variant=variant,
             rmsqd=rmsqd,
+            oldrn=oldrn,
         )
 
         # Scale for time step. SN/PN/WC return a 5-year increment and need

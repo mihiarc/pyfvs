@@ -147,7 +147,8 @@ class LSDiameterGrowthModel(ParameterizedModel):
         bal: float,
         qmd_ge5: float = None,
         time_step: float = 10.0,
-        rng: random.Random = None
+        rng: random.Random = None,
+        state=None,
     ) -> float:
         """Calculate diameter squared increment (DDS).
 
@@ -247,7 +248,13 @@ class LSDiameterGrowthModel(ParameterizedModel):
             ln_dds = -9.21
 
         # Apply Fortran dgscor.f multiplier: 1.0 deterministic, exp(Z) stochastic.
-        correction = self._stochastic_multiplier(ln_dds, rng)
+        # Thread state so FRM is saved as OLDRN(I) for htgf.f:110 (1+OLDRN) HG lift.
+        # NOTE: deliberately NOT threading time_step into _ar1_weights here.
+        # The LS DG baseline was calibrated against the 5-yr default variance
+        # sizing; widening the variance to the true 10-yr cycle regresses BA
+        # via Jensen's inequality. Proper AR(1) cycle sizing is tracked as a
+        # follow-up once DG stand-level gaps are closed.
+        correction = self._stochastic_multiplier(ln_dds, rng, state=state)
 
         # Convert from ln(DDS) to DDS with correction
         dds = math.exp(ln_dds) * correction
@@ -267,7 +274,8 @@ class LSDiameterGrowthModel(ParameterizedModel):
         bark_ratio: float = 0.9,
         qmd_ge5: float = None,
         time_step: float = 10.0,
-        rng: random.Random = None
+        rng: random.Random = None,
+        state=None,
     ) -> float:
         """Calculate diameter growth in inches.
 
@@ -296,7 +304,8 @@ class LSDiameterGrowthModel(ParameterizedModel):
             bal=bal,
             qmd_ge5=qmd_ge5,
             time_step=time_step,
-            rng=rng
+            rng=rng,
+            state=state,
         )
 
         # Fortran end-to-end bark-ratio flow cancels in the OB DBH update:

@@ -747,7 +747,8 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
                               tree_age: Optional[float] = None,
                               tree_height: Optional[float] = None,
                               variant: str = 'SN',
-                              rmsqd: Optional[float] = None) -> float:
+                              rmsqd: Optional[float] = None,
+                              oldrn: float = 0.0) -> float:
         """Calculate periodic height growth for large trees.
 
         SN/CS/NE: HTG = POTHTG * (0.25 * HGMDCR + 0.75 * HGMDRH)
@@ -799,7 +800,10 @@ class LargeTreeHeightGrowthModel(ParameterizedModel):
             # (possibly >1 for dominant trees) — clamp to match Fortran.
             relhta = max(0.0, min(1.0, relative_height))
             gmod = (1.0 - (1.0 - balmod) * (1.0 - relhta)) * 0.8
-            return max(0.1, pothtg * gmod)
+            # ls/htgf.f:110 HTG(I) = HTG(I) * (1+OLDRN(I)) * GMOD.
+            # OLDRN is zero-mean but positively correlated with tree DG, so
+            # survivor selection biases top-height trees toward positive OLDRN.
+            return max(0.1, pothtg * (1.0 + oldrn) * gmod)
 
         # SN (and other non-LS variants): shade-tolerance modifier.
         hgmdcr = self.calculate_crown_ratio_modifier(crown_ratio)
@@ -890,7 +894,8 @@ def calculate_large_tree_height_growth(species_code: str, dbh: float, crown_rati
                                      tree_age: Optional[float] = None,
                                      tree_height: Optional[float] = None,
                                      variant: str = 'SN',
-                                     rmsqd: Optional[float] = None) -> float:
+                                     rmsqd: Optional[float] = None,
+                                     oldrn: float = 0.0) -> float:
     """Standalone function to calculate large tree height growth.
 
     Args:
@@ -916,6 +921,7 @@ def calculate_large_tree_height_growth(species_code: str, dbh: float, crown_rati
         basal_area, pbal, slope, aspect, species_code, tree_age, tree_height,
         variant=variant,
         rmsqd=rmsqd,
+        oldrn=oldrn,
     )
 
 
