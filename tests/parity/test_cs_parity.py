@@ -63,30 +63,13 @@ def test_cs_gold_standard_wo_si60_30yr(require_native_variant, parity_tolerance)
         # Major CS commercial species at productive sites. All currently
         # expected to fail until blend zone, Wykoff, and establishment
         # fixes land. Strict xfail catches silent improvements.
-        pytest.param(
-            "RO", 65, 500, 30, id="ro-si65-30yr",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Baseline 2026-04-16: pre-fix CS over-prediction. "
-                "Northern red oak — second most planted CS species after WO.",
-            ),
-        ),
-        pytest.param(
-            "SM", 60, 500, 30, id="sm-si60-30yr",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Baseline 2026-04-16: pre-fix CS over-prediction. "
-                "Sugar maple — high tolerance hardwood.",
-            ),
-        ),
-        pytest.param(
-            "YP", 70, 500, 30, id="yp-si70-30yr",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Baseline 2026-04-16: pre-fix CS over-prediction. "
-                "Yellow-poplar — fast-grower, distinct CS DG coefficients.",
-            ),
-        ),
+        # Closed 2026-04-21 by cs/essubh.f HHTMAX-clamp fix — pyfvs was
+        # clamping H(CARAGE) at HHTMAX before the (H/CARAGE)*5 linear
+        # interpolation, while native applies HHTMAX only after final
+        # REGENT LESTB growth. Closed RO, SM, YP at 30yr.
+        pytest.param("RO", 65, 500, 30, id="ro-si65-30yr"),
+        pytest.param("SM", 60, 500, 30, id="sm-si60-30yr"),
+        pytest.param("YP", 70, 500, 30, id="yp-si70-30yr"),
     ],
 )
 def test_cs_expanded_species_parity(

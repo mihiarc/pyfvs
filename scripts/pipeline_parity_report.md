@@ -1,9 +1,9 @@
 # Forest-rents pipeline parity sweep
 
 Configuration: TPA=400, SI=70, rotation=50yr, pyfvs n_seeds=5 (base=42); native single-seed. Pass band ≤5%, warn band ≤15%, fail above.
-Ran in 11.3s.
+Ran in 11.5s.
 
-**Summary** — PASS: 8, WARN: 24, FAIL: 20, ERROR: 0
+**Summary** — PASS: 9, WARN: 24, FAIL: 19, ERROR: 0
 
 | Region | Variant | Species | FIA | Status | ΔBA | ΔQMD | ΔTopH | ΔVol | |Δ|max |
 |---|---|---|---|---|---:|---:|---:|---:|---:|
@@ -35,14 +35,14 @@ Ran in 11.3s.
 | lake_states | LS | YB | 371 | WARN | +5.8% | +2.2% | +1.8% | +5.5% | 5.8% |
 | lake_states | LS | PB | 375 | WARN | +1.6% | +5.7% | +0.3% | +2.8% | 5.7% |
 | lake_states | LS | WA | 541 | PASS | +0.8% | +3.9% | +3.1% | +4.5% | 4.5% |
-| central_states | CS | WO | 802 | FAIL | +21.3% | +11.4% | -10.4% | +26.2% | 26.2% |
-| central_states | CS | WN | 602 | FAIL | +63.5% | -7.5% | -9.4% | +58.6% | 63.5% |
-| central_states | CS | BC | 762 | FAIL | +27.1% | +18.8% | -14.1% | +28.9% | 28.9% |
-| central_states | CS | RO | 833 | WARN | -3.0% | -2.2% | -11.9% | -2.2% | 11.9% |
-| central_states | CS | SM | 318 | FAIL | +16.0% | +5.9% | -11.7% | +15.2% | 16.0% |
-| central_states | CS | SH | 402 | FAIL | +38.9% | +19.3% | -9.1% | +34.8% | 38.9% |
-| central_states | CS | YP | 621 | FAIL | -16.7% | -11.1% | -6.5% | -15.4% | 16.7% |
-| central_states | CS | RM | 316 | FAIL | +17.9% | +14.2% | -11.9% | +19.3% | 19.3% |
+| central_states | CS | WO | 802 | FAIL | +21.1% | +11.1% | -10.0% | +26.7% | 26.7% |
+| central_states | CS | WN | 602 | FAIL | +66.9% | -2.5% | -7.8% | +65.0% | 66.9% |
+| central_states | CS | BC | 762 | FAIL | +26.1% | +18.1% | -13.8% | +28.3% | 28.3% |
+| central_states | CS | RO | 833 | WARN | +3.0% | +1.6% | -9.5% | +6.2% | 9.5% |
+| central_states | CS | SM | 318 | FAIL | +19.2% | +8.0% | -9.4% | +21.8% | 21.8% |
+| central_states | CS | SH | 402 | FAIL | +56.0% | +30.5% | -5.6% | +56.6% | 56.6% |
+| central_states | CS | YP | 621 | PASS | -3.7% | -1.8% | -4.7% | -1.1% | 4.7% |
+| central_states | CS | RM | 316 | FAIL | +31.6% | +24.4% | -9.3% | +36.2% | 36.2% |
 | pacific_northwest | PN | DF | 202 | WARN | -8.2% | +7.3% | +0.6% | -3.9% | 8.2% |
 | pacific_northwest | PN | WH | 263 | PASS | -0.1% | +3.5% | -0.5% | +4.0% | 4.0% |
 | pacific_northwest | PN | SS | 98 | FAIL | -17.4% | +9.1% | -1.7% | -34.6% | 34.6% |

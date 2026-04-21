@@ -173,11 +173,29 @@ def compute_cs_essubh_initial_height(species: str, site_index: float) -> float:
     Computes the establishment starting height (before regent's 5-yr growth
     phase) using the species-specific Carmean reference age from MAPCS.
     Used by the LS/CS LESTB establishment path in stand.py.
+
+    Critical: Fortran cs/essubh.f does NOT apply the HHTMAX cap to H(CARAGE)
+    before the linear interpolation — it uses the raw site-curve value.
+    For species with unclamped Chapman-Richards H(20) >> HHTMAX (e.g., WN
+    at SI=70 has H(20)≈42 ft but HHTMAX=20), pre-clamping gives HHT=5 ft
+    while native FVSCS gets HHT≈10.5 ft. HHTMAX is applied later in
+    estab.f to the final HT after REGENT LESTB growth, not to the H at
+    CARAGE used for this interpolation.
     """
     carage = _get_essubh_carage(species, 'CS')
-    h_at_carage = compute_establishment_height(
-        species, site_index, float(carage), 'CS'
-    )
+    # Compute raw (UNCLAMPED) Chapman-Richards height at CARAGE.
+    p = load_small_tree_coefficients(species, 'CS')
+    if not p:
+        p = {'c1': 1.1421, 'c2': 1.0042, 'c3': -0.0374,
+             'c4': 0.7632, 'c5': 0.0358, 'bh': 0.0}
+    bh = p.get('bh', 0.0)
+    raw_height = bh + p['c1'] * (site_index ** p['c2']) * \
+        (1.0 - math.exp(p['c3'] * carage)) ** (p['c4'] * (site_index ** p['c5']))
+    # SI-anchor: scale = SI / H_raw(50) (matches compute_establishment_height).
+    raw_at_50 = bh + p['c1'] * (site_index ** p['c2']) * \
+        (1.0 - math.exp(p['c3'] * 50.0)) ** (p['c4'] * (site_index ** p['c5']))
+    scale = site_index / raw_at_50 if raw_at_50 > 0 else 1.0
+    h_at_carage = max(0.5, raw_height * scale)
     # Fortran: HHT = (H/CARAGE) * MIN(5.0, TIME-DELAY). With TIME=cycle=10
     # and DELAY=0 (the default for PLANT immediate) MIN = 5.0.
     return (h_at_carage / carage) * 5.0
