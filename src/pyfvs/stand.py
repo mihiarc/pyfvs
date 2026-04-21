@@ -1702,6 +1702,20 @@ class Stand:
         # Get competition metrics for each tree
         competition_metrics = self._calculate_competition_metrics()
 
+        # NE variant uses a non-standard BAL in ne/balmod.f: EBAU(ICLS-2)
+        # where ICLS=IFIX(DBH+1.0), so BAL = BA of trees with DBH ≥ (DBH-2).
+        # Unlike standard PBAL (strictly larger trees), this includes self
+        # and near-same-size neighbors. For tight-distribution plantations
+        # this nearly equals stand BA (≈ 2x standard PBAL) — using PBAL
+        # here makes BAGMOD too lenient and lets NE DG over-predict ~10%
+        # per large-tree cycle. Substitute for NE so both DG and HG use
+        # the Fortran-faithful BAL (balmod.f is called by DGF and HTGF).
+        if self.variant == 'NE':
+            ne_bal_map = self._metrics.calculate_ne_bal_all(self.trees)
+            for i, tree in enumerate(self.trees):
+                if i < len(competition_metrics):
+                    competition_metrics[i]['pbal'] = ne_bal_map.get(id(tree), 0.0)
+
         # Grow each tree
         for i, tree in enumerate(self.trees):
             metrics = competition_metrics[i] if i < len(competition_metrics) else {

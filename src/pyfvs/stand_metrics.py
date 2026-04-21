@@ -584,6 +584,53 @@ class StandMetricsCalculator:
         pbal_map = self.calculate_pbal_all(sorted_trees)
         return pbal_map.get(id(target_tree), 0.0)
 
+    def calculate_ne_bal_all(self, trees: List['Tree']) -> Dict[int, float]:
+        """Calculate NE-style BAL for all trees per Fortran ne/balmod.f + badist.f.
+
+        Unlike the standard PBAL (BA of strictly larger trees), NE's BALMOD
+        uses `EBAU(ICLS - 2)` where ICLS = IFIX(DBH + 1.0). Expanded:
+            ICLS - 2 = IFIX(DBH - 1.0)
+            EBAU(k) = cumulative BA of trees with ICLS >= k
+        So NE's BAL_i = BA of trees with DBH >= (DBH_i - 2) — includes the
+        tree itself and any trees slightly smaller (down to 2" smaller).
+
+        For tight-distribution plantation stands, this is approximately
+        the full stand BA (since most trees are within 2" of each other).
+        Using standard PBAL (half that) gives BAGMOD = exp(-B3*PBAL) that's
+        too large, letting NE DG over-predict by ~10% per cycle.
+
+        Args:
+            trees: List of alive Tree objects.
+
+        Returns:
+            Dict mapping id(tree) to NE-style BAL in sq ft/acre.
+        """
+        if not trees:
+            return {}
+
+        # Build EBAU-style cumulative: bin trees by ICLS = IFIX(DBH+1.0),
+        # then cumulate downward so EBAU[k] = BA of trees with ICLS >= k.
+        ebau = [0.0] * 51  # classes 0..50
+        for t in trees:
+            d = max(1.0, t.dbh)  # Fortran BADIST clamps DBH to 1.0 for the BA calc
+            icls = int(d + 1.0)
+            if icls > 50:
+                icls = 50
+            ebau[icls] += calculate_tree_basal_area(d)
+        # Cumulate downward (per ne/badist.f:53-55)
+        for i in range(49, 0, -1):
+            ebau[i] += ebau[i + 1]
+
+        result: Dict[int, float] = {}
+        for t in trees:
+            icls = int(t.dbh + 1.0) - 2  # ne/balmod.f:39
+            if icls < 1:
+                icls = 1
+            if icls > 50:
+                icls = 50
+            result[id(t)] = ebau[icls]
+        return result
+
     def calculate_pbal_all(self, sorted_trees: List['Tree']) -> Dict[int, float]:
         """Calculate PBAL for all trees, matching Fortran PCTILE semantics.
 

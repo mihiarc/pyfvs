@@ -58,13 +58,9 @@ def test_ne_gold_standard_rm_si60_30yr(require_native_variant, parity_tolerance)
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
-        pytest.param(
-            "RO", 60, 500, 30, id="ro-si60-30yr",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Baseline 2026-04-16: pre-fix NE over-prediction.",
-            ),
-        ),
+        # Closed 2026-04-21 by Fortran-faithful NE BALMOD (ne/balmod.f
+        # EBAU(ICLS-2) shifted-BAL per-tree substitute for standard PBAL).
+        pytest.param("RO", 60, 500, 30, id="ro-si60-30yr"),
         pytest.param("SM", 60, 500, 30, id="sm-si60-30yr"),
         pytest.param(
             "YB", 60, 500, 30, id="yb-si60-30yr",
