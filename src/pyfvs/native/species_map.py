@@ -714,6 +714,46 @@ WS_SPECIES_MAP: Dict[str, int] = {
 # =============================================================================
 # Master variant lookup
 # =============================================================================
+# =============================================================================
+# EC (East Cascades) Variant - 32 species
+# Source: FVS ec/blkdat.f JSP array, USDA Forest Service
+# =============================================================================
+EC_SPECIES_MAP: Dict[str, int] = {
+    "WP": 1,   # Western white pine
+    "WL": 2,   # Western larch
+    "DF": 3,   # Douglas-fir
+    "SF": 4,   # Pacific silver fir
+    "RC": 5,   # Western red cedar
+    "GF": 6,   # Grand fir
+    "LP": 7,   # Lodgepole pine
+    "ES": 8,   # Engelmann spruce
+    "AF": 9,   # Subalpine fir
+    "PP": 10,  # Ponderosa pine
+    "WH": 11,  # Western hemlock
+    "MH": 12,  # Mountain hemlock
+    "PY": 13,  # Pacific yew
+    "WB": 14,  # Whitebark pine
+    "NF": 15,  # Noble fir
+    "WF": 16,  # White fir
+    "LL": 17,  # Subalpine larch
+    "YC": 18,  # Alaska yellow cedar
+    "WJ": 19,  # Western juniper
+    "BM": 20,  # Bigleaf maple
+    "VN": 21,  # Vine maple
+    "RA": 22,  # Red alder
+    "PB": 23,  # Paper birch
+    "GC": 24,  # Giant chinkapin
+    "DG": 25,  # Pacific dogwood
+    "AS": 26,  # Quaking aspen
+    "CW": 27,  # Black cottonwood
+    "WO": 28,  # Oregon white oak
+    "PL": 29,  # Plum species
+    "WI": 30,  # Willow species
+    "OS": 31,  # Other softwoods
+    "OH": 32,  # Other hardwoods
+}
+
+
 VARIANT_SPECIES_MAPS: Dict[str, Dict[str, int]] = {
     "SN": SN_SPECIES_MAP,
     "LS": LS_SPECIES_MAP,
@@ -725,6 +765,7 @@ VARIANT_SPECIES_MAPS: Dict[str, Dict[str, int]] = {
     "CA": CA_SPECIES_MAP,
     "OC": OC_SPECIES_MAP,
     "WS": WS_SPECIES_MAP,
+    "EC": EC_SPECIES_MAP,
 }
 
 
