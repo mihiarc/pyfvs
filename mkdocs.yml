@@ -1,34 +1,29 @@
 site_name: PyFVS - Python Forest Vegetation Simulator
-site_description: Python implementation of the Forest Vegetation Simulator for southern pine growth modeling. Part of the FIAtools ecosystem.
+site_description: Python implementation of the Forest Vegetation Simulator (FVS) supporting 10 regional variants for simulating forest growth and yield across the United States.
 site_author: Christopher Mihiar
-site_url: https://pyfvs.fiatools.org/
+site_url: https://mihiarc.github.io/pyfvs/
 repo_url: https://github.com/mihiarc/pyfvs
 repo_name: mihiarc/pyfvs
 
 extra:
   social:
-    - icon: fontawesome/solid/globe
-      link: https://fiatools.org
-      name: FIAtools Ecosystem
     - icon: fontawesome/brands/github
       link: https://github.com/mihiarc/pyfvs
     - icon: fontawesome/brands/python
-      link: https://pypi.org/project/pyfvs-fia/
+      link: https://pypi.org/project/fvs-python/
   meta:
     - name: keywords
-      content: pyfvs, fvs, forest vegetation simulator, python, growth modeling, southern pine, loblolly pine, yield tables, forestry, usda, fiatools
+      content: pyfvs, fvs, forest vegetation simulator, python, growth modeling, yield tables, forestry, usda
     - name: author
       content: Christopher Mihiar, USDA Forest Service
     - property: og:title
       content: PyFVS - Python Forest Vegetation Simulator
     - property: og:description
-      content: Python implementation of FVS for southern pine growth modeling. Part of the FIAtools ecosystem.
+      content: Python implementation of FVS supporting 10 regional variants for forest growth and yield simulation.
     - property: og:type
       content: website
     - property: og:url
-      content: https://pyfvs.fiatools.org/
-    - property: og:image
-      content: https://fiatools.org/logos/pyfvs_logo.png
+      content: https://mihiarc.github.io/pyfvs/
     - property: og:site_name
       content: PyFVS Documentation
     - name: twitter:card
@@ -36,7 +31,7 @@ extra:
     - name: twitter:title
       content: PyFVS - Python Forest Vegetation Simulator
     - name: twitter:description
-      content: Python implementation of FVS for southern pine growth modeling.
+      content: Python implementation of FVS supporting 10 regional variants for forest growth and yield simulation.
 
 theme:
   name: material
@@ -106,18 +101,31 @@ markdown_extensions:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
+# Workaround for pymdownx/Pygments None-filename crash (see mkdocs_hooks.py)
+hooks:
+  - mkdocs_hooks.py
+
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - User Guide:
-    - Overview: guides/index.md
-    - Growth Models: guides/growth-models.md
-    - Harvest Operations: guides/harvesting.md
+  - Core Concepts:
+    - Overview: concepts/index.md
+    - Growth Models: concepts/growth-models.md
+    - Stand Dynamics: concepts/stand-dynamics.md
+    - Volume & Taper: concepts/volume.md
+  - Variants: variants/index.md
+  - Guides:
     - Ecological Units: guides/ecological-units.md
+    - Harvest Operations: guides/harvesting.md
   - API Reference:
     - Overview: api/index.md
-    - Core:
-      - Stand: api/stand.md
-      - Tree: api/tree.md
-      - SimulationEngine: api/simulation-engine.md
-  - Examples: examples.md
+    - Stand: api/stand.md
+    - Tree: api/tree.md
+    - SimulationEngine: api/simulation-engine.md
+  - Cookbook: cookbook.md
+
+# Engineering notes kept in the repo but not published to the site
+exclude_docs: |
+  sn_fidelity_map.md
+  ls_fidelity_map.md
+  development/

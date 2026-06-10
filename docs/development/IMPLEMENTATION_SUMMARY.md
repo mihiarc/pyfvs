@@ -3,19 +3,19 @@
 ## Phase 1: Critical Bug Fixes ✅ COMPLETED
 
 ### 1. Fixed Small Tree Growth Time Step Handling
-- **File**: `src/fvs_python/tree.py` (lines 100-157)
+- **File**: `src/pyfvs/tree.py` (lines 100-157)
 - **Issue**: Chapman-Richards function was incorrectly calculating growth for non-5-year time steps
 - **Solution**: Implemented proper cumulative height calculation using age differences
 - **Result**: Trees now grow correctly for any time step (1 year, 5 years, etc.)
 
 ### 2. Fixed Tree Age Tracking
-- **File**: `src/fvs_python/tree.py` (lines 44-100)
+- **File**: `src/pyfvs/tree.py` (lines 44-100)
 - **Issue**: Age was incremented before growth calculations, causing inconsistencies
 - **Solution**: Store initial age, perform calculations, then update age at the end
 - **Result**: Consistent age tracking throughout growth calculations
 
 ### 3. Added Parameter Validation
-- **New File**: `src/fvs_python/validation.py`
+- **New File**: `src/pyfvs/validation.py`
 - **Implementation**: 
   - Created `ParameterValidator` class with bounds for all parameters
   - Species-specific site index bounds
@@ -24,7 +24,7 @@
 - **Result**: Invalid parameters are automatically bounded with optional warnings
 
 ### 4. Fixed Stand Initialization
-- **File**: `src/fvs_python/stand.py` (lines 15-77)
+- **File**: `src/pyfvs/stand.py` (lines 15-77)
 - **Issue**: Constructor required non-empty tree list but error message suggested otherwise
 - **Solution**: 
   - Made trees parameter optional with default empty list
@@ -35,7 +35,7 @@
 ## Phase 2: Code Quality Improvements ✅ PARTIALLY COMPLETED
 
 ### 5. Consolidated Simulation Functions
-- **New File**: `src/fvs_python/simulation_engine.py`
+- **New File**: `src/pyfvs/simulation_engine.py`
 - **Implementation**:
   - Created unified `SimulationEngine` class
   - Single interface for all simulation types
@@ -44,7 +44,7 @@
 - **Result**: Clean, consistent API for all simulations
 
 ### 6. Implemented Error Handling
-- **New File**: `src/fvs_python/exceptions.py`
+- **New File**: `src/pyfvs/exceptions.py`
 - **Implementation**:
   - Custom exception hierarchy (FVSError base class)
   - Domain-specific exceptions (ConfigurationError, ParameterError, etc.)

@@ -104,13 +104,12 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://fiatools.org/tools/pyfvs/"
+Homepage = "https://mihiarc.github.io/pyfvs/"
 Repository = "https://github.com/mihiarc/pyfvs"
 Documentation = "https://mihiarc.github.io/pyfvs/"
 "Source Code" = "https://github.com/mihiarc/pyfvs"
 "Bug Tracker" = "https://github.com/mihiarc/pyfvs/issues"
 Changelog = "https://github.com/mihiarc/pyfvs/releases"
-"FIA Ecosystem" = "https://fiatools.org"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

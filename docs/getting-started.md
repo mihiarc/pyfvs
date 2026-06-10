@@ -1,22 +1,20 @@
 # Getting Started
 
-This guide will help you install PyFVS and run your first forest growth simulation.
+This guide installs PyFVS and walks through your first simulation.
 
 ## Installation
 
-### Using pip
-
 ```bash
-pip install pyfvs-fia
+pip install fvs-python
 ```
 
-### Using uv (recommended)
+Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv add pyfvs-fia
+uv add fvs-python
 ```
 
-### Development Installation
+For development from source:
 
 ```bash
 git clone https://github.com/mihiarc/pyfvs.git
@@ -24,205 +22,129 @@ cd pyfvs
 uv pip install -e .
 ```
 
-## Your First Simulation
+PyFVS requires Python 3.12 or newer. The import name is `pyfvs` (the
+distribution on PyPI is `fvs-python`).
 
-### Basic Stand Simulation
+## Your first simulation
 
-The simplest way to simulate forest growth is using the `Stand` class:
+A `Stand` is the primary entry point. `initialize_planted()` creates a
+bare-ground plantation, `grow()` advances it, and `get_metrics()` returns
+stand-level summaries.
 
 ```python
 from pyfvs import Stand
 
-# Create a planted stand of loblolly pine
 stand = Stand.initialize_planted(
     trees_per_acre=500,
     site_index=70,
-    species='LP'
+    species="LP",
+    variant="SN",
 )
 
-# Simulate 30 years of growth
 stand.grow(years=30)
 
-# View results
-metrics = stand.get_metrics()
-print(f"Age: {stand.age} years")
-print(f"Trees per acre: {metrics['tpa']:.0f}")
-print(f"Basal area: {metrics['basal_area']:.1f} ft²/acre")
-print(f"Volume: {metrics['volume']:.0f} ft³/acre")
+m = stand.get_metrics()
+print(f"Age:        {m['age']} years")
+print(f"Trees/acre: {m['tpa']:.0f}")
+print(f"Basal area: {m['basal_area']:.1f} ft²/acre")
+print(f"QMD:        {m['qmd']:.1f} inches")
+print(f"Volume:     {m['volume']:.0f} ft³/acre")
 ```
 
-!!! example "Expected output"
-    ```
-    Age: 30 years
-    Trees per acre: 430
-    Basal area: 205.5 ft²/acre
-    Volume: 6881 ft³/acre
-    ```
+### What `get_metrics()` returns
 
-### Understanding Site Index
+The metrics dictionary includes:
 
-Site index represents the expected height of dominant trees at a base age of 25 years. Higher site index means better growing conditions:
+| Key | Description |
+|-----|-------------|
+| `tpa` | Trees per acre |
+| `basal_area` | Basal area (ft²/acre) |
+| `qmd` | Quadratic mean diameter (inches) |
+| `mean_dbh` | Arithmetic mean DBH (inches) |
+| `top_height` | Dominant/top height (feet) |
+| `mean_height` | Arithmetic mean height (feet) |
+| `ccf` | Crown competition factor |
+| `sdi` | Stand density index |
+| `max_sdi` | Maximum SDI for the species |
+| `relsdi` | Relative SDI (`sdi / max_sdi`) |
+| `volume` | Total cubic volume (ft³/acre) |
+| `merchantable_volume` | Merchantable cubic volume (ft³/acre) |
+| `board_feet` | Board-foot volume (Doyle) |
+| `age` | Stand age (years) |
 
-| Site Index | Quality | Typical Conditions |
-|------------|---------|-------------------|
-| 50-60 | Poor | Dry ridges, poor soils |
-| 60-70 | Average | Typical upland sites |
-| 70-80 | Good | Moist lowlands, good soils |
-| 80-90 | Excellent | River bottoms, best sites |
+!!! note "`get_metrics()` vs the yield table"
+    `get_metrics()` returns the stand's **current** state. For a time series
+    across the rotation, use
+    [`get_yield_table_dataframe()`](api/stand.md) — its columns follow the
+    FVS_Summary convention (`Age`, `TPA`, `BA`, `QMD`, `TCuFt`, …).
 
-### Using Ecological Units
+## Choosing a variant
 
-Ecological units (ecounits) modify growth rates based on geographic region. The M231 (Southern Appalachian) province produces the highest growth rates:
+PyFVS supports 11 regional variants. Pass `variant=` and a species code valid
+for that region:
 
 ```python
 from pyfvs import Stand
 
-# High-productivity simulation with M231 ecounit
-stand = Stand.initialize_planted(
-    trees_per_acre=500,
-    site_index=70,
-    species='LP',
-    ecounit='M231'  # Mountain province - highest growth
-)
+# Pacific Northwest Coast Douglas-fir
+pn = Stand.initialize_planted(400, 120, "DF", variant="PN")
 
-stand.grow(years=25)
-print(f"Volume: {stand.get_metrics()['volume']:.0f} ft³/acre")
+# Lake States red pine
+ls = Stand.initialize_planted(500, 65, "RN", variant="LS")
+
+# Northeast red maple
+ne = Stand.initialize_planted(500, 60, "RM", variant="NE")
+
+for s in (pn, ls, ne):
+    s.grow(years=50)
+    print(s.variant, s.get_metrics()["qmd"])
 ```
 
-!!! example "Expected output"
-    ```
-    Volume: 10729 ft³/acre
-    ```
+If you omit `variant`, PyFVS uses the Southern (`SN`) variant by default. See
+the [Variants reference](variants/index.md) for the species and growth
+equations of each region.
 
-Available ecounits and their effects on diameter growth:
+## Site index
 
-| Ecounit | Region | Effect on Growth |
-|---------|--------|------------------|
-| 232 | Georgia (base) | 1.0x (baseline) |
-| 231L | Lowland | 1.3x |
-| 255 | Prairie | 1.3x |
-| M231 | Mountain | 2.2x |
+Site index is the expected dominant height (feet) at a variant-specific base
+age — base age 25 for the Southern variant. Higher site index means a more
+productive site:
 
-## Harvest Operations
+| Site index (SN) | Quality | Typical conditions |
+|-----------------|---------|--------------------|
+| 50–60 | Poor | Dry ridges, poor soils |
+| 60–70 | Average | Typical upland sites |
+| 70–80 | Good | Moist lowlands, good soils |
+| 80–90 | Excellent | River bottoms, best sites |
 
-PyFVS supports common silvicultural operations:
+## Stochastic vs. deterministic growth
 
-### Thinning from Below
-
-Remove the smallest trees to a target density:
+Diameter growth is **stochastic by default**, matching the native FVS Fortran
+behavior (`DGSD ≥ 1.0`). Each run draws different per-tree growth noise, so
+results vary unless you fix a seed:
 
 ```python
 from pyfvs import Stand
 
-stand = Stand.initialize_planted(trees_per_acre=800, site_index=70, species='LP')
-stand.grow(years=15)
+# Stochastic (default) — different every run
+stand = Stand.initialize_planted(500, 70, "LP", variant="SN")
 
-# Thin to 200 trees per acre, removing smallest first
-stand.thin_from_below(target_tpa=200)
+# Reproducible stochastic — same result every run
+seeded = Stand.initialize_planted(500, 70, "LP", variant="SN", random_seed=42)
 
-stand.grow(years=15)
-print(f"Final TPA: {stand.get_metrics()['tpa']:.0f}")
+# Deterministic — no per-tree growth noise (Fortran DGSD<1.0 branch)
+flat = Stand.initialize_planted(500, 70, "LP", variant="SN", stochastic=False)
 ```
 
-!!! example "Expected output"
-    ```
-    Final TPA: 189
-    ```
+!!! tip "Use a seed for tests and tables"
+    For reproducible yield tables or regression tests, always pass
+    `random_seed=`. Deterministic mode (`stochastic=False`) removes the
+    ecological variance in the diameter distribution and is best reserved for
+    debugging against the Fortran deterministic branch.
 
-### Thinning from Above
+## Next steps
 
-Remove the largest trees (high-grade harvest):
-
-```python
-stand.thin_from_above(target_tpa=300)
-```
-
-### Selection Harvest
-
-Remove trees to achieve a target basal area:
-
-```python
-stand.selection_harvest(target_basal_area=80)  # Target 80 ft²/acre
-```
-
-## Working with Results
-
-### Get Yield Table
-
-Generate a time series of stand metrics:
-
-```python
-from pyfvs import Stand
-
-stand = Stand.initialize_planted(trees_per_acre=500, site_index=70, species='LP')
-yield_table = stand.get_yield_table_dataframe(years=50, period_length=5)
-
-# Display key columns (Age, TPA, QMD, TCuFt=total cubic feet)
-print(yield_table[['Age', 'TPA', 'QMD', 'TCuFt']])
-```
-
-!!! example "Expected output"
-    ```
-     Age  TPA       QMD        TCuFt
-       0  500  0.506281    93.610400
-       5  480  2.878952   314.004340
-      10  472  4.519664   956.536667
-      15  466  6.112528  2187.534923
-      20  461  7.414849  3759.174794
-      25  448  8.463868  5362.540417
-      30  436  9.332694  6935.371646
-      35  429 10.065301  8495.195330
-      40  423 10.691508  9963.346609
-      45  413 11.237817 11196.221399
-      50  406 11.726117 12371.302295
-    ```
-
-### Export to CSV
-
-```python
-# Get yield table as DataFrame
-df = stand.get_yield_table()
-df.to_csv('simulation_results.csv', index=False)
-```
-
-### Get Individual Tree Data
-
-```python
-tree_list = stand.get_tree_list()
-print(tree_list.head())
-```
-
-## Using SimulationEngine
-
-For more complex simulations, use the `SimulationEngine`:
-
-```python
-from pyfvs import SimulationEngine
-from pathlib import Path
-
-engine = SimulationEngine(output_dir=Path('./output'))
-
-# Run simulation with automatic output generation
-results = engine.simulate_stand(
-    species='LP',
-    trees_per_acre=500,
-    site_index=70,
-    years=50,
-    time_step=5
-)
-
-# Generate comparative yield tables
-yield_table = engine.simulate_yield_table(
-    species=['LP', 'SP'],
-    site_indices=[60, 70, 80],
-    planting_densities=[300, 500, 700],
-    years=40
-)
-```
-
-## Next Steps
-
-- Learn about [Stand](api/stand.md) class methods
-- Understand [Tree](api/tree.md) growth models
-- Explore [SimulationEngine](api/simulation-engine.md) for batch simulations
-- Read about [Growth Models](guides/growth-models.md) and equations
+- [Core Concepts](concepts/index.md) — how the models fit together
+- [Variants](variants/index.md) — regions, species, and equations
+- [Cookbook](cookbook.md) — thinning, yield tables, exports, comparisons
+- [API Reference](api/index.md) — `Stand`, `Tree`, `SimulationEngine`

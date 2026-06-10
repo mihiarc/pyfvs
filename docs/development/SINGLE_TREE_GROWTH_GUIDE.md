@@ -48,7 +48,7 @@ This guide demonstrates how to test single tree growth for loblolly pine (*Pinus
 ### Basic Test Setup
 
 ```python
-from fvs_python.tree import Tree
+from pyfvs.tree import Tree
 
 # Create a loblolly pine tree
 tree = Tree(

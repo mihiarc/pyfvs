@@ -13,6 +13,12 @@ Use `SimulationEngine` when you need to:
 
 For simple single-stand simulations, the `Stand` class is often sufficient.
 
+!!! warning "Southern variant only"
+    `SimulationEngine` initializes stands with the default (Southern, `SN`)
+    variant and does not accept a `variant=` or `ecounit=` argument. To run
+    other variants — or to use ecological units — drive [`Stand`](stand.md)
+    directly.
+
 ## Quick Start
 
 ```python
@@ -33,13 +39,14 @@ results = engine.simulate_stand(
 print(results.tail())
 ```
 
-!!! example "Expected output"
-    ```
-       age  tpa  basal_area   volume  mean_dbh  mean_height    qmd  top_height
-    8   40  395       308.2   9143.5     11.85        82.14  11.93       85.67
-    9   45  380       332.1  10621.8     12.59        87.04  12.66       90.11
-    10  50  367       352.7  12045.3     13.27        91.23  13.33       93.89
-    ```
+Example output:
+
+```text
+   age  tpa  basal_area   volume  mean_dbh  mean_height    qmd  top_height
+8   40  395       308.2   9143.5     11.85        82.14  11.93       85.67
+9   45  380       332.1  10621.8     12.59        87.04  12.66       90.11
+10  50  367       352.7  12045.3     13.27        91.23  13.33       93.89
+```
 
 ## Single Stand Simulation
 
@@ -54,7 +61,6 @@ results = engine.simulate_stand(
     site_index=70,
     years=50,
     time_step=5,
-    ecounit='M231',
     save_outputs=True,    # Save CSV/JSON files
     plot_results=True     # Generate plots
 )
@@ -64,22 +70,22 @@ results = engine.simulate_stand(
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `species` | str | required | Species code (LP, SP, SA, LL) |
-| `trees_per_acre` | int | required | Initial planting density |
-| `site_index` | float | required | Site index (base age 25) |
-| `years` | int | 50 | Total simulation years |
-| `time_step` | int | 5 | Years between outputs |
-| `ecounit` | str | None | Ecological unit code |
-| `save_outputs` | bool | True | Save results to files |
-| `plot_results` | bool | True | Generate matplotlib plots |
+| `species` | str | `'LP'` | Species code (Southern variant) |
+| `trees_per_acre` | int | `500` | Initial planting density |
+| `site_index` | float | `70` | Site index (base age 25) |
+| `years` | int | `50` | Total simulation years |
+| `time_step` | int | `5` | Years between outputs |
+| `save_outputs` | bool | `True` | Save results to files |
+| `plot_results` | bool | `True` | Generate matplotlib plots |
 
 ### Returns
 
-A pandas DataFrame with columns:
+A pandas DataFrame with one row per output period. The columns are the keys of
+`Stand.get_metrics()`:
 
-- `age`, `tpa`, `basal_area`, `volume`
-- `mean_dbh`, `mean_height`, `qmd`, `top_height`
-- `ccf`, `sdi`, `mortality`
+- `age`, `tpa`, `basal_area`, `qmd`, `mean_dbh`
+- `top_height`, `mean_height`, `ccf`, `sdi`, `max_sdi`, `relsdi`
+- `volume`, `merchantable_volume`, `board_feet`
 
 ## Yield Table Generation
 
@@ -142,7 +148,7 @@ print(final[['scenario', 'volume', 'basal_area', 'tpa']])
 
 When `save_outputs=True`, the engine creates:
 
-```
+```text
 output/
 ├── simulation_LP_SI70_TPA500.csv    # Yield table
 ├── simulation_LP_SI70_TPA500.json   # Metadata
@@ -166,8 +172,7 @@ single = engine.simulate_stand(
     species='LP',
     trees_per_acre=500,
     site_index=70,
-    years=50,
-    ecounit='M231'
+    years=50
 )
 print(f"Final volume: {single.iloc[-1]['volume']:.0f} ft³/acre")
 

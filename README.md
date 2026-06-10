@@ -112,12 +112,12 @@ stand.grow(years=35)
 from pyfvs import Stand
 
 stand = Stand.initialize_planted(500, 70, "LP", ecounit="M231")
-table = stand.grow(years=50, yield_table=True)
-print(table)
+table = stand.get_yield_table_dataframe(years=50, period_length=10)
+print(table[["Age", "TPA", "QMD", "TopHt", "BA", "TCuFt"]])
 ```
 
-| Age | TPA | QMD | Height | BA | Volume |
-|-----|-----|-----|--------|-----|--------|
+| Age | TPA | QMD | TopHt | BA | TCuFt |
+|-----|-----|-----|-------|-----|-------|
 | 0 | 500 | 0.5 | 1.0 | 0.7 | 0 |
 | 10 | 485 | 4.2 | 28.5 | 47 | 892 |
 | 20 | 420 | 7.8 | 52.1 | 140 | 3,241 |
