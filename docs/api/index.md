@@ -27,9 +27,11 @@ stand = Stand.initialize_planted(
     ecounit='M231'
 )
 
-# Direct constructor
-stand = Stand(site_index=70, species='LP')
-stand.add_tree(dbh=6.0, height=45.0, age=10)
+# Build a stand from explicit Tree objects
+from pyfvs import Tree
+
+trees = [Tree(dbh=6.0, height=45.0, species='LP', age=10)]
+stand = Stand(trees=trees, site_index=70, species='LP')
 ```
 
 ### Growth Simulation
@@ -38,8 +40,9 @@ stand.add_tree(dbh=6.0, height=45.0, age=10)
 # Grow for 25 years
 stand.grow(years=25)
 
-# Grow with custom time step
-stand.grow(years=30, time_step=10)
+# Periods longer than the variant's base cycle (5 yr for SN/OP, 10 yr otherwise)
+# are automatically subdivided into base-cycle sub-cycles
+stand.grow(years=30)
 ```
 
 ### Harvest Operations
@@ -52,7 +55,7 @@ stand.thin_from_below(target_tpa=200)
 stand.thin_from_above(target_tpa=300)
 
 # Selection harvest to target basal area
-stand.selection_thin(target_basal_area=80)
+stand.selection_harvest(target_basal_area=80)
 ```
 
 ### Output Methods
@@ -61,11 +64,11 @@ stand.selection_thin(target_basal_area=80)
 # Get current metrics
 metrics = stand.get_metrics()
 
-# Get yield table (growth history)
-yield_table = stand.get_yield_table()
+# Get yield table (growth history) as a DataFrame
+yield_table = stand.get_yield_table_dataframe(years=50, period_length=5)
 
-# Get individual tree data
-tree_list = stand.get_tree_list()
+# Get individual tree data as a DataFrame
+tree_list = stand.get_tree_list_dataframe()
 ```
 
 ## Return Value Schema
@@ -86,18 +89,22 @@ The `get_metrics()` method returns:
 
 ### Yield Table DataFrame
 
-The `get_yield_table()` method returns a pandas DataFrame with columns:
+The `get_yield_table_dataframe()` method returns a pandas DataFrame with
+FVS_Summary-style columns (one row per period):
 
 | Column | Description |
 |--------|-------------|
-| `age` | Stand age (years) |
-| `tpa` | Trees per acre |
-| `basal_area` | Basal area (ft²/acre) |
-| `volume` | Volume (ft³/acre) |
-| `mean_dbh` | Mean DBH (inches) |
-| `mean_height` | Mean height (feet) |
-| `qmd` | Quadratic mean diameter (inches) |
-| `top_height` | Dominant height (feet) |
-| `ccf` | Crown competition factor |
-| `sdi` | Stand density index |
-| `mortality` | Trees that died this period |
+| `Year` | Calendar year of projection |
+| `Age` | Stand age (years) |
+| `TPA` | Trees per acre |
+| `BA` | Basal area (ft²/acre) |
+| `SDI` | Stand density index |
+| `CCF` | Crown competition factor |
+| `TopHt` | Dominant height (feet) |
+| `QMD` | Quadratic mean diameter (inches) |
+| `TCuFt` | Total cubic volume (ft³/acre) |
+| `MCuFt` | Merchantable cubic volume (ft³/acre) |
+| `BdFt` | Board-foot volume (Doyle) |
+| `Mort` | Mortality (ft³/acre/year) |
+
+Removal and after-thin columns (`RTpa`, `RTCuFt`, `AThinBA`, …) are also included.

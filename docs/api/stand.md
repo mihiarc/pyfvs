@@ -35,11 +35,12 @@ print(f"Volume: {metrics['volume']:.0f} ft³/acre")
 print(f"Basal area: {metrics['basal_area']:.1f} ft²/acre")
 ```
 
-!!! example "Expected output"
-    ```
-    Volume: 10621 ft³/acre
-    Basal area: 353.9 ft²/acre
-    ```
+Example output:
+
+```text
+Volume: 10621 ft³/acre
+Basal area: 353.9 ft²/acre
+```
 
 ## Creating Stands
 
@@ -59,15 +60,17 @@ stand = Stand.initialize_planted(
 
 ### Custom Stand
 
-Build a stand with specific trees:
+Build a stand from explicit `Tree` objects:
 
 ```python
-stand = Stand(site_index=70, species='LP')
+from pyfvs import Stand, Tree
 
-# Add individual trees
-stand.add_tree(dbh=8.0, height=55.0, age=15)
-stand.add_tree(dbh=6.5, height=48.0, age=15)
-stand.add_tree(dbh=10.2, height=62.0, age=15)
+trees = [
+    Tree(dbh=8.0, height=55.0, species='LP', age=15),
+    Tree(dbh=6.5, height=48.0, species='LP', age=15),
+    Tree(dbh=10.2, height=62.0, species='LP', age=15),
+]
+stand = Stand(trees=trees, site_index=70, species='LP')
 ```
 
 ## Growth Simulation
@@ -79,15 +82,15 @@ stand.add_tree(dbh=10.2, height=62.0, age=15)
 stand.grow(years=30)
 ```
 
-### Custom Time Steps
+### Longer Periods
 
 ```python
-# Grow with 10-year time steps
-yield_data = stand.grow(years=50, time_step=10)
+# Grow 50 years in one call; grow() returns None and mutates the stand in place
+stand.grow(years=50)
 ```
 
-!!! note "Time Step Consistency"
-    FVS was calibrated for 5-year cycles. PyFVS internally subdivides longer time steps into 5-year sub-cycles to maintain consistent growth dynamics.
+!!! note "Cycle Length"
+    Each FVS variant is calibrated for a specific cycle length — 5 years for SN and OP, 10 years for all other variants. PyFVS subdivides longer `grow()` periods into base-cycle sub-cycles, recalculating competition metrics between them.
 
 ## Harvest Operations
 
@@ -138,15 +141,15 @@ metrics = stand.get_metrics()
 ### Yield Table
 
 ```python
-df = stand.get_yield_table_dataframe()
-print(df[['age', 'tpa', 'volume', 'basal_area']])
+df = stand.get_yield_table_dataframe(years=50, period_length=5)
+print(df[['Age', 'TPA', 'BA', 'TCuFt']])
 ```
 
 ### Tree List
 
 ```python
 tree_df = stand.get_tree_list_dataframe()
-print(tree_df[['dbh', 'height', 'volume', 'crown_ratio']])
+print(tree_df[['DBH', 'Ht', 'PctCr', 'TcuFt']])
 ```
 
 ## Class Reference
@@ -165,7 +168,6 @@ print(tree_df[['dbh', 'height', 'volume', 'crown_ratio']])
         - thin_from_above
         - thin_by_dbh_range
         - selection_harvest
-        - add_tree
         - age
         - site_index
         - species

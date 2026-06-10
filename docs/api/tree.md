@@ -50,12 +50,13 @@ print(f"New DBH: {tree.dbh:.2f} inches")
 print(f"New height: {tree.height:.1f} feet")
 ```
 
-!!! example "Expected output"
-    ```
-    Volume: 4.24 ft³
-    New DBH: 7.23 inches
-    New height: 56.5 feet
-    ```
+Example output:
+
+```text
+Volume: 4.24 ft³
+New DBH: 7.23 inches
+New height: 56.5 feet
+```
 
 ## Growth Models
 
@@ -140,11 +141,16 @@ tree.grow(
 ### Getting Tree Information
 
 ```python
-# Volume (cubic feet)
+import math
+
+# Total cubic volume (cubic feet)
 volume = tree.get_volume()
 
-# Basal area (ft² for this tree)
-ba = tree.get_basal_area()
+# Detailed volume breakdown (total/merchantable cubic, board feet)
+vol = tree.get_volume_detailed()
+
+# Basal area (ft²) is derived directly from DBH
+ba = math.pi / 4 * (tree.dbh / 12) ** 2
 ```
 
 ## Species Codes
@@ -166,7 +172,7 @@ ba = tree.get_basal_area()
         - __init__
         - grow
         - get_volume
-        - get_basal_area
+        - get_volume_detailed
         - dbh
         - height
         - age

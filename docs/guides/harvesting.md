@@ -1,153 +1,109 @@
 # Harvest Operations
 
-PyFVS supports common silvicultural operations for managing stand density and structure.
+PyFVS supports common silvicultural operations for managing stand density and
+structure. Call them on a `Stand` between `grow()` calls. They work for any
+variant; the examples below use the Southern variant with loblolly pine.
 
-## Thinning Methods
+!!! tip "Reproducible examples"
+    Growth is [stochastic by default](../concepts/stand-dynamics.md#stochastic-vs-deterministic-growth),
+    so exact numbers vary between runs. The examples pass `random_seed=` so they
+    reproduce; remove it for an unseeded run.
 
-### Thin from Below
+## Thinning methods
 
-Removes the smallest trees first, commonly used to reduce competition and improve growth of remaining trees.
+### Thin from below
+
+Removes the smallest trees first — the most common thinning, used to reduce
+competition and concentrate growth on the best trees.
 
 ```python
 from pyfvs import Stand
 
-stand = Stand.initialize_planted(trees_per_acre=800, site_index=70, species='LP')
+stand = Stand.initialize_planted(800, 70, "LP", variant="SN", random_seed=42)
 stand.grow(years=15)
 
-# Thin to 300 TPA, removing smallest trees
-stand.thin_from_below(target_tpa=300)
-
+stand.thin_from_below(target_tpa=300)   # keep the 300 largest trees
 stand.grow(years=15)
 ```
 
-**Effects:**
-- Increases average DBH
-- Reduces competition
-- Concentrates growth on best trees
+**Effects:** increases average DBH, reduces competition, concentrates growth on
+the largest stems.
 
-### Thin from Above
+### Thin from above
 
-Removes the largest trees first, simulating high-grade harvesting.
+Removes the largest trees first, simulating a high-grade harvest.
 
 ```python
-# Remove largest trees, keep 400 TPA
 stand.thin_from_above(target_tpa=400)
 ```
 
-**Effects:**
-- Generates immediate revenue from large trees
-- May reduce stand quality over time
-- Opens canopy for understory
+**Effects:** generates immediate revenue from large trees but can reduce future
+stand quality.
 
-### Thin by DBH Range
+### Thin by DBH range
 
-Removes trees within a specific diameter range.
+Removes a proportion of trees within a diameter range.
 
 ```python
 # Remove 50% of trees between 6" and 10" DBH
 stand.thin_by_dbh_range(min_dbh=6.0, max_dbh=10.0, proportion=0.5)
 ```
 
-**Use cases:**
-- Remove pulpwood-sized trees
-- Create specific stand structure
-- Salvage operations
+**Use cases:** removing pulpwood-sized stems, salvage, or shaping a target
+structure.
 
-### Selection Harvest
+### Selection harvest
 
-Reduces stand to a target basal area, removing trees proportionally across size classes.
+Reduces the stand to a target basal area, removing trees across size classes.
 
 ```python
-# Reduce to 80 ft²/acre basal area
+# Reduce to 80 ft²/acre
 stand.selection_harvest(target_basal_area=80)
 ```
 
-**Effects:**
-- Maintains stand structure
-- Sustainable harvest method
-- Common in uneven-aged management
+**Effects:** maintains stand structure; common in uneven-aged management.
 
-## Thinning Schedules
-
-### Commercial Thin Example
+## A multi-entry schedule
 
 ```python
 from pyfvs import Stand
 
-# Establish stand
-stand = Stand.initialize_planted(
-    trees_per_acre=700,
-    site_index=70,
-    species='LP',
-    ecounit='M231'
-)
+stand = Stand.initialize_planted(700, 70, "LP", variant="SN", random_seed=42)
 
-# Grow to first thin (age 12-15)
+# Grow to the first thin
 stand.grow(years=12)
-print(f"Pre-thin: {stand.get_metrics()['tpa']:.0f} TPA, {stand.get_metrics()['qmd']:.1f}\" QMD")
+print(f"Pre-thin:  {stand.get_metrics()['tpa']:.0f} TPA, "
+      f"{stand.get_metrics()['qmd']:.1f}\" QMD")
 
-# First thin - remove ~50%
+# First thin — remove roughly half
 stand.thin_from_below(target_tpa=350)
-print(f"Post-thin: {stand.get_metrics()['tpa']:.0f} TPA")
 
-# Grow to second thin
-stand.grow(years=8)  # Age 20
+# Grow to a second thin
+stand.grow(years=8)
 stand.thin_from_below(target_tpa=180)
 
 # Grow to final harvest
-stand.grow(years=10)  # Age 30
-
-print(f"Final: {stand.get_metrics()['volume']:.0f} ft³/acre, {stand.get_metrics()['qmd']:.1f}\" QMD")
-```
-
-!!! example "Expected output"
-    ```
-    Pre-thin: 661 TPA, 8.6" QMD
-    Post-thin: 350 TPA
-    Final: 7988 ft³/acre, 16.0" QMD
-    ```
-
-### Sawtimber Rotation
-
-```python
-# Long rotation for large sawtimber
-stand = Stand.initialize_planted(trees_per_acre=600, site_index=75, species='LP')
-
-stand.grow(years=15)
-stand.thin_from_below(target_tpa=250)
-
 stand.grow(years=10)
-stand.thin_from_below(target_tpa=120)
 
-stand.grow(years=15)  # Final harvest at age 40
-
-metrics = stand.get_metrics()
-print(f"Final DBH: {metrics['qmd']:.1f} inches")
-print(f"Final volume: {metrics['volume']:.0f} ft³/acre")
+m = stand.get_metrics()
+print(f"Final:     {m['volume']:.0f} ft³/acre, {m['qmd']:.1f}\" QMD")
 ```
 
-!!! example "Expected output"
-    ```
-    Final DBH: 13.9 inches
-    Final volume: 4819 ft³/acre
-    ```
+## Inspecting the result
 
-## Tracking Harvest Volume
-
-Harvest operations return information about removed trees:
+Harvest operations mutate the stand in place. Read the new state with
+`get_metrics()`:
 
 ```python
-# Get harvest results (if method returns them)
 stand.thin_from_below(target_tpa=200)
-
-# Check remaining stand
-metrics = stand.get_metrics()
-print(f"Remaining: {metrics['tpa']:.0f} TPA, {metrics['volume']:.0f} ft³/acre")
+m = stand.get_metrics()
+print(f"Remaining: {m['tpa']:.0f} TPA, {m['basal_area']:.0f} ft²/acre")
 ```
 
-## Best Practices
+## Best practices
 
-1. **Time first thin appropriately** - Usually when crown closure occurs (CCF > 100)
-2. **Don't over-thin** - Maintain enough trees for site occupancy
-3. **Match thin intensity to objectives** - Pulpwood vs sawtimber
-4. **Consider residual spacing** - Target 12-15' spacing for pine sawtimber
+1. **Time the first thin appropriately** — often when crown closure occurs
+   (CCF > 100).
+2. **Don't over-thin** — keep enough trees to occupy the site.
+3. **Match intensity to objectives** — pulpwood vs. sawtimber.
+4. **Consider residual spacing** — e.g. 12–15 ft for pine sawtimber.

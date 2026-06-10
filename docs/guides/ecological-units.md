@@ -2,6 +2,12 @@
 
 Ecological units (ecounits) modify growth rates based on geographic region. This accounts for climate, soil, and other environmental differences across the landscape.
 
+!!! note "Southern variant feature"
+    Ecological units are specific to the **Southern (`SN`)** variant. Pass
+    `ecounit=` to `Stand.initialize_planted()` (other variants ignore it), and
+    note that [`SimulationEngine`](../api/simulation-engine.md) does not expose
+    this argument — use `Stand` directly.
+
 ## Overview
 
 The FVS Southern variant uses ecological province codes to adjust diameter growth. Province 232 (Georgia Piedmont) is the baseline for loblolly pine.
