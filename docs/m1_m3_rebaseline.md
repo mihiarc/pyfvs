@@ -103,8 +103,9 @@ of *failing* comparisons (nearest-to-parity gaps) is:
 
 ### Recommendation on the 0.5% deterministic floor
 
-**KEEP 0.5%.** (Flagged for human ratification; **no floor change is applied in
-this goal**, and none is recommended.)
+**KEEP 0.5%. — RATIFIED by maintainer 2026-06-21.** The floor stays at 0.5%
+(1.0% volume); no change to `tests/parity/conftest.py` / `_helpers.py`. The
+recommendation below stands as the rationale of record.
 
 Rationale, resting on an identified physical source — never on the pass/fail
 outcome:
