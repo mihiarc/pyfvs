@@ -3,6 +3,38 @@
 Instructions for building the native FVS Fortran shared libraries for use
 with `pyfvs.native` validation bindings.
 
+## Quick build (recommended)
+
+From the pyfvs repo, build and install all variants the parity suite needs:
+
+```bash
+scripts/build_native_fvs.sh            # all 11 pyfvs variants -> ~/.fvs/lib
+scripts/build_native_fvs.sh sn ls ne   # or a subset (lowercase codes)
+```
+
+The script compiles each variant from the FVS Fortran source (default
+`~/Projects/ForestVegetationSimulator`) via the repo's own makefile, installs
+`FVS<variant>.so` into `~/.fvs/lib`, and ad-hoc code-signs on macOS.
+
+**Gotcha:** the FVS source tree's `volume/NVEL` (National Volume Estimator
+Library) is a **git submodule**. A fresh clone/restore leaves it empty and the
+build fails with `No rule to make target '../volume/NVEL/beqinfo.inc'`. The
+script initializes it automatically; to do it by hand:
+
+```bash
+git -C ~/Projects/ForestVegetationSimulator submodule update --init --recursive
+```
+
+Then run the parity suite. The parity tests are auto-marked `parity` and the
+default pytest config deselects them (`-m "not slow and not parity"`), so you
+**must** opt in explicitly:
+
+```bash
+uv run pytest tests/parity/ -m parity
+```
+
+The manual, single-variant steps below are kept for reference.
+
 ## Prerequisites
 
 ### macOS
@@ -26,7 +58,8 @@ sudo apt install gfortran make
 ### 1. Clone the FVS repository
 
 ```bash
-git clone https://github.com/USDAForestService/ForestVegetationSimulator.git
+# --recursive pulls the volume/NVEL submodule (required for the build)
+git clone --recursive https://github.com/USDAForestService/ForestVegetationSimulator.git
 cd ForestVegetationSimulator
 ```
 
