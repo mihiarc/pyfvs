@@ -34,7 +34,7 @@ from tests.parity._helpers import (
 
 
 @pytest.mark.xfail(
-    strict=False,
+    strict=True,
     reason=(
         "OP native DEGENERATE-DF blocker (measured 2026-06-21 vs pinned native "
         "FVSop): native planted Douglas-fir does not grow (QMD frozen ~0.3-0.7\", "
@@ -92,7 +92,7 @@ def test_op_gold_standard_df(
         pytest.param(
             "WH", 120, 300, 25, id="wh-si120-25yr",
             marks=pytest.mark.xfail(
-                strict=False,
+                strict=True,
                 reason="OP DG over-prediction (2026-06-21, deterministic): BA "
                 "+44.4%, QMD +20.6%, top_height +18.0%, volume +33.6% "
                 "(TPA -0.8% passes — mortality matches).",
@@ -101,7 +101,7 @@ def test_op_gold_standard_df(
         pytest.param(
             "RC", 120, 300, 25, id="rc-si120-25yr",
             marks=pytest.mark.xfail(
-                strict=False,
+                strict=True,
                 reason="OP DG over-prediction (2026-06-21, deterministic): BA "
                 "+37.7%, QMD +17.6%, top_height +38.7%, volume +86.5% "
                 "(TPA -0.4% passes — mortality matches).",
@@ -110,7 +110,7 @@ def test_op_gold_standard_df(
         pytest.param(
             "RA", 120, 300, 25, id="ra-si120-25yr",
             marks=pytest.mark.xfail(
-                strict=False,
+                strict=True,
                 reason="OP DG over-prediction (2026-06-21, deterministic): BA "
                 "+201.0%, QMD +74.4%, volume +110.1% (TPA -1.0% and top_height "
                 "+2.4% pass — mortality and height match; diameter diverges).",

@@ -29,7 +29,6 @@ from tests.parity._helpers import (
 
 
 # 10 seeds matches the SN suite — balances sampling noise against runtime.
-LS_PARITY_N_SEEDS = 10
 
 
 @pytest.mark.xfail(
@@ -61,7 +60,6 @@ def test_ls_gold_standard_rn_si60_30yr(require_native_variant, parity_tolerance)
         trees_per_acre=500,
         years=30,
         bare_ground=True,
-        n_seeds=LS_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="LS",
@@ -72,7 +70,7 @@ def test_ls_gold_standard_rn_si60_30yr(require_native_variant, parity_tolerance)
     )
     assert_metrics_close_mean(
         pyfvs_result, native_result, parity_tolerance,
-        skip_keys=("volume",),  # LS uses simplified volume library (Phase 5 open).
+        skip_keys=("volume",),  # LS real volume-library gap: cfvol/bfvol MISSING (docs/ls_fidelity_map.md VOLUME); measured vol drift +1.3-6.3%. Tracked there, not gated here.
     )
 
 
@@ -87,7 +85,7 @@ def test_ls_gold_standard_rn_si60_30yr(require_native_variant, parity_tolerance)
         # the real LS DG over-prediction (+17% BA on the sweep). Xfail until
         # the species-level LS DG coefficient drift is resolved — same root
         # cause family as jp/sm/qa xfails below.
-        pytest.param("WA", 60, 500, 30, id="wa-si60-30yr"),
+        pytest.param("WA", 60, 500, 30, id="wa-si60-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +0.58%, topH +0.94% exceed band. LS DG/HG drift; volume skipped (real library gap).')),
     ],
 )
 def test_ls_off_baseline_parity(
@@ -108,7 +106,6 @@ def test_ls_off_baseline_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
-        n_seeds=LS_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="LS",
@@ -119,7 +116,7 @@ def test_ls_off_baseline_parity(
     )
     assert_metrics_close_mean(
         pyfvs_result, native_result, parity_tolerance,
-        skip_keys=("volume",),  # LS uses simplified volume library (Phase 5 open).
+        skip_keys=("volume",),  # LS real volume-library gap: cfvol/bfvol MISSING (docs/ls_fidelity_map.md VOLUME); measured vol drift +1.3-6.3%. Tracked there, not gated here.
     )
 
 
@@ -129,13 +126,13 @@ def test_ls_off_baseline_parity(
         # Commercial species currently fail >5%. Keeping as xfail documents the
         # residual gap (primarily LS diameter-growth coefficient drift, not
         # crown-ratio or height-growth — Phase 1+2 ported those faithfully).
-        pytest.param("JP", 60, 500, 30, id="jp-si60-30yr"),
-        pytest.param("SM", 55, 500, 30, id="sm-si55-30yr"),
+        pytest.param("JP", 60, 500, 30, id="jp-si60-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +3.43%, QMD +1.69% exceed band. LS DG drift; volume skipped.')),
+        pytest.param("SM", 55, 500, 30, id="sm-si55-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +1.23%, QMD +0.61%, topH +1.21% exceed band. LS DG/HG drift; volume skipped.')),
         # QA reconciled 2026-06-21 vs pinned native build (FVS 58a97520 /
         # NVEL d6bbbf1): multi-seed mean PASS — TPA +1.67%, BA +2.52%, QMD
         # +2.11%, topH +0.53% (volume excluded). TPA margin is the tightest
-        # (+0.33% to the 2% bound); watch for drift. xfail removed.
-        pytest.param("QA", 70, 500, 30, id="qa-si70-30yr"),
+        # (+0.33% to the 2% bound); watch for drift. Re-xfailed under the tightened regime 2026-06-21.
+        pytest.param("QA", 70, 500, 30, id="qa-si70-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). TPA +1.67%, BA +2.52%, QMD +2.11%, topH +0.53% exceed band (un-xfailed 2026-06-21 under the loose band; re-xfailed here). LS DG/HG drift; volume skipped.')),
     ],
 )
 def test_ls_expanded_species_parity(
@@ -161,7 +158,6 @@ def test_ls_expanded_species_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
-        n_seeds=LS_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="LS",
@@ -172,5 +168,5 @@ def test_ls_expanded_species_parity(
     )
     assert_metrics_close_mean(
         pyfvs_result, native_result, parity_tolerance,
-        skip_keys=("volume",),  # LS uses simplified volume library (Phase 5 open).
+        skip_keys=("volume",),  # LS real volume-library gap: cfvol/bfvol MISSING (docs/ls_fidelity_map.md VOLUME); measured vol drift +1.3-6.3%. Tracked there, not gated here.
     )

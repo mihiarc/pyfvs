@@ -22,9 +22,9 @@ from tests.parity._helpers import (
 )
 
 
-CS_PARITY_N_SEEDS = 10
 
 
+@pytest.mark.xfail(strict=True, reason="Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +3.52%, QMD +1.80%, topH +0.55%, vol +4.61% exceed band (CS was 4/4 'clean' only under the loose band). CS DG/HG+volume residual.")
 def test_cs_gold_standard_wo_si60_30yr(require_native_variant, parity_tolerance):
     """Gold-standard CS scenario: 500 WO at SI=60 grown 30 years (3 cycles).
 
@@ -42,7 +42,6 @@ def test_cs_gold_standard_wo_si60_30yr(require_native_variant, parity_tolerance)
         trees_per_acre=500,
         years=30,
         bare_ground=True,
-        n_seeds=CS_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="CS",
@@ -53,7 +52,6 @@ def test_cs_gold_standard_wo_si60_30yr(require_native_variant, parity_tolerance)
     )
     assert_metrics_close_mean(
         pyfvs_result, native_result, parity_tolerance,
-        skip_keys=("volume",),  # CS uses simplified volume library; track separately.
     )
 
 
@@ -67,9 +65,9 @@ def test_cs_gold_standard_wo_si60_30yr(require_native_variant, parity_tolerance)
         # clamping H(CARAGE) at HHTMAX before the (H/CARAGE)*5 linear
         # interpolation, while native applies HHTMAX only after final
         # REGENT LESTB growth. Closed RO, SM, YP at 30yr.
-        pytest.param("RO", 65, 500, 30, id="ro-si65-30yr"),
-        pytest.param("SM", 60, 500, 30, id="sm-si60-30yr"),
-        pytest.param("YP", 70, 500, 30, id="yp-si70-30yr"),
+        pytest.param("RO", 65, 500, 30, id="ro-si65-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +2.69%, QMD +1.31%, topH +2.23%, vol +3.49% exceed band. CS DG/HG+volume residual.')),
+        pytest.param("SM", 60, 500, 30, id="sm-si60-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). topH +1.06% exceeds band (others incl. vol +0.85% within). CS HG residual.')),
+        pytest.param("YP", 70, 500, 30, id="yp-si70-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). TPA +0.92%, BA +1.93%, QMD +1.43%, topH +0.79%, vol +3.09% exceed band. CS DG/HG+volume residual.')),
     ],
 )
 def test_cs_expanded_species_parity(
@@ -95,7 +93,6 @@ def test_cs_expanded_species_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
-        n_seeds=CS_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="CS",
@@ -106,5 +103,4 @@ def test_cs_expanded_species_parity(
     )
     assert_metrics_close_mean(
         pyfvs_result, native_result, parity_tolerance,
-        skip_keys=("volume",),
     )

@@ -36,9 +36,9 @@ from tests.parity._helpers import (
 # count, rip-weighted selection). Any single seed still has selection
 # variance in BA/QMD, so we assert on the N-seed mean instead. 10 seeds
 # gives SEM ≈ stdev/3 which is well below the BA tolerance (~5%).
-SN_PARITY_N_SEEDS = 10
 
 
+@pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +1.37%, QMD +1.09%, topH +2.11%, vol +3.37%, TPA +0.81% all exceed band. SN large-tree DG/HG+volume residual.')
 def test_sn_gold_standard_lp_si70_25yr(require_native_variant, parity_tolerance):
     """Gold-standard SN scenario: 500 LP at SI=70 grown 25 years.
 
@@ -61,7 +61,6 @@ def test_sn_gold_standard_lp_si70_25yr(require_native_variant, parity_tolerance)
         trees_per_acre=500,
         years=25,
         bare_ground=True,
-        n_seeds=SN_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="SN",
@@ -76,9 +75,9 @@ def test_sn_gold_standard_lp_si70_25yr(require_native_variant, parity_tolerance)
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
-        pytest.param("LP", 90, 400, 50, id="lp-si90-50yr"),
-        pytest.param("SP", 65, 500, 25, id="sp-si65-25yr"),
-        pytest.param("SA", 75, 500, 25, id="sa-si75-25yr"),
+        pytest.param("LP", 90, 400, 50, id="lp-si90-50yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +2.78%, QMD +1.58%, topH +3.08%, vol +1.31% exceed band. SN DG/HG+volume residual.')),
+        pytest.param("SP", 65, 500, 25, id="sp-si65-25yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +4.02%, QMD +1.93%, vol +6.12%, topH +0.73% exceed band. SN DG/HG+volume residual.')),
+        pytest.param("SA", 75, 500, 25, id="sa-si75-25yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +1.85%, QMD +1.06%, topH +3.59%, vol +5.92% exceed band (BA band 1.40% from 3xSEM). SN DG/HG+volume residual.')),
     ],
 )
 def test_sn_off_baseline_parity(
@@ -106,7 +105,6 @@ def test_sn_off_baseline_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
-        n_seeds=SN_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="SN",
@@ -122,8 +120,8 @@ def test_sn_off_baseline_parity(
     "species,site_index,trees_per_acre,years",
     [
         # Tier 1 — finish southern pines (same code path as LP/SP/SA)
-        pytest.param("LL", 70, 500, 25, id="ll-si70-25yr"),
-        pytest.param("VP", 60, 500, 25, id="vp-si60-25yr"),
+        pytest.param("LL", 70, 500, 25, id="ll-si70-25yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). TPA +1.64%, BA +2.86%, QMD +0.60%, topH +1.60%, vol +5.35% exceed band. SN DG/HG+volume residual.')),
+        pytest.param("VP", 60, 500, 25, id="vp-si60-25yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +3.81%, QMD +1.84%, topH +1.73%, vol +4.81% exceed band. SN DG/HG+volume residual.')),
         pytest.param(
             "WP", 70, 500, 25, id="wp-si70-25yr",
             marks=pytest.mark.xfail(
@@ -142,9 +140,9 @@ def test_sn_off_baseline_parity(
             ),
         ),
         # Tier 2 — major southern hardwoods (exercise hardwood DG branch)
-        pytest.param("YP", 80, 400, 25, id="yp-si80-25yr"),
-        pytest.param("SU", 75, 500, 25, id="su-si75-25yr"),
-        pytest.param("WO", 65, 400, 25, id="wo-si65-25yr"),
+        pytest.param("YP", 80, 400, 25, id="yp-si80-25yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). topH +3.08%, vol +3.11% exceed band (TPA/BA/QMD within). SN HG/volume residual.')),
+        pytest.param("SU", 75, 500, 25, id="su-si75-25yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +4.27%, QMD +2.14%, topH +2.04%, vol +2.06% exceed band. SN DG/HG+volume residual.')),
+        pytest.param("WO", 65, 400, 25, id="wo-si65-25yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +0.94%, topH +2.96% exceed band (others within). SN HG residual.')),
         pytest.param(
             "RM", 65, 500, 25, id="rm-si65-25yr",
             marks=pytest.mark.xfail(
@@ -181,7 +179,7 @@ def test_sn_off_baseline_parity(
                 strict=True,
             ),
         ),
-        pytest.param("HM", 55, 500, 25, id="hm-si55-25yr"),
+        pytest.param("HM", 55, 500, 25, id="hm-si55-25yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +0.85%, topH +0.90%, vol +5.41% exceed band. SN HG/volume residual.')),
     ],
 )
 def test_sn_expanded_species_parity(
@@ -222,7 +220,6 @@ def test_sn_expanded_species_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
-        n_seeds=SN_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="SN",

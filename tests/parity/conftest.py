@@ -108,25 +108,51 @@ def require_native_variant():
 
 @pytest.fixture
 def parity_tolerance():
-    """Default tolerances for pyfvs vs native FVS comparisons.
+    """Per-metric parity bands for the normalized tolerance regime.
 
-    These are intentionally tight (~1% relative) for stand-level metrics —
-    the goal of parity testing is to catch coefficient-level errors, not to
-    paper them over.
+    Two layers (full rationale in docs/parity_tolerances.md):
 
-    Stochastic mode is disabled in parity tests, so the only sources of
-    divergence should be:
-      - Model translation bugs (the thing we want to catch)
-      - Floating-point order-of-operations differences (well below 1%)
+    * ``floor`` — the deterministic band, and the lower bound for stochastic
+      bands. 0.5% relative on TPA/BA/QMD/top_height (and per-tree DBH/height);
+      1.0% on volume (volume compounds DBH^2 * height, so it carries one extra
+      band-width). **Deterministic variants** (EC, OP, OC — ``stochastic=False``
+      compared against the deterministic native run) are held to exactly this
+      floor.
+
+    * ``cap`` — the absolute ceiling: the pre-normalization values (TPA 2%,
+      BA/QMD/top_height/DBH/height 5%, volume 10%). A stochastic band may never
+      exceed the cap; if 3xSEM would, that is a finding (raise n_seeds or flag),
+      never a looser band — the regime can only tighten or hold.
+
+    **Stochastic multi-seed variants** (SN, LS, PN, WC, NE, CS, CA) use, per
+    metric, ``band = min(cap, max(floor, 3 * relative_SEM))``, where
+    relative_SEM is the standard error of the N-seed mean measured live from the
+    seeds (see ``assert_metrics_close_mean``). NOTE: this corrects the prior
+    docstring, which wrongly claimed a flat "~1% tight" band and "stochastic
+    mode disabled" — parity runs are stochastic-vs-stochastic for these 7
+    variants (native FVS defaults DGSD>0); only EC/OP/OC are deterministic.
     """
     return {
-        "tpa_rel": 0.02,          # 2% relative tolerance on TPA
-        "ba_rel": 0.05,           # 5% relative tolerance on basal area
-        "qmd_rel": 0.05,          # 5% relative tolerance on QMD
-        "top_height_rel": 0.05,   # 5% relative tolerance on top height
-        "volume_rel": 0.10,       # 10% relative tolerance on volume
-        "dbh_rel": 0.05,          # 5% relative tolerance per-tree DBH
-        "ht_rel": 0.05,           # 5% relative tolerance per-tree height
+        # Deterministic band + stochastic lower bound.
+        "floor": {
+            "tpa": 0.005,
+            "basal_area": 0.005,
+            "qmd": 0.005,
+            "top_height": 0.005,
+            "dbh": 0.005,
+            "ht": 0.005,
+            "volume": 0.010,
+        },
+        # Absolute ceiling — a band may never exceed these (today's values).
+        "cap": {
+            "tpa": 0.02,
+            "basal_area": 0.05,
+            "qmd": 0.05,
+            "top_height": 0.05,
+            "dbh": 0.05,
+            "ht": 0.05,
+            "volume": 0.10,
+        },
     }
 
 

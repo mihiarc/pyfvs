@@ -26,11 +26,10 @@ from tests.parity._helpers import (
 )
 
 
-WS_PARITY_N_SEEDS = 10
 
 
 @pytest.mark.xfail(
-    strict=False,
+    strict=True,
     reason=(
         "WS stub-YAML gap (measured 2026-06-21 vs pinned native FVSws, 10-seed "
         "mean, PP si90 30yr): BA +101.9%, QMD +55.2%, top_height +72.5%, "
@@ -52,7 +51,6 @@ def test_ws_gold_standard_pp_si90_30yr(require_native_variant, parity_tolerance)
         trees_per_acre=500,
         years=30,
         bare_ground=True,
-        n_seeds=WS_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="WS",
@@ -70,7 +68,7 @@ def test_ws_gold_standard_pp_si90_30yr(require_native_variant, parity_tolerance)
         pytest.param(
             "DF", 80, 500, 30, id="df-si80-30yr",
             marks=pytest.mark.xfail(
-                strict=False,
+                strict=True,
                 reason="WS stub-YAML gap (2026-06-21, 10-seed mean): BA +160.1%, "
                 "QMD +90.9%, top_height +85.1%, volume +418.5%, TPA -28.6%.",
             ),
@@ -78,7 +76,7 @@ def test_ws_gold_standard_pp_si90_30yr(require_native_variant, parity_tolerance)
         pytest.param(
             "LP", 70, 500, 30, id="lp-si70-30yr",
             marks=pytest.mark.xfail(
-                strict=False,
+                strict=True,
                 reason="WS stub-YAML gap (2026-06-21, 10-seed mean): BA +254.7%, "
                 "QMD +107.6%, top_height +74.9%, volume +493.0%, TPA -17.7%.",
             ),
@@ -107,7 +105,6 @@ def test_ws_expanded_species_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
-        n_seeds=WS_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="WS",

@@ -22,9 +22,9 @@ from tests.parity._helpers import (
 )
 
 
-NE_PARITY_N_SEEDS = 10
 
 
+@pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). BA +0.70%, topH +1.77% exceed band (vol +0.18% within). NE DG/HG residual.')
 def test_ne_gold_standard_rm_si60_30yr(require_native_variant, parity_tolerance):
     """Gold-standard NE scenario: 500 RM at SI=60 grown 30 years.
 
@@ -40,7 +40,6 @@ def test_ne_gold_standard_rm_si60_30yr(require_native_variant, parity_tolerance)
         trees_per_acre=500,
         years=30,
         bare_ground=True,
-        n_seeds=NE_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="NE",
@@ -51,7 +50,6 @@ def test_ne_gold_standard_rm_si60_30yr(require_native_variant, parity_tolerance)
     )
     assert_metrics_close_mean(
         pyfvs_result, native_result, parity_tolerance,
-        skip_keys=("volume",),  # NE volume library separate work item.
     )
 
 
@@ -60,8 +58,8 @@ def test_ne_gold_standard_rm_si60_30yr(require_native_variant, parity_tolerance)
     [
         # Closed 2026-04-21 by Fortran-faithful NE BALMOD (ne/balmod.f
         # EBAU(ICLS-2) shifted-BAL per-tree substitute for standard PBAL).
-        pytest.param("RO", 60, 500, 30, id="ro-si60-30yr"),
-        pytest.param("SM", 60, 500, 30, id="sm-si60-30yr"),
+        pytest.param("RO", 60, 500, 30, id="ro-si60-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). topH +2.56%, vol +1.02% exceed band (volume now compared after removing the unexplained skip). NE HG/volume residual.')),
+        pytest.param("SM", 60, 500, 30, id="sm-si60-30yr", marks=pytest.mark.xfail(strict=True, reason='Tightened tolerance regime 2026-06-21 (floor 0.5%, vol 1.0%; prior 5%/10% band masked this). topH +1.52% exceeds band (vol +0.67% within). NE HG residual.')),
         pytest.param(
             "YB", 60, 500, 30, id="yb-si60-30yr",
             marks=pytest.mark.xfail(
@@ -88,7 +86,6 @@ def test_ne_expanded_species_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
-        n_seeds=NE_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="NE",
@@ -99,5 +96,4 @@ def test_ne_expanded_species_parity(
     )
     assert_metrics_close_mean(
         pyfvs_result, native_result, parity_tolerance,
-        skip_keys=("volume",),
     )

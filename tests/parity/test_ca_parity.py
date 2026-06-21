@@ -27,11 +27,10 @@ from tests.parity._helpers import (
 )
 
 
-CA_PARITY_N_SEEDS = 10
 
 
 @pytest.mark.xfail(
-    strict=False,
+    strict=True,
     reason=(
         "CA SN-fallback gap (measured 2026-06-21 vs pinned native FVSca, "
         "10-seed mean, PP si90 30yr): top_height +42.4%, QMD +20.1%, BA -13.0%, "
@@ -54,7 +53,6 @@ def test_ca_gold_standard_pp_si90_30yr(require_native_variant, parity_tolerance)
         trees_per_acre=500,
         years=30,
         bare_ground=True,
-        n_seeds=CA_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="CA",
@@ -72,7 +70,7 @@ def test_ca_gold_standard_pp_si90_30yr(require_native_variant, parity_tolerance)
         pytest.param(
             "DF", 80, 500, 30, id="df-si80-30yr",
             marks=pytest.mark.xfail(
-                strict=False,
+                strict=True,
                 reason="CA SN-fallback gap (2026-06-21, 10-seed mean): BA +52.0%, "
                 "QMD +36.6%, top_height +36.2%, volume +103.6%, TPA -18.5%.",
             ),
@@ -80,7 +78,7 @@ def test_ca_gold_standard_pp_si90_30yr(require_native_variant, parity_tolerance)
         pytest.param(
             "WF", 70, 500, 30, id="wf-si70-30yr",
             marks=pytest.mark.xfail(
-                strict=False,
+                strict=True,
                 reason="CA SN-fallback gap (2026-06-21, 10-seed mean): BA +34.7%, "
                 "QMD +17.2%, top_height +34.6%, volume +89.6% (TPA -1.9% passes).",
             ),
@@ -88,7 +86,7 @@ def test_ca_gold_standard_pp_si90_30yr(require_native_variant, parity_tolerance)
         pytest.param(
             "JP", 70, 500, 30, id="jp-si70-30yr",
             marks=pytest.mark.xfail(
-                strict=False,
+                strict=True,
                 reason="CA SN-fallback gap (2026-06-21, 10-seed mean): top_height "
                 "+43.8%, QMD +37.6%, TPA -41.6%, BA +10.4% (volume -5.1% passes).",
             ),
@@ -117,7 +115,6 @@ def test_ca_expanded_species_parity(
         trees_per_acre=trees_per_acre,
         years=years,
         bare_ground=True,
-        n_seeds=CA_PARITY_N_SEEDS,
     )
     native_result = run_native(
         variant="CA",
