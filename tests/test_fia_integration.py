@@ -14,7 +14,10 @@ Uses Polars DataFrames for all test data following project conventions.
 """
 
 import pytest
-import polars as pl
+
+# polars is an optional 'test'-extra dependency (heavy ~45MB runtime, imported
+# only lazily / under TYPE_CHECKING in the source); skip this module if absent.
+pl = pytest.importorskip("polars")
 from typing import Dict, List, Optional
 
 from pyfvs.fia_integration import (
