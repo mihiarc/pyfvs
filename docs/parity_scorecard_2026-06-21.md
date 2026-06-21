@@ -63,11 +63,11 @@ un-xfail. `tests` is the count of collected parity tests for that variant.
 | **PN** | PNW Coast | 4 | 0 | 2 | 2 | 0 | Every case is xfail-annotated; 2 now xpass. |
 | **WC** | West Cascades | 4 | 0 | 1 | 3 | 0 | 3 now xpass, incl. gold-standard DF. |
 | **EC** | East Cascades | 13 | 10 | 3 | 0 | 0 | 3 native-comparison parity tests (all xfail); other 10 are structural/smoke. |
-| **CA** | Inland California | 0 | — | — | — | — | **No parity test file.** Not covered (see Coverage gaps). |
-| **WS** | Western Sierra | 0 | — | — | — | — | **No parity test file.** Not covered. |
-| **OP** | ORGANON PNW | 0 | — | — | — | — | **No parity test file.** Not covered. |
+| **CA** | Inland California | (added) | — | — | — | — | No file at baseline; **coverage added 2026-06-21** (4 xfail) — see [CA/WS/OP coverage](#ca--ws--op-parity-coverage-added-2026-06-21). |
+| **WS** | Western Sierra | (added) | — | — | — | — | No file at baseline; **coverage added 2026-06-21** (3 xfail). |
+| **OP** | ORGANON PNW | (added) | — | — | — | — | No file at baseline; **coverage added 2026-06-21** (4 xfail). |
 | **OC** | SW Oregon (ORGANON) | 7 | 4 | 2 | 1F | 1 | **1 FAIL** (pp-si70). 4 passes are structural; 2 DF parity xfail. |
-| **TOTAL** | | **54** | **34** | **13** | **6** | **1** | |
+| **TOTAL** | | **54** | **34** | **13** | **6** | **1** | as-measured; reconciled + CA/WS/OP added below |
 
 > **Note on EC/OC "pass" counts:** several EC and OC "passes" are structural or
 > smoke tests (registry registration, coefficient-shape, reasonable-growth-range,
@@ -140,14 +140,12 @@ asserts (per the project journal's M0 reconciliation item):
 
 ## Coverage gaps / blockers
 
-- **CA, WS, OP have no parity test file** (`tests/parity/` contains only
-  `test_{cs,ec,ls,ne,oc,pn,sn,wc}_parity.py`). Their native libraries are built
-  and present in `~/.fvs/lib`, but no parity tests are collected for them, so
-  they contribute 0 to this baseline. Recorded as `—` above. Adding parity
-  coverage for CA/WS/OP is an open M0 item; it is **out of scope for this
-  measurement-only baseline** (writing new scenario tests is deferred so as not
-  to manufacture pass/fail data). `CA`, `WS`, `OP` are already listed in
-  `conftest.PARITY_VARIANTS`, so only test files are missing.
+- **CA, WS, OP parity coverage — RESOLVED 2026-06-21.** At the original baseline
+  these three had no parity test file. Files now exist (`test_ca_parity.py`,
+  `test_ws_parity.py`, `test_op_parity.py`); 11 cases added, all documented xfail.
+  See [CA/WS/OP coverage](#ca--ws--op-parity-coverage-added-2026-06-21). Remaining
+  blocker: **native FVSop is degenerate for planted DF** (the OP DF gold case is
+  xfailed on this; WH/RC/RA give a valid OP baseline).
 - **EC is not in `conftest.PARITY_VARIANTS`** (which lists SN, LS, PN, WC, NE,
   CS, OP, CA, OC, WS) yet `test_ec_parity.py` runs and gates independently.
   Harmless for this baseline (EC tests ran and are tallied) but worth noting for
@@ -222,6 +220,53 @@ model was **not** changed to make it pass, and no tolerance was relaxed; `strict
 means a genuine OC-growth fix will surface as an XPASS and prompt removal. This
 refines the open item: for PP the gap is ORGANON *growth*, with mortality
 matching (distinct from the DF cases, whose QMD gap is attributed to crown ratio).
+
+## CA / WS / OP parity coverage added (2026-06-21)
+
+The three variants that had **no parity test file** at baseline now have one
+each — `tests/parity/test_ca_parity.py`, `test_ws_parity.py`, `test_op_parity.py`
+— matching the structure/rigor of the SN/WC/OC suites (full metrics at standard
+tolerances, no skipped/weakened assertions). CA/WS use the 10-seed multi-seed
+mean (their DG is stochastic); OP uses a single deterministic run (its ln(DG) is
+not stochastic). As expected for thin/stub variants, **all 11 cases legitimately
+xfail** with the *measured* divergence in each reason — honest coverage, not
+all-green. Run: `uv run pytest tests/parity/ -m parity` → **40 passed,
+25 xfailed** (65 tests; was 54 → 40 pass / 14 xfail after reconciliation, +11
+xfail here). Still **0 xpass, 0 fail**.
+
+| Variant | Case | TPA | BA | QMD | topH | volume | Status |
+|---------|------|----:|---:|----:|-----:|-------:|--------|
+| **CA** | PP si90 (gold) | −39.7% | −13.0% | +20.1% | +42.4% | +44.9% | xfail |
+| CA | DF si80 | −18.5% | +52.0% | +36.6% | +36.2% | +103.6% | xfail |
+| CA | WF si70 | −1.9%✓ | +34.7% | +17.2% | +34.6% | +89.6% | xfail |
+| CA | JP si70 | −41.6% | +10.4% | +37.6% | +43.8% | −5.1%✓ | xfail |
+| **WS** | PP si90 (gold) | −16.1% | +101.9% | +55.2% | +72.5% | +305.8% | xfail |
+| WS | DF si80 | −28.6% | +160.1% | +90.9% | +85.1% | +418.5% | xfail |
+| WS | LP si70 | −17.7% | +254.7% | +107.6% | +74.9% | +493.0% | xfail |
+| **OP** | DF si120 (gold) | *native degenerate — see blocker* | | | | | xfail |
+| OP | WH si120 | −0.8%✓ | +44.4% | +20.6% | +18.0% | +33.6% | xfail |
+| OP | RC si120 | −0.4%✓ | +37.7% | +17.6% | +38.7% | +86.5% | xfail |
+| OP | RA si120 | −1.0%✓ | +201.0% | +74.4% | +2.4%✓ | +110.1% | xfail |
+
+(✓ = that metric is within tolerance; the case still xfails on the others.)
+
+**Findings / root cause per variant:**
+- **CA** — consistent **top-height over-prediction (+34% to +44%)** drives QMD/BA,
+  plus large TPA swings (mortality), consistent with the documented CA SN-fallback
+  (bark/crown/mortality borrow SN; height-growth / topographic dispatch not yet
+  CA-faithful). Tracked: **CA SN-fallback** open item.
+- **WS** — catastrophic over-prediction (**BA +100% to +255%, volume +300% to
+  +490%**), consistent with the **WS stub-YAML** scaffold (all species share one
+  generic `cfg/ws/species/sp.yaml`; coefficients generic). Tracked: **WS stub
+  YAMLs** open item.
+- **OP** — for species native simulates normally (WH/RC/RA) **TPA matches within
+  tolerance** (mortality parity holds) while pyfvs over-predicts diameter growth.
+  **BLOCKER:** native FVSop produces a **degenerate stand for planted
+  Douglas-fir** (the OP default) — DF seedlings do not gain diameter (QMD frozen
+  ~0.3–0.7"), TPA collapses toward 1, BA ≈ 0, across all site indices. This is a
+  native-side ORGANON planted-DF quirk, not a pyfvs model gap; the OP DF
+  gold-standard case is xfailed with this blocker recorded. WH/RC/RA were added
+  so OP gets a meaningful comparison against a working native baseline.
 
 ## Verification gate — FVS Model Validation Protocols (2026-06-21)
 
