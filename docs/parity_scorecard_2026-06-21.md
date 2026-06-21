@@ -143,6 +143,63 @@ Result (`34 pass / 13 xfail / 6 xpass / 1 fail`) **matches** the journal's
 annotations no longer match the reproducible build (the 6 xpasses + the OC
 failure); `scripts/build_native_fvs.sh` is the canonical native source of truth.
 
+## Verification gate — FVS Model Validation Protocols (2026-06-21)
+
+`tests/test_verification_gate.py` wires the FVS *verification* signature into
+the **normal** pytest suite (no `parity`/`slow` marker, no native library
+required). For each of the 11 variants it grows a bare-ground, unmanaged,
+deterministic planted stand to the site-index **base age** and asserts the four
+stand-dynamics signatures. Reproduce with:
+
+```bash
+uv run pytest tests/test_verification_gate.py -v
+```
+
+Result: **11/11 variants pass** (+1 coverage-guard test → 12 passed).
+
+- **Signatures 1–3** (BA increases, TPA decreases, QMD increases) are
+  directional — strict inequality with a 1e-6 epsilon. All 11 pass cleanly.
+- **Signature 4** (dominant height tracks SI): `|top_height(base_age) − SI|/SI
+  ≤ 0.15`, a single uniform tolerance applied to all variants (justification in
+  the module docstring: bare-ground multi-tree stands grown from seedlings carry
+  an establishment/age offset vs. the single-tree site curve). With the correct
+  per-variant base age, deviations at base age are:
+
+  | Variant | sp | SI | base age | top_height | dev | result |
+  |---------|----|---:|---------:|-----------:|----:|--------|
+  | SN | LP | 70 | 50 | 70.8 | +1.1% | pass |
+  | LS | RN | 60 | 50 | 56.5 | −5.8% | pass |
+  | CS | WO | 60 | 50 | 56.6 | −5.7% | pass |
+  | NE | RM | 60 | 50 | 55.3 | −7.8% | pass |
+  | PN | DF | 100 | 50 | 96.8 | −3.2% | pass |
+  | WC | DF | 100 | **100** | 104.8 | +4.8% | pass |
+  | EC | DF | 80 | 50 | 71.5 | −10.6% | pass |
+  | CA | PP | 90 | 50 | 86.4 | −4.0% | pass |
+  | WS | PP | 90 | 50 | 97.2 | +8.0% | pass |
+  | OP | DF | 100 | 50 | 97.5 | −2.5% | pass |
+  | OC | DF | 80 | 50 | 90.0 | +12.5% | pass |
+
+- **Base age is a factual model parameter, not a tolerance knob.** WC Douglas-fir
+  uses the Curtis base-age-100 site curve
+  (`pn_height_age._WC_EQUATION_MAP['DF'] = 'curtis_misc'`), so it reaches SI at
+  age 100, whereas PN DF (King curve) reaches SI at age 50. All others use base
+  age 50. SI tolerance (15%) is identical across variants and was **not** tuned
+  per variant; OC (+12.5%) is closest to the bound.
+- No verification findings: with correct base ages all 11 pass at 15%. The test
+  reserves a `KNOWN_VERIFICATION_FINDINGS` map to record (never silence) any
+  future regression or newly-covered variant that fails a signature.
+
+### Blocker (pre-existing, unrelated)
+
+A **full** `uv run pytest` (every test) currently aborts at collection because
+`tests/test_fia_integration.py` imports `polars`, which is not installed in this
+environment (`ModuleNotFoundError: No module named 'polars'`). This predates and
+is unrelated to the verification gate (the gate adds no dependency). The broad
+suite run used to validate the gate therefore used
+`--ignore=tests/test_fia_integration.py` and reported **1503 passed, 1 skipped,
+158 deselected**, with all 11 verification cases passing inside it. Resolving the
+`polars` optional dependency is a separate environment/packaging task.
+
 ---
 
 *Measurement-only baseline. No growth/mortality/volume model code modified to
