@@ -64,19 +64,13 @@ def test_pn_gold_standard_df_si100_30yr(require_native_variant, parity_tolerance
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
+        # WH/RC reconciled 2026-06-21 vs pinned native build (FVS 58a97520 /
+        # NVEL d6bbbf1): multi-seed mean PASS on all compared metrics. xfail removed.
         pytest.param(
             "WH", 100, 500, 30, id="wh-si100-30yr",
-            marks=pytest.mark.xfail(
-                strict=False,
-                reason="Baseline 2026-04-17: pre-fix PN expected drift.",
-            ),
         ),
         pytest.param(
             "RC", 100, 500, 30, id="rc-si100-30yr",
-            marks=pytest.mark.xfail(
-                strict=False,
-                reason="Baseline 2026-04-17: pre-fix PN expected drift.",
-            ),
         ),
         pytest.param(
             "RA", 80, 500, 30, id="ra-si80-30yr",

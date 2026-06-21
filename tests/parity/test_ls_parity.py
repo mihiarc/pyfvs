@@ -131,16 +131,11 @@ def test_ls_off_baseline_parity(
         # crown-ratio or height-growth — Phase 1+2 ported those faithfully).
         pytest.param("JP", 60, 500, 30, id="jp-si60-30yr"),
         pytest.param("SM", 55, 500, 30, id="sm-si55-30yr"),
-        pytest.param(
-            "QA", 70, 500, 30, id="qa-si70-30yr",
-            marks=pytest.mark.xfail(
-                reason="Sweep 2026-04-16: QA extreme over-prediction. "
-                "Post linear-XWT fix 2026-04-21: multi-seed BA drift now "
-                "~-1.8% (PASS) at 30yr/SI=60 but may still exceed tolerance "
-                "at other SI/duration configs. Remove xfail once stable.",
-                strict=False,
-            ),
-        ),
+        # QA reconciled 2026-06-21 vs pinned native build (FVS 58a97520 /
+        # NVEL d6bbbf1): multi-seed mean PASS — TPA +1.67%, BA +2.52%, QMD
+        # +2.11%, topH +0.53% (volume excluded). TPA margin is the tightest
+        # (+0.33% to the 2% bound); watch for drift. xfail removed.
+        pytest.param("QA", 70, 500, 30, id="qa-si70-30yr"),
     ],
 )
 def test_ls_expanded_species_parity(

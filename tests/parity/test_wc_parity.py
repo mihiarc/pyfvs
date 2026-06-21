@@ -21,11 +21,10 @@ from tests.parity._helpers import (
 WC_PARITY_N_SEEDS = 10
 
 
-@pytest.mark.xfail(
-    reason="Baseline 2026-04-17: WC scaffold landing. WC shares Fortran "
-    "modules with PN so drift patterns should track PN closely.",
-    strict=False,
-)
+# Reconciled 2026-06-21 against the pinned native build (FVS 58a97520 /
+# NVEL d6bbbf1, see docs/native_build_provenance.md): multi-seed mean PASS on
+# all compared metrics (TPA +0.86%, BA +3.77%, QMD +1.43%, topH +0.90%; volume
+# excluded). Prior xfail removed. See docs/parity_scorecard_2026-06-21.md.
 def test_wc_gold_standard_df_si100_30yr(require_native_variant, parity_tolerance):
     """Gold-standard WC scenario: 500 DF at SI=100 grown 30 years.
 
@@ -59,19 +58,13 @@ def test_wc_gold_standard_df_si100_30yr(require_native_variant, parity_tolerance
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
+        # WH/RC reconciled 2026-06-21 vs pinned native build (FVS 58a97520 /
+        # NVEL d6bbbf1): multi-seed mean PASS on all compared metrics. xfail removed.
         pytest.param(
             "WH", 100, 500, 30, id="wh-si100-30yr",
-            marks=pytest.mark.xfail(
-                strict=False,
-                reason="Baseline 2026-04-17: pre-fix WC expected drift.",
-            ),
         ),
         pytest.param(
             "RC", 100, 500, 30, id="rc-si100-30yr",
-            marks=pytest.mark.xfail(
-                strict=False,
-                reason="Baseline 2026-04-17: pre-fix WC expected drift.",
-            ),
         ),
         pytest.param(
             "RA", 80, 500, 30, id="ra-si80-30yr",

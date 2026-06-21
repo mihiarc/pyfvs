@@ -278,6 +278,22 @@ def test_oc_fix_halves_dds_vs_unconverted():
 # Native parity tests (require FVSoc.so)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "OC PP reconciled 2026-06-21 against the pinned native rebuild "
+        "(FVS 58a97520 / NVEL d6bbbf1; see docs/native_build_provenance.md). "
+        "The April 'pass' was calibrated against a non-reproducible native "
+        "build that agreed with pyfvs; the rebuilt FVSoc diverges sharply. "
+        "Deterministic measurement: BA +48.5% (78.1 vs 52.6), QMD +21.0% "
+        "(6.56 vs 5.42), topH +24.1% (36.1 vs 29.1), volume +87.3% "
+        "(1019 vs 544). TPA matches (+1.5%, 333 vs 328), so MORTALITY IS NOT "
+        "the driver: the gap is ORGANON diameter+height growth over-prediction "
+        "(QMD^2 amplifies BA; height compounds volume). Tracked under the "
+        "OC-ORGANON open item (parity scorecard / Context Journal). Do not "
+        "relax tolerance or change the model to make this pass."
+    ),
+)
 @pytest.mark.parametrize(
     "species,site_index,trees_per_acre,years",
     [
@@ -293,11 +309,13 @@ def test_oc_planted_parity(
     trees_per_acre,
     years,
 ):
-    """pyfvs OC and native FVSoc planted-stand metrics — passing cases.
+    """pyfvs OC and native FVSoc planted-stand metrics — PP (XFAIL).
 
-    PP passes after implementing ORGANON mortality, diameter growth,
-    height growth, and the regent.f blend-weight override for IORG=1
-    trees.
+    XFAIL since 2026-06-21: against the pinned native rebuild, ORGANON
+    diameter+height growth over-predicts (BA +48%, volume +87%) while TPA
+    (mortality) matches within tolerance. The April pass was a
+    non-reproducible-build artifact. See the xfail reason and the parity
+    scorecard for the full divergence magnitudes and the OC-ORGANON open item.
     """
     require_native_variant("OC")
 
