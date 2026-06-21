@@ -91,11 +91,11 @@ OC ponderosa pine, SI 70, 25 yr. pyfvs over-predicts on every metric:
 
 This case was an `xfail`→pass annotation calibrated in April against a
 non-reproducible native build that agreed with pyfvs. The rebuilt `FVSoc.so`
-(ORGANON-driven mortality) diverges sharply, so it is now a hard **FAIL**.
-Recorded here as the M0 baseline signal for the open **OC ORGANON** gap —
-**not modified to pass** (constraint: measurement-only). TPA matches closely
-(per prior diagnosis ~333 vs ~328), so the divergence is diameter growth, not
-tree count.
+diverges sharply, so it is now a hard **FAIL**. Recorded here as the M0 baseline
+signal for the open **OC-ORGANON** gap — **not modified to pass** (constraint:
+measurement-only). TPA matches closely (~333 vs ~328), so the divergence is
+**ORGANON growth (diameter + height), not mortality** — see the reconciliation
+re-diagnosis below, which **re-points the OC open item from mortality to growth**.
 
 ## The 6 xpasses (candidates to un-xfail)
 
@@ -217,9 +217,15 @@ with pyfvs; the pinned `FVSoc` is the new source of truth.
 failure to `@pytest.mark.xfail(strict=True)` whose reason carries the full
 divergence magnitudes and points at the tracked **OC-ORGANON** open item. The
 model was **not** changed to make it pass, and no tolerance was relaxed; `strict=True`
-means a genuine OC-growth fix will surface as an XPASS and prompt removal. This
-refines the open item: for PP the gap is ORGANON *growth*, with mortality
-matching (distinct from the DF cases, whose QMD gap is attributed to crown ratio).
+means a genuine OC-growth fix will surface as an XPASS and prompt removal.
+
+This **re-points the OC open item from mortality to growth.** TPA parity means
+the right number of trees survive — mortality is doing its job — so the BA/volume
+gap is per-tree growth. Future OC parity work should start in
+`oc_diameter_growth.py` / `oc_height_growth.py`, **not** the mortality routine
+(`OrganonSwoMortalityModel`); the native ORGANON-DLL mortality difference is real
+but second-order at current evidence. (The DF cases likewise pass TPA and pin
+their QMD gap on crown ratio, also growth-side.)
 
 ## CA / WS / OP parity coverage added (2026-06-21)
 
